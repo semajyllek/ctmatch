@@ -320,7 +320,7 @@ def analyze_test_rels(test_rels_path):
     return rel_type_dict, rel_dict, all_qrelled_docs
 
 if __name__ == '__main__':
-	qrels_path = '/Users/jameskelly/Documents/cp/test_cp/A_Test_Collection_for_Matching_Patient_to_Clinical_Trials/qrels-clinical_trials.txt'
+	qrels_path = '/Users/jameskelly/Documents/cp/ctmatch/data/qrels-clinical_trials.txt'
 	rel_type_dict, rel_dict, all_qrelled_docs = analyze_test_rels(qrels_path) 
 
 

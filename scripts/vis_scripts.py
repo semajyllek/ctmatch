@@ -1,17 +1,41 @@
 
+from typing import Dict, List, NamedTuple
 from ctproc import CTDocument, EligCrit
 from matplotlib import pyplot as plt
 from collections import defaultdict
-from typing import Dict, List
+from zipfile import ZipFile
 from lxml import etree
 import pandas
 import re
 
+# count dictionaries if needed
+field_count_dict = {
+    "id_info/nct_id":0, 
+    "brief_title":0, 
+    "eligibility/criteria/textblock":0, 
+    "eligibility/gender":0, 
+    "eligibility/minimum_age":0, 
+    "eligibility/maximum_age":0, 
+    "detailed_description/textblock":0, 
+    "condition":0,
+    "condition/condition_browse":0,
+    "intervention/intervention_type":0,
+    "intervention/intervention_name":0,
+    "intervention_browse/mesh_term":0,
+    "brief_summary/textblock":0
+}
 
 
 
+elig_form_counts = {
+    "inc_and_exc":0,
+    "inc_only":0,
+    "exc_only":0,
+    "textblock":0
+}
 
-empty_pattern = re.compile('[\n\s]+')
+
+EMPTY_PATTERN = re.compile('[\n\s]+')
 """
 both_inc_and_exc_pattern = re.compile(r\"\"\"[\s\n]*[Ii]nclusion [Cc]riteria:?               # top line of both
                                       (?:[ ]+[Ee]ligibility[ \w]+\:[ ])?                  # could contain this unneeded bit next
@@ -20,61 +44,24 @@ both_inc_and_exc_pattern = re.compile(r\"\"\"[\s\n]*[Ii]nclusion [Cc]riteria:?  
                                       (?P<exclude_crit>[\w\W ]*)                          # exclusion criteria as string
                                       \"\"\", re.VERBOSE)
 """
-inc_only_pattern = re.compile('[\s\n]+[Ii]nclusion [Cc]riteria:?([\w\W ]*)')
-exc_only_pattern = re.compile('[\n\r ]+[Ee]xclusion [Cc]riteria:?([\w\W ]*)')
-age_pattern = re.compile('(?P<age>\d+) *(?P<units>\w+).*')
-year_pattern = re.compile('(?P<year>[yY]ears?.*)')
-month_pattern = re.compile('(?P<month>[mM]o(?:nth)?)')
-week_pattern = re.compile('(?P<week>[wW]eeks?)')
+INC_ONLY_PATTERN = re.compile('[\s\n]+[Ii]nclusion [Cc]riteria:?([\w\W ]*)')
+EXC_ONLY_PATTERN = re.compile('[\n\r ]+[Ee]xclusion [Cc]riteria:?([\w\W ]*)')
+AGE_PATTERN = re.compile('(?P<age>\d+) *(?P<units>\w+).*')
+YEAR_PATTERN = re.compile('(?P<year>[yY]ears?.*)')
+MONTH_PATTERN = re.compile('(?P<month>[mM]o(?:nth)?)')
+WEEK_PATTERN = re.compile('(?P<week>[wW]eeks?)')
 
-both_inc_and_exc_pattern = re.compile("[\s\n]*[Ii]nclusion [Cc]riteria:?(?: +[Ee]ligibility[ \w]+\: )?(?P<include_crit>[ \n\-\.\?\"\%\r\w\:\,\(\)]*)[Ee]xclusion [Cc]riteria:?(?P<exclude_crit>[\w\W ]*)")
-
-# count dictionaries if needed
-missfld_counts = {
-  "id_info/nct_id":0, 
-  "brief_title":0, 
-  "eligibility/criteria/textblock":0, 
-  "eligibility/gender":0, 
-  "eligibility/minimum_age":0, 
-  "eligibility/maximum_age":0, 
-  "detailed_description/textblock":0, 
-  "condition":0,
-  "condition/condition_browse":0,
-  "intervention/intervention_type":0,
-  "intervention/intervention_name":0,
-  "intervention_browse/mesh_term":0,
-  "brief_summary/textblock":0
-}
+BOTH_INC_AND_EXC_PATTERN = re.compile("[\s\n]*[Ii]nclusion [Cc]riteria:?(?: +[Ee]ligibility[ \w]+\: )?(?P<include_crit>[ \n\-\.\?\"\%\r\w\:\,\(\)]*)[Ee]xclusion [Cc]riteria:?(?P<exclude_crit>[\w\W ]*)")
 
 
-emptfld_counts = {
-  "id_info/nct_id":0, 
-  "brief_title":0, 
-  "eligibility/criteria/textblock":0, 
-  "eligibility/gender":0, 
-  "eligibility/minimum_age":0, 
-  "eligibility/maximum_age":0, 
-  "detailed_description/textblock":0, 
-  "condition":0,
-  "condition/condition_browse":0,
-  "intervention/intervention_type":0,
-  "intervention/intervention_name":0,
-  "intervention_browse/mesh_term":0,
-  "brief_summary/textblock":0
-}
-
-elig_form_counts = {
-  "inc_and_exc":0,
-  "inc_only":0,
-  "exc_only":0,
-  "textblock":0
-}
-
-unit_counts = defaultdict(int)
+class FieldCounter(NamedTuple):
+  missfld_counts: Dict[str, int]
+  emptfld_counts: Dict[str, int]
+  elig_form_counts: Dict[str, int]
+  unit_counts: Dict[str, int]
 
 
-
-
+  
 
 
 
@@ -126,7 +113,84 @@ def print_ent_sent(ent_sent):
 
 # counting
 
-def get_elig_counts(elig_text, elig_form_counts=elig_form_counts):
+
+
+#--------------------------------------------------------------------------------------#
+# methods for getting counts
+#--------------------------------------------------------------------------------------#
+
+def process_counts(zip_data: str, counts: FieldCounter) -> FieldCounter:
+  """
+  desc:       main method for processing a zipped file of clinical trial XML documents from clinicaltrials.gov
+              parameterized by CTConfig the self ClinProc object was initialized with
+  returns:    yields processed CTDocuments one at a time
+  """
+
+  with ZipFile(zip_data, 'r') as zip_reader:
+    for ct_file in enumerate(tqdm(zip_reader.namelist())):
+      counts = get_ct_file_counts(zip_reader.open(ct_file), counts)
+  return counts
+
+
+
+
+def get_ct_file_counts(xml_filereader, counts: FieldCounter) -> FieldCounter:
+  doc_tree = etree.parse(xml_filereader)
+  root = doc_tree.getroot()
+
+  # adding new keys vs subdictionaries?????
+  required_fields = {
+    "id":None, 
+    "brief_title":None, 
+    "eligibility/criteria/textblock":None, 
+    "eligibility/gender":"Default Value", 
+    "eligibility/minimum_age":{"male":0, "female":0}, 
+    "eligibility/maximum_age":{"male":999., "female":999.}, 
+    "detailed_description/textblock":None, 
+    "condition":None,
+    "condition/condition_browse":None,
+    "intervention/intervention_type":None,
+    "intervention/intervention_name":None,
+    "intervention_browse/mesh_term":None,
+    "brief_summary/textblock":None,
+  }
+        
+  for field in required_fields.keys():
+    field_tag = 'id_info/nct_id'  if field == 'id' else field
+    try:
+      field_val = root.find(field_tag).text
+      if not EMPTY_PATTERN.fullmatch(field_val):
+        if field == 'eligibility/criteria/textblock':
+          counts.elig_form_counts = get_elig_counts(field_val, counts.elig_form_counts)
+        elif "age" in field:
+          age_match = AGE_PATTERN.match(field_val)
+          if age_match is not None:
+            unit = age_match.group('units')
+            if unit is not None:
+              counts.unit_counts[unit] += 1
+
+
+
+    except:
+      if root.find(field_tag) is None:
+        counts.missfld_counts[field]  += 1
+      elif EMPTY_PATTERN.fullmatch(root.find(field_tag).text):
+        counts.emptfld_counts[field]  += 1
+    
+  return counts
+
+
+
+
+
+
+
+
+
+
+
+
+def get_elig_counts(elig_text, elig_form_counts=elig_form_counts) -> Dict[str, int]:
   assert elig_text is not None, "Eligibility text is empty"
   if re.search('[Ii]nclusion [Cc]riteria:[^\w]+\n', elig_text):
     if re.search('[Ee]xclusion Criteria:[^\w]+\n', elig_text):
@@ -143,53 +207,6 @@ def get_elig_counts(elig_text, elig_form_counts=elig_form_counts):
   else:
     elig_form_counts["textblock"] += 1
     return  elig_form_counts
-
-
-def get_ct_file_counts(xml_filereader, counts):
-  missfld_counts, emptfld_counts, elig_form_counts, unit_counts = counts
-  doc_tree = etree.parse(xml_filereader)
-  root = doc_tree.getroot()
-
-
-  # adding new keys vs subdictionaries?????
-  required_fields = {"id":None, 
-                    "brief_title":None, 
-                    "eligibility/criteria/textblock":None, 
-                    "eligibility/gender":"Default Value", 
-                    "eligibility/minimum_age":{"male":0, "female":0}, 
-                    "eligibility/maximum_age":{"male":999., "female":999.}, 
-                    "detailed_description/textblock":None, 
-                    "condition":None,
-                    "condition/condition_browse":None,
-                    "intervention/intervention_type":None,
-                    "intervention/intervention_name":None,
-                    "intervention_browse/mesh_term":None,
-                    "brief_summary/textblock":None,
-                  }
-        
-  for field in required_fields.keys():
-    field_tag = 'id_info/nct_id'  if field == 'id' else field
-    try:
-      field_val = root.find(field_tag).text
-      if not empty_pattern.fullmatch(field_val):
-        if field == 'eligibility/criteria/textblock':
-          elig_form_counts = get_elig_counts(field_val, elig_form_counts)
-        elif "age" in field:
-          age_match = age_pattern.match(field_val)
-          if age_match is not None:
-            unit = age_match.group('units')
-            if unit is not None:
-              unit_counts[unit] += 1
-
-
-
-    except:
-      if root.find(field_tag) is None:
-        missfld_counts[field]  += 1
-      elif empty_pattern.fullmatch(root.find(field_tag).text):
-        emptfld_counts[field]  += 1
-    
-  return (missfld_counts, emptfld_counts, elig_form_counts, unit_counts)
 
 
 

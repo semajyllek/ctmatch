@@ -1,4 +1,4 @@
-from drive.MyDrive.trec21_ct_full.trec_ct.scripts.trec21_ct import (
+from ctproc.utils import (
   get_sentences, concatenate_data, filter_stops, remove_top_words, get_ents
 )
 from collections import defaultdict

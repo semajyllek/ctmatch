@@ -12,37 +12,6 @@ import re
 from utils import *
 
 
-
-
-
-
-#----------------------------------------------------------------#
-# global regex patterns for use throughout the methods
-#----------------------------------------------------------------#
-
-
-EMPTY_PATTERN = re.compile('[\n\s]+')
-"""
-both_inc_and_exc_pattern = re.compile(r\"\"\"[\s\n]*[Ii]nclusion [Cc]riteria:?               # top line of both
-                                      (?:[ ]+[Ee]ligibility[ \w]+\:[ ])?                  # could contain this unneeded bit next
-                                      (?P<include_crit>[ \n\-\.\?\"\%\r\w\:\,\(\)]*)      # this should get all inclusion criteria as a string
-                                      [Ee]xclusion[ ][Cc]riteria:?                        # delineator to exclusion criteria
-                                      (?P<exclude_crit>[\w\W ]*)                          # exclusion criteria as string
-                                      \"\"\", re.VERBOSE)
-"""
-INC_ONLY_PATTERN = re.compile('[\s\n]+[Ii]nclusion [Cc]riteria:?([\w\W ]*)')
-EXC_ONLY_PATTERN = re.compile('[\n\r ]+[Ee]xclusion [Cc]riteria:?([\w\W ]*)')
-AGE_PATTERN = re.compile('(?P<age>\d+) *(?P<units>\w+).*')
-YEAR_PATTERN = re.compile('(?P<year>[yY]ears?.*)')
-MONTH_PATTERN = re.compile('(?P<month>[mM]o(?:nth)?)')
-WEEK_PATTERN = re.compile('(?P<week>[wW]eeks?)')
-
-BOTH_INC_AND_EXC_PATTERN = re.compile("[\s\n]*[Ii]nclusion [Cc]riteria:?(?: +[Ee]ligibility[ \w]+\: )?(?P<include_crit>[ \n\-\.\?\"\%\r\w\:\,\(\)]*)[Ee]xclusion [Cc]riteria:?(?P<exclude_crit>[\w\W ]*)")
-
-
-
-
-
 class FieldCounter(NamedTuple):
   missfld_counts: Dict[str, int] = defaultdict(int)
   emptfld_counts: Dict[str, int] = defaultdict(int)
@@ -322,6 +291,11 @@ def analyze_test_rels(test_rels_path):
         print(topic, num_relled)
     print(f"Total relled: {len(all_qrelled_docs)}")
     return rel_type_dict, rel_dict, all_qrelled_docs
+
+
+
+
+
 
 if __name__ == '__main__':
 	qrels_path = '/Users/jameskelly/Documents/cp/ctmatch/data/qrels-clinical_trials.txt'

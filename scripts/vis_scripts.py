@@ -6,6 +6,7 @@ from collections import defaultdict
 from zipfile import ZipFile
 from lxml import etree
 import pandas
+import tqdm
 import re
 
 
@@ -108,7 +109,7 @@ def process_counts(zip_data: str) -> FieldCounter:
 
   counts = FieldCounter()
   with ZipFile(zip_data, 'r') as zip_reader:
-    for ct_file in zip_reader.namelist():
+    for ct_file in tqdm(zip_reader.namelist()):
       if not ct_file.endswith('xml'):
         continue
 

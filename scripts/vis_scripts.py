@@ -11,7 +11,6 @@ import re
 
 from utils import *
 
-
 class FieldCounter(NamedTuple):
   missfld_counts: Dict[str, int] = defaultdict(int)
   emptfld_counts: Dict[str, int] = defaultdict(int)

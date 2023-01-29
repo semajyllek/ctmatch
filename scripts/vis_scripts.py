@@ -108,9 +108,10 @@ def process_counts(zip_data: str) -> FieldCounter:
 
   counts = FieldCounter()
   with ZipFile(zip_data, 'r') as zip_reader:
-    print(f"{zip_data=}")
     for ct_file in zip_reader.namelist():
-      print(f"{ct_file=}")
+      if not ct_file.endswith('xml'):
+        continue
+
       counts = get_ct_file_counts(zip_reader.open(ct_file), counts)
   return counts
 
@@ -118,7 +119,6 @@ def process_counts(zip_data: str) -> FieldCounter:
 
 
 def get_ct_file_counts(xml_filereader, counts: FieldCounter) -> FieldCounter:
-  print(f"{xml_filereader=}")
   doc_tree = etree.parse(xml_filereader)
   root = doc_tree.getroot()
 

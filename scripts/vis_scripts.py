@@ -75,7 +75,10 @@ def process_counts(zip_data: str) -> FieldCounter:
 
   counts = FieldCounter()
   with ZipFile(zip_data, 'r') as zip_reader:
-    for ct_file in tqdm(zip_reader.namelist()):
+    for i, ct_file in enumerate(zip_reader.namelist()):
+      if i % 1000 == 0:
+        print(f"{i} docs processed")
+
       if not ct_file.endswith('xml'):
         continue
 

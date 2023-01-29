@@ -10,11 +10,8 @@ import pandas
 import tqdm
 import re
 
-import sys
-#print(sys.path)
-sys.path.append(Path(__file__).parent.parent.joinpath('utils'))
 
-from utils import *
+from ctmatch.utils import *
 
 class FieldCounter(NamedTuple):
   missfld_counts: Dict[str, int] = defaultdict(int)

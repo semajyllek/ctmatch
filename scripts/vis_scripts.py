@@ -8,31 +8,14 @@ from lxml import etree
 import pandas
 import re
 
-# count dictionaries if needed
-field_count_dict = {
-    "id_info/nct_id":0, 
-    "brief_title":0, 
-    "eligibility/criteria/textblock":0, 
-    "eligibility/gender":0, 
-    "eligibility/minimum_age":0, 
-    "eligibility/maximum_age":0, 
-    "detailed_description/textblock":0, 
-    "condition":0,
-    "condition/condition_browse":0,
-    "intervention/intervention_type":0,
-    "intervention/intervention_name":0,
-    "intervention_browse/mesh_term":0,
-    "brief_summary/textblock":0
-}
 
 
 
-elig_form_counts = {
-    "inc_and_exc":0,
-    "inc_only":0,
-    "exc_only":0,
-    "textblock":0
-}
+
+
+#----------------------------------------------------------------#
+# global regex patterns for use throughout the methods
+#----------------------------------------------------------------#
 
 
 EMPTY_PATTERN = re.compile('[\n\s]+')
@@ -54,14 +37,24 @@ WEEK_PATTERN = re.compile('(?P<week>[wW]eeks?)')
 BOTH_INC_AND_EXC_PATTERN = re.compile("[\s\n]*[Ii]nclusion [Cc]riteria:?(?: +[Ee]ligibility[ \w]+\: )?(?P<include_crit>[ \n\-\.\?\"\%\r\w\:\,\(\)]*)[Ee]xclusion [Cc]riteria:?(?P<exclude_crit>[\w\W ]*)")
 
 
+
+
+
 class FieldCounter(NamedTuple):
-  missfld_counts: Dict[str, int]
-  emptfld_counts: Dict[str, int]
-  elig_form_counts: Dict[str, int]
-  unit_counts: Dict[str, int]
+  missfld_counts: Dict[str, int] = defaultdict(int)
+  emptfld_counts: Dict[str, int] = defaultdict(int)
+  elig_form_counts: Dict[str, int] = defaultdict(int)
+  unit_counts: Dict[str, int] = defaultdict(int)
 
 
   
+def create_field_counter() -> FieldCounter:
+  missfld_counts = default
+  emptfld_counts = FIELD_COUNT_DICT
+  unit_counts =  defaultdict(int)
+
+
+
 
 
 
@@ -111,21 +104,19 @@ def print_ent_sent(ent_sent):
 
 
 
-# counting
-
-
 
 #--------------------------------------------------------------------------------------#
 # methods for getting counts
 #--------------------------------------------------------------------------------------#
 
-def process_counts(zip_data: str, counts: FieldCounter) -> FieldCounter:
+def process_counts(zip_data: str) -> FieldCounter:
   """
   desc:       main method for processing a zipped file of clinical trial XML documents from clinicaltrials.gov
               parameterized by CTConfig the self ClinProc object was initialized with
   returns:    yields processed CTDocuments one at a time
   """
 
+  counts = FieldCounter()
   with ZipFile(zip_data, 'r') as zip_reader:
     for ct_file in enumerate(tqdm(zip_reader.namelist())):
       counts = get_ct_file_counts(zip_reader.open(ct_file), counts)
@@ -190,7 +181,7 @@ def get_ct_file_counts(xml_filereader, counts: FieldCounter) -> FieldCounter:
 
 
 
-def get_elig_counts(elig_text, elig_form_counts=elig_form_counts) -> Dict[str, int]:
+def get_elig_counts(elig_text: str, elig_form_counts: Dict[str, int]) -> Dict[str, int]:
   assert elig_text is not None, "Eligibility text is empty"
   if re.search('[Ii]nclusion [Cc]riteria:[^\w]+\n', elig_text):
     if re.search('[Ee]xclusion Criteria:[^\w]+\n', elig_text):

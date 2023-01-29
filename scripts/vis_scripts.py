@@ -9,7 +9,7 @@ import pandas
 import tqdm
 import re
 
-from utils import *
+from ctmatch.utils import *
 
 
 class FieldCounter(NamedTuple):

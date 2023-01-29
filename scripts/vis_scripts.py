@@ -4,11 +4,15 @@ from ctproc import CTDocument, EligCrit
 from matplotlib import pyplot as plt
 from collections import defaultdict
 from zipfile import ZipFile
+from pathlib import Path
 from lxml import etree
 import pandas
 import tqdm
 import re
 
+import sys
+#print(sys.path)
+sys.path.append('../utils')
 
 from utils import *
 

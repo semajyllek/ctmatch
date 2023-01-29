@@ -47,16 +47,6 @@ class FieldCounter(NamedTuple):
   unit_counts: Dict[str, int] = defaultdict(int)
 
 
-  
-def create_field_counter() -> FieldCounter:
-  missfld_counts = default
-  emptfld_counts = FIELD_COUNT_DICT
-  unit_counts =  defaultdict(int)
-
-
-
-
-
 
 #----------------------------------------------------------------#
 # EDA Utility Functions
@@ -332,7 +322,6 @@ def analyze_test_rels(test_rels_path):
 
 if __name__ == '__main__':
 	qrels_path = '/Users/jameskelly/Documents/cp/ctmatch/data/qrels-clinical_trials.txt'
-	rel_type_dict, rel_dict, all_qrelled_docs = analyze_test_rels(qrels_path) 
-
-
-
+	rel_type_dict, rel_dict, all_qrelled_docs = analyze_test_rels(qrels_path)
+  #docs_path = '/Users/jameskelly/Documents/cp/ctproc/clinicaltrials.gov-16_dec_2015_17.zip'
+  #counts = process_counts(docs_path)

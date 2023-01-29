@@ -9,7 +9,7 @@ import pandas
 import tqdm
 import re
 
-from utils import *
+from scripts.utils import *
 
 class FieldCounter(NamedTuple):
   missfld_counts: Dict[str, int] = defaultdict(int)

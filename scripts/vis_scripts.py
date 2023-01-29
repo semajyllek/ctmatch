@@ -9,14 +9,12 @@ import pandas
 import tqdm
 import re
 
-from scripts.utils import *
 
 class FieldCounter(NamedTuple):
   missfld_counts: Dict[str, int] = defaultdict(int)
   emptfld_counts: Dict[str, int] = defaultdict(int)
   elig_form_counts: Dict[str, int] = defaultdict(int)
   unit_counts: Dict[str, int] = defaultdict(int)
-
 
 
 #----------------------------------------------------------------#
@@ -47,8 +45,6 @@ def display_elig(docs: List[CTDocument]) -> None:
   inc_ratio = age_in_elig_text_dist['inc_ct'] / total
   exc_ratio = age_in_elig_text_dist['exc_ct'] / total
   print(f"{age_in_elig_text_dist['inc_ct']} instances in inclusion statements ({inc_ratio}%), {age_in_elig_text_dist['exc_ct']} instances in exclusion statements ({exc_ratio}%)")
-
-
 
 
 

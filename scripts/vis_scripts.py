@@ -12,7 +12,7 @@ import re
 
 import sys
 #print(sys.path)
-sys.path.append('../utils')
+sys.path.append(Path(__file__).parent.parent.joinpath('utils'))
 
 from utils import *
 

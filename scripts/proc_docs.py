@@ -1,6 +1,9 @@
 
 
-from ctproc import CTConfig, CTProc
+
+
+
+
 
 
 if __name__ == "__main__":
@@ -15,7 +18,7 @@ if __name__ == "__main__":
     parser.add_argument('--concat', action='store_true',
                         help='Boolean, whether to concatenate all fields into a single content field (in addition to other parsed fields), default=False')
 
-    parser.add_argument('--max_trials', type=int, default=1e7,
+    parser.add_argument('--max_trials', type=int, default=10,
                         help='Integer for max number of files to process, default=1e7')
 
 
@@ -51,7 +54,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    data = '/Users/jameskelly/Documents/cp/ctproc/ctproc/tests/CT_test_folder.zip'
+    data = '/Users/jameskelly/Documents/cp/ctmatch/data/kz_data/clinicaltrials.gov-16_dec_2015.zip'
 
     ct_config = CTConfig(
       zip_data=args.zip_data, 

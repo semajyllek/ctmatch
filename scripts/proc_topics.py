@@ -12,18 +12,6 @@ import re
 
 
 
-
-
-def age_to_num_topic(val, unit):
-  if unit == 'month':
-    val /= 12.0
-  if unit == 'week':
-    val /= 52.0
-  if unit == 'day':
-    val /= 365.0
-  return val
-
-
 def process_topics(topic_dir_path: Path):
   topics = []
   for _, _, json_files in os.walk(topic_dir_path):
@@ -67,6 +55,7 @@ def proc_test_topics(xml_filereader):
       first_sent = topic_dict['sents'][0]
       m = re.search(r'(?P<age_val>\d+)(([- ](?P<age_unit>[^-]+)[- ]old)| ?y\.?o\.?).*(?P<gender>woman| man|female| male|boy|girl) .*', first_sent)
       if m is not None:
+        
         topic_dict['age'] = age_to_num_topic(float(m.group('age_val')), m.group('age_unit'))
         topic_dict['gender'] = map_to_gender_yuck(m.group('gender'))
       else:
@@ -102,10 +91,4 @@ def transform_topics(
 
 
 
-def map_to_gender_yuck(label):
-  boys = {"boy", "male", "man"}
-  girls = {"girl", "female", "woman"}
-  if label in boys:
-    return "male"
-  return "female"
 

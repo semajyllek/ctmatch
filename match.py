@@ -60,9 +60,8 @@ class CTMatch:
    
   # ------------------ Data Loading ------------------ #
   def load_data(self) -> Dataset:
-    import os
-    print(os.getcwd())
     self.ct_dataset = load_dataset('json', data_files=self.model_config.data_path)
+    print(self.ct_dataset)
     self.add_features()
     self.tokenize_dataset()
     self.ct_dataset.rename_column("label", "labels")

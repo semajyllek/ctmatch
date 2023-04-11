@@ -2,6 +2,8 @@
 from typing import Any, List
 
 from sklearn.metrics import f1_score
+from numpy.linalg import norm
+from numpy import dot
 import json
 import re
 

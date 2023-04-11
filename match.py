@@ -6,6 +6,8 @@ from pathlib import Path
 from torch import nn
 import pandas as pd
 import numpy as np
+import torch
+
 
 from ctmatch.ctmatch_utils import compute_metrics, train_test_val_split
 from typing import Dict, NamedTuple, Optional

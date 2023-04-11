@@ -2,17 +2,18 @@
 
 from transformers import AutoTokenizer,  AutoModelForSequenceClassification, Trainer, TrainingArguments
 from datasets import load_dataset, ClassLabel, Dataset, Features, Value
+from pathlib import Path
 from torch import nn
 import pandas as pd
 import numpy as np
 
 from ctmatch.ctmatch_utils import compute_metrics, train_test_val_split
-from typing import Dict, NamedTuple
+from typing import Dict, NamedTuple, Optional
 
 
 
-TREC_DATA = '/Users/jameskelly/Documents/cp/ctmatch/data/trec_data/trec_data.jsonl'
-KZ_DATA = '/Users/jameskelly/Documents/cp/ctmatch/data/kz_data/kz_data.jsonl'
+TREC_DATA = Path('/Users/jameskelly/Documents/cp/ctmatch/data/trec_data/trec_data.jsonl')
+KZ_DATA = Path('/Users/jameskelly/Documents/cp/ctmatch/data/kz_data/kz_data.jsonl')
 
 
 
@@ -33,7 +34,8 @@ class WeightedLossTrainer(Trainer):
 
 
 class ModelConfig(NamedTuple):
-  data_path: str
+  data_path: Path
+  output_dir: Optional[str]
   model_checkpoint: str
   max_length: int
   padding: str
@@ -132,8 +134,10 @@ class CTMatch:
     )
 
   def get_training_args_obj(self):
+    output_dir = self.model_config.output_dir 
+    
     return TrainingArguments(
-      output_dir=self.model_config.output_dir,
+      output_dir=output_dir if output_dir is not None else self.model_config.data_path.parent.parent,
       num_train_epochs=self.model_confi.num_train_epochs,
       learning_rate=self.model_config.learning_rate,
       per_device_train_batch_size=self.model_config.batch_size,

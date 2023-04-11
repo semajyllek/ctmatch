@@ -100,14 +100,14 @@ class CTMatch:
 
   # ------------------ Model Loading ------------------ #
   def load_model(self):
-    id2label, label2id = get_label_mapping(self.ct_dataset.features)
+    id2label, label2id = self.get_label_mapping()
     self.model = AutoModelForSequenceClassification.from_pretrained(self.model_checkpoint, num_labels=3, id2label=id2label, label2id=label2id)
     self.trainer = self.get_trainer()
     return self.trainer
 
 
-  def get_label_mapping(features):
-    id2label = {idx:features["label"].int2str(idx) for idx in range(3)}
+  def get_label_mapping(self):
+    id2label = {idx:self.ct_dataset.features["label"].int2str(idx) for idx in range(3)}
     label2id = {v:k for k, v in id2label.items()}
     return id2label, label2id
 

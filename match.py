@@ -77,17 +77,18 @@ class CTMatch:
 
   def add_features(self) -> None:
     features = Features({
-      'doc': Value(dtype='string', id=None),
-      'label': ClassLabel(names=["not_relevant", "partially_relevant", "relevant"]),
-      'topic': Value(dtype='string', id=None)})
+        'doc': Value(dtype='string', id=None),
+        'label': ClassLabel(names=["not_relevant", "partially_relevant", "relevant"]),
+        'topic': Value(dtype='string', id=None)
+      })
     self.ct_dataset["train"] = self.ct_dataset["train"].map(lambda x: x, batched=True, features=features)
     self.ct_dataset["test"] = self.ct_dataset["test"].map(lambda x: x, batched=True, features=features)
     self.ct_dataset["validation"] = self.ct_dataset["validation"].map(lambda x: x, batched=True, features=features)  
 
 
-  def get_tokenize_function(self):
+  def get_tokenize_function(self, examples):
     return self.tokenizer(
-      self.ct_dataset["doc"], self.ct_dataset["topic"], 
+      examples["doc"], examples["topic"], 
       truncation=self.model_config.truncation, 
       padding=self.model_config.padding, 
       max_length=self.model_config.max_length

@@ -87,7 +87,7 @@ class CTMatch:
     self.ct_dataset["validation"] = self.ct_dataset["validation"].map(lambda x: x, batched=True, features=features)  
 
 
-  def tokenize_function(self):
+  def get_tokenize_function(self):
     return self.tokenizer(
       self.ct_dataset["crit_text"], self.ct_dataset["topic_text"], 
       truncation=self.model_config.truncation, 
@@ -96,7 +96,7 @@ class CTMatch:
     )
 
   def tokenize_dataset(self):
-    self.ct_dataset = self.ct_dataset.map(self.tokenize_function, batched=True)
+    self.ct_dataset = self.ct_dataset.map(self.get_tokenize_function(), batched=True)
 
 
 # ------------------ Model Loading ------------------ #

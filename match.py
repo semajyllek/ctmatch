@@ -68,8 +68,8 @@ class CTMatch:
     self.add_features()
     self.tokenize_dataset()
     self.ct_dataset.rename_column("label", "labels")
-    self.ct_dataset.rename_column("topic_text", "sentence1")
-    self.ct_dataset.rename_column("crit_text", "sentence2")
+    self.ct_dataset.rename_column("topic", "sentence1")
+    self.ct_dataset.rename_column("doc", "sentence2")
     return self.ct_dataset
  
 

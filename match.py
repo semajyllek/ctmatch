@@ -134,10 +134,10 @@ class CTMatch:
     )
 
   def get_training_args_obj(self):
-    output_dir = self.model_config.output_dir 
+    output_dir = self.model_config.output_dir if self.model_config.output_dir is not None else self.model_config.data_path.parent.parent.as_posix()
     
     return TrainingArguments(
-      output_dir=output_dir if output_dir is not None else self.model_config.data_path.parent.parent,
+      output_dir=output_dir,
       num_train_epochs=self.model_confi.num_train_epochs,
       learning_rate=self.model_config.learning_rate,
       per_device_train_batch_size=self.model_config.batch_size,

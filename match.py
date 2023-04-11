@@ -1,17 +1,18 @@
 
 
-from transformers import AutoModel,  AutoTokenizer,  AutoModelForSequenceClassification, Trainer, TrainingArguments
+from transformers import AutoTokenizer,  AutoModelForSequenceClassification, Trainer, TrainingArguments
 from datasets import load_dataset, ClassLabel, Dataset, Features, Value
 from torch import nn
 import pandas as pd
 import numpy as np
 
-
 from ctmatch_utils import compute_metrics
+from typing import NamedTuple
 
-from typing import Dict, List, NamedTuple, Optional, Union
-from collections import Counter, defaultdict
-import json
+
+
+TREC_DATA = '/Users/jameskelly/Documents/cp/ctmatch/data/trec_data/trec_data.jsonl'
+KZ_DATA = '/Users/jameskelly/Documents/cp/ctmatch/data/kz_data/kz_data.jsonl'
 
 
 
@@ -42,51 +43,7 @@ class ModelConfig(NamedTuple):
   weight_decay: float
   warmup_steps: int
 
-      
-
-TREC_DATA = '/Users/jameskelly/Documents/cp/ctmatch/data/trec_data/trec_data.jsonl'
-KZ_DATA = '/Users/jameskelly/Documents/cp/ctmatch/data/kz_data/kz_data.jsonl'
-
-
-"""
-{
-  "topic": 
-  {"gender": "Female", "age": 58.0, "id": "20141", 
-          "text_sents": [
-            "A 58-year-old African-American woman presents to the ER with episodic pressing/burning anterior chest pain that began two days earlier for the first time in her life.", 
-            "The pain started while she was walking, radiates to the back, and is accompanied by nausea, diaphoresis and mild dyspnea, but is not increased on inspiration.", 
-            "The latest episode of pain ended half an hour prior to her arrival.", 
-            "She is known to have hypertension and obesity.", 
-            "She denies smoking, diabetes, hypercholesterolemia, or a family history of heart disease.", 
-            "She currently takes no medications.", 
-            "Physical examination is normal.", 
-            "The EKG shows nonspecific changes."
-            ]
-  , 
-  "doc": 
-  {"condition": ["Hashimoto Thyroiditis", "Graves Disease"], "elig_min_age": 4.0, "elig_max_age": 18.0, 
-  "elig_crit": {
-    "include_criteria": [
-      "For HT", 
-      "A positive titers of antithyroid peroxidase (anti-TPO) or antithyroglobulin (anti-Tg) antibodies and at least one of", 
-      "Abnormal thyroid function that requires substitution treatment with L-thyroxine (TSH > 5 \u03bcIU/ml and decreased or normal levels of fT4 or fT3)", 
-      "Increased volume of thyroid gland (goiter)", "Morphological changes on ultrasound of the thyroid gland", 
-      "For GD", 
-      "A positive titers of thyroid stimulating antibodies (anti-TSI) and", 
-      "Decreased TSH levels and increased levels of fT4 or fT3", "For Controls", 
-      "Otherwise healthy children and adolescents, age", "and gender-matched with patients", 
-      "Absence of previously known chronic disease of autoimmune aetiology or atopy (including those with a history of chronic treatment with antihistamines, anti-inflammatory, corticosteroids or anti-epileptic drugs)", 
-      "Absence of a family history of autoimmune disease in first-degree relatives"
-      ], 
-      "exclude_criteria": [
-        "Not Caucasian origin or affinity among participants", 
-        "Age of diagnosis above 18 years", 
-        "Disease duration below 3 months"
-      ]}, "id": "NCT02491567", "elig_gender": "All"}, 
-      "relevancy_score": 0
-    }
-"""
-
+  
 
 class CTMatch:
   def __init__(self, model_config: ModelConfig):
@@ -215,7 +172,7 @@ if __name__ == '__main__':
     # create_dataset(kz_data_path, new_kz_data_path)
 
     config = ModelConfig(
-      dataset='trec',
+      dataset='kz',
       model_checkpoint='allenai/scibert_scivocab_uncased',
       max_length=512,
       batch_size=16,

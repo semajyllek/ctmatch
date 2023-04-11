@@ -315,6 +315,36 @@ def filter_dict(dict_to_filter, filter_keys: set) -> Dict[str, Union[str, List[s
 	return filtered_dict
 
 
+def create_combined_doc(
+	id2doc, id2topic, 
+	rel_dict, 
+	topic_id, doc_id, 
+	filtered_topic_keys, filtered_doc_keys
+):
+
+	combined = dict()
+
+	# get filtered topic dict
+	combined['topic'] = filter_dict(id2topic[topic_id], filtered_topic_keys)
+
+	# get filtered doc dict
+	combined_doc = filter_dict(id2doc[doc_id], filtered_doc_keys)
+
+	if 'raw_text' in combined_doc['elig_crit']:
+		del combined_doc['elig_crit']['raw_text']
+
+	if 'inc_aliased_crit' in combined_doc['elig_crit']:
+		del combined_doc['elig_crit']['inc_aliased_crit']
+		del combined_doc['elig_crit']['exc_aliased_crit']
+
+	combined['doc'] = combined_doc
+
+	# get relevancy score
+	combined['relevancy_score'] = rel_dict[topic_id][doc_id]
+
+	return combined
+
+
 def save_relled_dataset(save_path: str, trec_or_kz: str = 'trec') -> None:
 	"""
 	trec_or_kz: 'trec' or 'kz'
@@ -342,36 +372,21 @@ def save_relled_dataset(save_path: str, trec_or_kz: str = 'trec') -> None:
 
 	# save combined triples of doc, topic, relevancy score
 	with open(save_path, 'w') as f:
-		for topic_id in id2topic:
-			for i, doc_id in enumerate(all_qrelled_docs):
-				if doc_id not in id2doc:
-					missing_docs.add(doc_id)
-					continue
+		for topic_id in rel_dict:
+			for doc_id in rel_dict[topic_id]:
+					if doc_id in id2doc:
+						combined = create_combined_doc(
+							id2doc, id2topic, 
+							rel_dict, 
+							topic_id, doc_id, 
+							filtered_topic_keys, filtered_doc_keys
+						)
 
-				combined = dict()
-
-				# get filtered topic dict
-				combined['topic'] = filter_dict(id2topic[topic_id], filtered_topic_keys)
-
-				# get filtered doc dict
-				combined_doc = filter_dict(id2doc[doc_id], filtered_doc_keys)
-
-
-				if 'raw_text' in combined_doc['elig_crit']:
-					del combined_doc['elig_crit']['raw_text']
-
-				if 'inc_aliased_crit' in combined_doc['elig_crit']:
-					del combined_doc['elig_crit']['inc_aliased_crit']
-					del combined_doc['elig_crit']['exc_aliased_crit']
-
-				combined['doc'] = combined_doc
-
-				# get relevancy score
-				combined['relevancy_score'] = rel_dict[topic_id][doc_id]
-
-				# save to file as jsonl
-				f.write(json.dumps(combined))
-				f.write('\n')
+						# save to file as jsonl
+						f.write(json.dumps(combined))
+						f.write('\n')
+					else:
+						missing_docs.add(doc_id)
 
 
 	print(f"number of docs missing: {len(missing_docs)}")
@@ -398,8 +413,8 @@ if __name__ == '__main__':
 	# explore_kz_data(rand_print=0.00001) # all in one file (~200k docs)
 
 	# save_relled_dataset(save_path=KZ_TRIPLES_PATH, trec_or_kz='kz')
-	# save_relled_dataset(save_path=TREC_TRIPLES_PATH, trec_or_kz='trec')
-	explore_triples(TREC_TRIPLES_PATH)
+	save_relled_dataset(save_path=TREC_TRIPLES_PATH, trec_or_kz='trec')
+	# explore_triples(TREC_TRIPLES_PATH)
 					
 
 

@@ -1,7 +1,12 @@
 
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, List
+
+from sklearn.metrics import f1_score
+from numpy.linalg import norm
+from numpy import dot
 import json
 import re
+
 
 
 
@@ -35,34 +40,37 @@ BOTH_INC_AND_EXC_PATTERN = re.compile("[\s\n]*[Ii]nclusion [Cc]riteria:?(?: +[Ee
 # -------------------------------------------------------------------------------------- #
 
 def save_docs_jsonl(docs: List[Any], writefile: str) -> None:
-    """
-    desc:    iteratively writes contents of docs as jsonl to writefile 
-    """
-    with open(writefile, "w") as outfile:
-        for doc in docs:
-            json.dump(doc, outfile)
-            outfile.write("\n")
+  """
+  desc:    iteratively writes contents of docs as jsonl to writefile 
+  """
+  with open(writefile, "w") as outfile:
+    for doc in docs:
+      json.dump(doc, outfile)
+      outfile.write("\n")
 
 
 
-def get_processed_data(proc_loc, get_only: Optional[Set[str]] = None) -> List[Dict[str, str]]:
-    """
-    proc_loc:    str or path to location of docs in jsonl form
-    """
-    with open(proc_loc, 'r') as json_file:
-        json_list = list(json_file)
+def get_processed_docs(proc_loc: str):
+  """
+  proc_loc:    str or path to location of docs in jsonl form
+  """
+  with open(proc_loc, 'r') as json_file:
+    json_list = list(json_file)
 
-    doc_list = [json.loads(json_str) for json_str in json_list]
-    if get_only is not None:
-        return filter_processed_data(doc_list, get_only=get_only)
-    return doc_list
+  return [json.loads(json_str) for json_str in json_list]
 
 
 
-def filter_processed_data(docs: List[Dict[str, str]], get_only: Set[str]) -> List[Dict[str, str]]:
-    """
-    docs:    list of processed docs
-    get_only: set of nct_id strings to filter docs by
-    """
-    return [doc for doc in docs if doc['id'] in get_only]
+
+
+#----------------------------------------------------------------#
+# computation methods
+#----------------------------------------------------------------#
+
+
+def compute_metrics(pred):
+  labels = pred.label_ids
+  preds = pred.predictions.argmax(-1)
+  f1 = f1_score(labels, preds, average="weighted")
+  return {"f1":f1}
 

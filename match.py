@@ -138,7 +138,7 @@ class CTMatch:
     
     return TrainingArguments(
       output_dir=output_dir,
-      num_train_epochs=self.model_confi.num_train_epochs,
+      num_train_epochs=self.model_config.num_train_epochs,
       learning_rate=self.model_config.learning_rate,
       per_device_train_batch_size=self.model_config.batch_size,
       per_device_eval_batch_size=self.model_config.batch_size,

@@ -1,6 +1,7 @@
 
 from typing import Any, Dict, List
 
+from datasets import Dataset
 from sklearn.metrics import f1_score
 from numpy.linalg import norm
 from numpy import dot

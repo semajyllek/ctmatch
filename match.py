@@ -147,12 +147,6 @@ def get_embedding_similarity(self, topic, document):
 
 
 
-
-
-
-
-
-
 def train_ctmatch_classifier(model_config: ModelConfig):
   ctmatch_dataset, ctmatch_model = CTMatch(model_config)
   ctmatch_model.train()

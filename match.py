@@ -6,7 +6,7 @@ from torch import nn
 import pandas as pd
 import numpy as np
 
-from ctmatch_utils import compute_metrics
+from ctmatch.ctmatch_utils import compute_metrics
 from typing import NamedTuple
 
 
@@ -42,6 +42,7 @@ class ModelConfig(NamedTuple):
   num_train_epochs: int
   weight_decay: float
   warmup_steps: int
+  seed: int
 
   
 
@@ -57,8 +58,7 @@ class CTMatch:
 
    
   # ------------------ Data Loading ------------------ #
-  def load_data(self, trec_or_kz: str) -> Dataset:
-    data_path = f"data/{trec_or_kz}_data/{trec_or_kz}_data.json"
+  def load_data(self, data_path: str) -> Dataset:
     self.ct_dataset = load_dataset('json', data_files=data_path)
     self.add_features()
     self.tokenize_dataset()
@@ -153,11 +153,12 @@ def get_embedding_similarity(self, topic, document):
 
 
 
-def run_ctmatch_classifier(model_config: ModelConfig):
+def train_ctmatch_classifier(model_config: ModelConfig):
   ctmatch_dataset, ctmatch_model = CTMatch(model_config)
   ctmatch_model.train()
   predictions = ctmatch_model.predict(ctmatch_dataset["test"])
   print(predictions.metrics.items())
+  return ctmatch_model, ctmatch_dataset
 
 
 
@@ -172,7 +173,7 @@ if __name__ == '__main__':
     # create_dataset(kz_data_path, new_kz_data_path)
 
     config = ModelConfig(
-      dataset='kz',
+      data_path=KZ_DATA,
       model_checkpoint='allenai/scibert_scivocab_uncased',
       max_length=512,
       batch_size=16,

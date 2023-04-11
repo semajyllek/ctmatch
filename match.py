@@ -51,7 +51,7 @@ class CTMatch:
   def __init__(self, model_config: ModelConfig):
     self.model_config = model_config
     self.tokenizer = AutoTokenizer.from_pretrained(model_config.model_checkpoint)
-    self.ct_dataset = self.load_data(model_config.data_path)
+    self.ct_dataset = self.load_data()
     self.ct_dataset_df = self.ct_dataset["train"].to_pandas()
     self.model = load_model(self.ct_dataset, model_config.model_checkpoint, model_config.max_length)
     return self.ct_dataset, self.model

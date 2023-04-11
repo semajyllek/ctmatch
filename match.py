@@ -33,6 +33,7 @@ class WeightedLossTrainer(Trainer):
 
 
 class ModelConfig(NamedTuple):
+  data_path: str
   model_checkpoint: str
   max_length: int
   padding: str
@@ -58,8 +59,8 @@ class CTMatch:
 
    
   # ------------------ Data Loading ------------------ #
-  def load_data(self, data_path: str) -> Dataset:
-    self.ct_dataset = load_dataset('json', data_files=data_path)
+  def load_data(self) -> Dataset:
+    self.ct_dataset = load_dataset('json', data_files=self.model_config.data_path)
     self.add_features()
     self.tokenize_dataset()
     self.ct_dataset.rename_column("label", "labels")

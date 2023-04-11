@@ -72,15 +72,14 @@ class CTMatch:
  
 
 
-  def add_features(self, ct_dataset) -> Dataset:
+  def add_features(self) -> None:
     features = Features({
       'crit_text': Value(dtype='string', id=None),
       'label': ClassLabel(names=["not_relevant", "partially_relevant", "relevant"]),
       'topic_text': Value(dtype='string', id=None)})
-    ct_dataset["train"] = ct_dataset["train"].map(lambda x: x, batched=True, features=features)
-    ct_dataset["test"] = ct_dataset["test"].map(lambda x: x, batched=True, features=features)
-    ct_dataset["validation"] = ct_dataset["validation"].map(lambda x: x, batched=True, features=features)  
-    return ct_dataset
+    self.ct_dataset["train"] = self.ct_dataset["train"].map(lambda x: x, batched=True, features=features)
+    self.ct_dataset["test"] = self.ct_dataset["test"].map(lambda x: x, batched=True, features=features)
+    self.ct_dataset["validation"] = self.ct_dataset["validation"].map(lambda x: x, batched=True, features=features)  
 
 
   def tokenize_function(self):

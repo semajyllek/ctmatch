@@ -98,60 +98,60 @@ class CTMatch:
     self.ct_dataset = self.ct_dataset.map(self.tokenize_function, batched=True)
 
 
-# ------------------ Model Loading ------------------ #
-def load_model(self):
-  id2label, label2id = get_label_mapping(self.ct_dataset.features)
-  self.model = AutoModelForSequenceClassification.from_pretrained(self.model_checkpoint, num_labels=3, id2label=id2label, label2id=label2id)
-  self.trainer = self.get_trainer()
-  return self.trainer
+  # ------------------ Model Loading ------------------ #
+  def load_model(self):
+    id2label, label2id = get_label_mapping(self.ct_dataset.features)
+    self.model = AutoModelForSequenceClassification.from_pretrained(self.model_checkpoint, num_labels=3, id2label=id2label, label2id=label2id)
+    self.trainer = self.get_trainer()
+    return self.trainer
 
 
-def get_label_mapping(features):
-  id2label = {idx:features["label"].int2str(idx) for idx in range(3)}
-  label2id = {v:k for k, v in id2label.items()}
-  return id2label, label2id
+  def get_label_mapping(features):
+    id2label = {idx:features["label"].int2str(idx) for idx in range(3)}
+    label2id = {v:k for k, v in id2label.items()}
+    return id2label, label2id
 
-def get_label_weights(self):
-  label_weights = (1 - (self.ct_dataset_df["label"].value_counts().sort_index() / len(self.ct_dataset_df))).values
-  label_weights = torch.from_numpy(label_weights).float().to("cuda")
-
-
-def get_trainer(self):
-  return WeightedLossTrainer(
-    model=self.model,
-    args=self.get_training_args_obj(),
-    compute_metrics=compute_metrics,
-    train_dataset=self.ct_dataset["train"],
-    eval_dataset=self.ct_dataset["validation"],
-    tokenizer=self.tokenizer,
-    label_weights=self.get_label_weights()
-  )
-
-def get_training_args_obj(self):
-  return TrainingArguments(
-    output_dir=self.model_config.output_dir,
-    num_train_epochs=self.model_confi.num_train_epochs,
-    learning_rate=self.model_config.learning_rate,
-    per_device_train_batch_size=self.model_config.batch_size,
-    per_device_eval_batch_size=self.model_config.batch_size,
-    weight_decay=self.model_config.weight_decay,
-    evaluation_strategy="epoch",
-    logging_steps=self.model_config.logging_steps,
-  )
-  
+  def get_label_weights(self):
+    label_weights = (1 - (self.ct_dataset_df["label"].value_counts().sort_index() / len(self.ct_dataset_df))).values
+    label_weights = torch.from_numpy(label_weights).float().to("cuda")
 
 
-# ------------------ Embedding Similarity ------------------ #
-def get_embedding_similarity(self, topic, document):
-    topic_input = self.tokenizer(topic, return_tensors='pt').to('cuda')
-    doc_input = self.tokenizer(document, return_tensors='pt').to('cuda')
-    topic_output = self.model(**topic_input, output_hidden_states=True)
-    doc_output = self.model(**doc_input, output_hidden_states=True)
-    topic_last_hidden = np.squeeze(topic_output.hidden_states[-1].detach().cpu().numpy(), axis=0)
-    doc_last_hidden = np.squeeze(doc_output.hidden_states[-1].detach().cpu().numpy(), axis=0)
-    topic_emb = np.mean(topic_last_hidden, axis=0)
-    doc_emb = np.mean(doc_last_hidden, axis=0)
-    return dot(topic_emb, doc_emb)/(norm(topic_emb) * norm(doc_emb))
+  def get_trainer(self):
+    return WeightedLossTrainer(
+      model=self.model,
+      args=self.get_training_args_obj(),
+      compute_metrics=compute_metrics,
+      train_dataset=self.ct_dataset["train"],
+      eval_dataset=self.ct_dataset["validation"],
+      tokenizer=self.tokenizer,
+      label_weights=self.get_label_weights()
+    )
+
+  def get_training_args_obj(self):
+    return TrainingArguments(
+      output_dir=self.model_config.output_dir,
+      num_train_epochs=self.model_confi.num_train_epochs,
+      learning_rate=self.model_config.learning_rate,
+      per_device_train_batch_size=self.model_config.batch_size,
+      per_device_eval_batch_size=self.model_config.batch_size,
+      weight_decay=self.model_config.weight_decay,
+      evaluation_strategy="epoch",
+      logging_steps=self.model_config.logging_steps,
+    )
+    
+
+
+  # ------------------ Embedding Similarity ------------------ #
+  def get_embedding_similarity(self, topic, document):
+      topic_input = self.tokenizer(topic, return_tensors='pt').to('cuda')
+      doc_input = self.tokenizer(document, return_tensors='pt').to('cuda')
+      topic_output = self.model(**topic_input, output_hidden_states=True)
+      doc_output = self.model(**doc_input, output_hidden_states=True)
+      topic_last_hidden = np.squeeze(topic_output.hidden_states[-1].detach().cpu().numpy(), axis=0)
+      doc_last_hidden = np.squeeze(doc_output.hidden_states[-1].detach().cpu().numpy(), axis=0)
+      topic_emb = np.mean(topic_last_hidden, axis=0)
+      doc_emb = np.mean(doc_last_hidden, axis=0)
+      return dot(topic_emb, doc_emb)/(norm(topic_emb) * norm(doc_emb))
 
 
 

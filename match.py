@@ -54,7 +54,7 @@ class CTMatch:
     self.tokenizer = AutoTokenizer.from_pretrained(model_config.model_checkpoint)
     self.ct_dataset = self.load_data()
     self.ct_dataset_df = self.ct_dataset["train"].to_pandas()
-    self.model = load_model(self.ct_dataset, model_config.model_checkpoint, model_config.max_length)
+    self.model = self.load_model()
     return self.ct_dataset, self.model
   
 
@@ -99,6 +99,13 @@ class CTMatch:
 
 
 # ------------------ Model Loading ------------------ #
+def load_model(self):
+  id2label, label2id = get_label_mapping(self.ct_dataset.features)
+  self.model = AutoModelForSequenceClassification.from_pretrained(self.model_checkpoint, num_labels=3, id2label=id2label, label2id=label2id)
+  self.trainer = self.get_trainer()
+  return self.trainer
+
+
 def get_label_mapping(features):
   id2label = {idx:features["label"].int2str(idx) for idx in range(3)}
   label2id = {v:k for k, v in id2label.items()}
@@ -132,14 +139,9 @@ def get_training_args_obj(self):
     logging_steps=self.model_config.logging_steps,
   )
   
-def load_model(self):
-  id2label, label2id = get_label_mapping(self.ct_dataset.features)
-  self.model = AutoModelForSequenceClassification.from_pretrained(self.model_checkpoint, num_labels=3, id2label=id2label, label2id=label2id)
-  self.trainer = self.get_trainer()
-  return self.trainer
 
 
-
+# ------------------ Embedding Similarity ------------------ #
 def get_embedding_similarity(self, topic, document):
     topic_input = self.tokenizer(topic, return_tensors='pt').to('cuda')
     doc_input = self.tokenizer(document, return_tensors='pt').to('cuda')
@@ -150,6 +152,12 @@ def get_embedding_similarity(self, topic, document):
     topic_emb = np.mean(topic_last_hidden, axis=0)
     doc_emb = np.mean(doc_last_hidden, axis=0)
     return dot(topic_emb, doc_emb)/(norm(topic_emb) * norm(doc_emb))
+
+
+
+
+
+
 
 
 

@@ -1,7 +1,7 @@
 
 
 from transformers import AutoTokenizer,  AutoModelForSequenceClassification, Trainer, TrainingArguments
-from datasets import load_dataset, ClassLabel, Dataset, Features, Value
+from datasets import load_dataset, ClassLabel, Dataset, Features, Valuu
 from pathlib import Path
 from torch import nn
 import pandas as pd
@@ -10,7 +10,7 @@ import torch
 
 
 from ctmatch.ctmatch_utils import compute_metrics, train_test_val_split
-from typing import Dict, NamedTuple, Optional
+from typing import Dict, NamedTuple, Optional, Tuple
 
 
 
@@ -53,13 +53,16 @@ class ModelConfig(NamedTuple):
   
 
 class CTMatch:
-  def __init__(self, model_config: ModelConfig):
+  def __init__(self, model_config: ModelConfig) -> Tuple[Dataset, AutoModelForSequenceClassification]:
     self.model_config = model_config
     self.tokenizer = AutoTokenizer.from_pretrained(model_config.model_checkpoint)
     self.ct_dataset = self.load_data()
     self.ct_dataset_df = self.ct_dataset["train"].to_pandas()
     self.model = self.load_model()
     return self.ct_dataset, self.model
+  
+
+  def get_ct_model()
   
 
    

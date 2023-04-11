@@ -1,7 +1,7 @@
 
 
 from transformers import AutoTokenizer,  AutoModelForSequenceClassification, Trainer, TrainingArguments
-from datasets import load_dataset, ClassLabel, Dataset, Features, Valuu
+from datasets import load_dataset, ClassLabel, Dataset, Features, Value
 from pathlib import Path
 from torch import nn
 import pandas as pd

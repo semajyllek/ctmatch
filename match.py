@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 
 from ctmatch.ctmatch_utils import compute_metrics, train_test_val_split
-from typing import NamedTuple
+from typing import Dict, NamedTuple
 
 
 
@@ -62,9 +62,9 @@ class CTMatch:
   # ------------------ Data Loading ------------------ #
   def load_data(self) -> Dataset:
     self.ct_dataset = load_dataset('json', data_files=self.model_config.data_path)
-    print(self.ct_dataset)
-
     self.ct_dataset = train_test_val_split(self.ct_dataset, self.model_config.splits, self.model_config.seed)
+    print(self.ct_dataset)
+    
     self.add_features()
     self.tokenize_dataset()
     self.ct_dataset.rename_column("label", "labels")

@@ -1,5 +1,5 @@
 
-from typing import Any, List
+from typing import Any, Dict, List
 
 from sklearn.metrics import f1_score
 from numpy.linalg import norm
@@ -60,6 +60,20 @@ def get_processed_docs(proc_loc: str):
   return [json.loads(json_str) for json_str in json_list]
 
 
+def train_test_val_split(self, dataset, splits: Dict[str, float], seed: int = 37) -> Dataset:
+  """
+  splits a dataset having only "train" into one having train, test, val, with 
+  split sizes determined by splits["train"] and splits["val"] (dict must have those keys)
+
+  """
+  dataset = dataset["train"].train_test_split(train_size=splits["train"], seed=seed)
+  train = dataset["train"]
+  sub = train.train_test_split(test_size=splits["val"],  seed=seed)
+  new_train = sub["train"]
+  new_val = sub["test"]
+  dataset["train"] = new_train
+  dataset["validation"] = new_val
+  return dataset
 
 
 

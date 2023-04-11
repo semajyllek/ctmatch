@@ -6,7 +6,7 @@ from torch import nn
 import pandas as pd
 import numpy as np
 
-from ctmatch.ctmatch_utils import compute_metrics
+from ctmatch.ctmatch_utils import compute_metrics, train_test_val_split
 from typing import NamedTuple
 
 
@@ -44,6 +44,7 @@ class ModelConfig(NamedTuple):
   weight_decay: float
   warmup_steps: int
   seed: int
+  splits: Dict[str, float]
 
   
 
@@ -62,6 +63,8 @@ class CTMatch:
   def load_data(self) -> Dataset:
     self.ct_dataset = load_dataset('json', data_files=self.model_config.data_path)
     print(self.ct_dataset)
+
+    self.ct_dataset = train_test_val_split(self.ct_dataset, self.model_config.splits, self.model_config.seed)
     self.add_features()
     self.tokenize_dataset()
     self.ct_dataset.rename_column("label", "labels")
@@ -69,6 +72,9 @@ class CTMatch:
     self.ct_dataset.rename_column("crit_text", "sentence2")
     return self.ct_dataset
  
+
+
+    
 
 
   def add_features(self) -> None:
@@ -176,6 +182,7 @@ if __name__ == '__main__':
       num_train_epochs=3,
       weight_decay=0.01,
       warmup_steps=500,
+      splits={"train":0.8, "val":0.1}
     )
 
     run_ctmatch_classifier(config)

@@ -61,7 +61,7 @@ def get_processed_docs(proc_loc: str):
   return [json.loads(json_str) for json_str in json_list]
 
 
-def train_test_val_split(self, dataset, splits: Dict[str, float], seed: int = 37) -> Dataset:
+def train_test_val_split(dataset, splits: Dict[str, float], seed: int = 37) -> Dataset:
   """
   splits a dataset having only "train" into one having train, test, val, with 
   split sizes determined by splits["train"] and splits["val"] (dict must have those keys)

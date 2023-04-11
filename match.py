@@ -35,7 +35,6 @@ class WeightedLossTrainer(Trainer):
 
 class ModelConfig(NamedTuple):
   data_path: Path
-  output_dir: Optional[str]
   model_checkpoint: str
   max_length: int
   padding: str
@@ -47,6 +46,7 @@ class ModelConfig(NamedTuple):
   warmup_steps: int
   seed: int
   splits: Dict[str, float]
+  output_dir: Optional[str] = None
 
   
 

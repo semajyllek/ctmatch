@@ -101,7 +101,11 @@ class CTMatch:
   # ------------------ Model Loading ------------------ #
   def load_model(self):
     id2label, label2id = self.get_label_mapping()
-    self.model = AutoModelForSequenceClassification.from_pretrained(self.model_checkpoint, num_labels=3, id2label=id2label, label2id=label2id)
+    self.model = AutoModelForSequenceClassification.from_pretrained(
+      self.model_config.model_checkpoint,
+      num_labels=3,                                    # makes the last head be replaced with a linear layer with 3 outputs
+      id2label=id2label, label2id=label2id
+    )
     self.trainer = self.get_trainer()
     return self.trainer
 

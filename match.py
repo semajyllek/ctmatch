@@ -60,6 +60,8 @@ class CTMatch:
    
   # ------------------ Data Loading ------------------ #
   def load_data(self) -> Dataset:
+    import os
+    print(os.cetcwd())
     self.ct_dataset = load_dataset('json', data_files=self.model_config.data_path)
     self.add_features()
     self.tokenize_dataset()

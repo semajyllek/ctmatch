@@ -107,7 +107,7 @@ class CTMatch:
 
 
   def get_label_mapping(self):
-    id2label = {idx:self.ct_dataset.features["label"].int2str(idx) for idx in range(3)}
+    id2label = {idx:self.ct_dataset['train'].features["label"].int2str(idx) for idx in range(3)}
     label2id = {v:k for k, v in id2label.items()}
     return id2label, label2id
 

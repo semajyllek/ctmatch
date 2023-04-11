@@ -87,7 +87,7 @@ class CTMatch:
 
   def get_tokenize_function(self):
     return self.tokenizer(
-      self.ct_dataset["crit_text"], self.ct_dataset["topic_text"], 
+      self.ct_dataset["doc"], self.ct_dataset["topic"], 
       truncation=self.model_config.truncation, 
       padding=self.model_config.padding, 
       max_length=self.model_config.max_length

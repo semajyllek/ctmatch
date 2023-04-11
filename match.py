@@ -144,7 +144,7 @@ class CTMatch:
       per_device_eval_batch_size=self.model_config.batch_size,
       weight_decay=self.model_config.weight_decay,
       evaluation_strategy="epoch",
-      logging_steps=self.model_config.logging_steps,
+      logging_steps=len(self.ct_dataset["train"]) // self.model_config.batch_size,
     )
     
 

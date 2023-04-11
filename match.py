@@ -73,9 +73,9 @@ class CTMatch:
 
   def add_features(self) -> None:
     features = Features({
-      'crit_text': Value(dtype='string', id=None),
+      'doc': Value(dtype='string', id=None),
       'label': ClassLabel(names=["not_relevant", "partially_relevant", "relevant"]),
-      'topic_text': Value(dtype='string', id=None)})
+      'topic': Value(dtype='string', id=None)})
     self.ct_dataset["train"] = self.ct_dataset["train"].map(lambda x: x, batched=True, features=features)
     self.ct_dataset["test"] = self.ct_dataset["test"].map(lambda x: x, batched=True, features=features)
     self.ct_dataset["validation"] = self.ct_dataset["validation"].map(lambda x: x, batched=True, features=features)  

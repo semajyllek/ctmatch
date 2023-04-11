@@ -56,28 +56,13 @@ class CTMatch:
   def __init__(self, model_config: ModelConfig) -> None:
     self.model_config = model_config
     self.tokenizer = AutoTokenizer.from_pretrained(model_config.model_checkpoint)
-    self._ct_dataset = self.load_data()
+    self.ct_dataset = self.load_data()
     self.ct_dataset_df = self.ct_dataset["train"].to_pandas()
-    self._model = self.load_model()
+    self.model = self.load_model()
   
 
-  # Using @property decorator
-  @property
-  def ct_dataset(self):
-      return self.__ct_dataset
   
-  @ct_dataset.setter
-  def ct_dataset(self, val):
 
-    if val is None:
-      raise ValueError("Dataset cannot be None")
-   
-    self.__ct_dataset = val
- 
-    
-  @ct_dataset.deleter
-  def ct_dataset(self):
-    del self.__ct_dataset 
 
   
 

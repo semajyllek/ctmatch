@@ -373,7 +373,7 @@ def create_combined_doc(
 	combined['doc'] = prep_doc_text(doc, dconfig)
 
 	# get relevancy score as string 
-	combined['relevancy_score'] = str(rel_score)
+	combined['label'] = str(rel_score)
 
 	return combined
 
@@ -429,7 +429,7 @@ def explore_prepped(triples_path: str) -> None:
 	with open(triples_path, 'r') as f:
 		for i, line in enumerate(f.readlines()):
 			combined = json.loads(line)
-			if combined['relevancy_score'] == 2:
+			if combined['label'] == 2:
 				if random.random() < 0.0001:
 					pprint(combined)
 					break

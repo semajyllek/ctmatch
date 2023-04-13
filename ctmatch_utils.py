@@ -1,10 +1,8 @@
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Set
 
-from datasets import Dataset
 from sklearn.metrics import f1_score
-from numpy.linalg import norm
-from numpy import dot
+from datasets import Dataset
 import json
 import re
 
@@ -36,6 +34,19 @@ WEEK_PATTERN = re.compile('(?P<week>[wW]eeks?)')
 BOTH_INC_AND_EXC_PATTERN = re.compile("[\s\n]*[Ii]nclusion [Cc]riteria:?(?: +[Ee]ligibility[ \w]+\: )?(?P<include_crit>[ \n\-\.\?\"\%\r\w\:\,\(\)]*)[Ee]xclusion [Cc]riteria:?(?P<exclude_crit>[\w\W ]*)")
 
 
+
+# -------------------------------------------------------------------------------------- #
+# pretokenization utils (should be in a tokenizer...)
+# -------------------------------------------------------------------------------------- #
+
+def truncate(s: str, max_tokens: Optional[int] = None) -> str:
+  if max_tokens is None:
+    return s
+  s_tokens = s.split()
+  return ' '.join(s_tokens[:min(len(s_tokens), max_tokens)])
+
+
+
 # -------------------------------------------------------------------------------------- #
 # I/O utils
 # -------------------------------------------------------------------------------------- #
@@ -50,15 +61,24 @@ def save_docs_jsonl(docs: List[Any], writefile: str) -> None:
       outfile.write("\n")
 
 
-
-def get_processed_docs(proc_loc: str):
+def get_processed_data(proc_loc: str, get_only: Optional[Set[str]] = None):
   """
   proc_loc:    str or path to location of docs in jsonl form
   """
   with open(proc_loc, 'r') as json_file:
     json_list = list(json_file)
 
-  return [json.loads(json_str) for json_str in json_list]
+  if get_only is None:
+    return [json.loads(json_str) for json_str in json_list]
+  
+  data = []
+  for s in json_list:
+    s_data = json.loads(s)
+    if s_data["id"] in get_only:
+      data.append(s_data) 
+  return data
+  
+  
 
 
 def train_test_val_split(dataset, splits: Dict[str, float], seed: int = 37) -> Dataset:

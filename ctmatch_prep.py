@@ -1,12 +1,12 @@
 
-from typing import Dict, List, NamedTuple, Set, Tuple, Union
+from typing import Dict, List, NamedTuple, Optional, Set, Tuple, Union
 from collections import defaultdict
 from pprint import pprint
 import random
 import json
 
-from ctmatch_utils import get_processed_data
-from proc import CTConfig, CTProc, CTDocument, CTTopic
+from ctmatch_utils import get_processed_data, truncate
+from ctproc import CTConfig, CTProc, CTDocument, CTTopic
 from scripts.vis_scripts import (
   analyze_test_rels
 )
@@ -21,14 +21,32 @@ KZ_RELLED_TOPIC_PATH = '/Users/jameskelly/Documents/cp/ctmatch/data/kz_data/proc
 KZ_DOC_PATH = '/Users/jameskelly/Documents/cp/ctmatch/data/kz_data/clinicaltrials.gov-16_dec_2015.zip'
 KZ_PROCESSED_DOC_PATH = '/Users/jameskelly/Documents/cp/ctmatch/data/kz_data/processed_kz_data/processed_kz_docs.jsonl'
 
-KZ_TRIPLES_PATH = '/Users/jameskelly/Documents/cp/ctmatch/data/kz_data/kz_labelled_triples.jsonl'
-TREC_TRIPLES_PATH = '/Users/jameskelly/Documents/cp/ctmatch/data/trec_data/trec21_labelled_triples.jsonl'
+KZ_PREP_PATH = '/Users/jameskelly/Documents/cp/ctmatch/data/kz_data/kz_labelled_multifield.jsonl'
+TREC_PREP_PATH = '/Users/jameskelly/Documents/cp/ctmatch/data/trec_data/trec21_labelled_multifield.jsonl'
+
+TREC_ML_PATH = '/Users/jameskelly/Documents/cp/ctmatch/data/trec_data/trec_data.jsonl'
+KZ_ML_PATH = '/Users/jameskelly/Documents/cp/ctmatch/data/kz_data/kz_data.jsonl'
+
 
 class ExplorePaths(NamedTuple):
 	doc_path: str
 	topic_path: str
 	rel_path: str
-	
+
+
+class DataConfig(NamedTuple):
+	save_path: str
+	trec_or_kz: str = 'trec'
+	filtered_topic_keys: Set[str] = {'id', 'text_sents', 'age', 'gender'}
+	filtered_doc_keys: Set[str] = {'id', 'elig_min_age', 'elig_max_age', 'elig_gender', 'condition', 'elig_crit'}
+	max_topic_len: Optional[int] = None
+	max_inc_len: Optional[int] = None
+	max_exc_len: Optional[int] = None
+	prepend_elig_age: bool = True
+	prepend_elig_gender: bool = True
+	include_only: bool = False
+	sep: str = '[SEP]'
+
 
 def proc_docs_and_topics(trec_or_kz: str = 'trec') -> Tuple[Dict[str, Dict[str, str]], Dict[str, Dict[str, str]]]:
 
@@ -308,78 +326,91 @@ def get_doc_and_topic_mappings(all_qrelled_docs: Set[str], doc_tuples: List[Tupl
 	return id2doc, id2topic
 
 
-def filter_dict(dict_to_filter, filter_keys: set) -> Dict[str, Union[str, List[str]]]:
-	filtered_dict = dict()
-	for fkey in filter_keys:
-		filtered_dict[fkey] = dict_to_filter[fkey]
-	return filtered_dict
+
+def prep_topic_text(topic: Dict[str, Union[List[str], str, float]], dconfig: DataConfig) -> str:
+	topic_text = ' '.join(topic['text_sents'])
+	topic_text = truncate(topic_text, dconfig.max_topic_len)
+	return topic_text
+
+def prep_doc_text(doc: Dict[str, Union[List[str], str, float]], dconfig: DataConfig) -> str:
+
+	# combine lists of strings into single string
+	doc_inc = ' '.join(doc['elig_crit']['include_criteria'])
+	doc_exc = ' '.join(doc['elig_crit']['exclude_criteria'])
 
 
+	if 'condition' in dconfig.filtered_doc_keys:
+		doc_inc = f"{' '.join(doc['condition'])} {doc_inc}"
+
+	#truncate criteria separately if in config
+	doc_inc = truncate(doc_inc, dconfig.max_inc_len)
+	doc_exc = truncate(doc_exc, dconfig.max_exc_len)
+
+
+	if dconfig.prepend_elig_gender:
+		doc_inc = f"{doc['elig_gender']} {dconfig.sep} {doc_inc}"
+
+	if dconfig.prepend_elig_age:
+		doc_inc = f"{doc['elig_min_age']}-{doc['elig_max_age']} {dconfig.sep} {doc_inc}"
+
+	# combine criteria into single string
+	if dconfig.include_only:
+		return doc_inc
+	return f"{doc_inc} {dconfig.sep} {doc_exc}"
+
+	
 def create_combined_doc(
-	id2doc, id2topic, 
-	rel_dict, 
-	topic_id, doc_id, 
-	filtered_topic_keys, filtered_doc_keys
+	doc, topic, 
+	rel_score, 
+	dconfig: DataConfig
 ):
-
 	combined = dict()
 
-	# get filtered topic dict
-	combined['topic'] = filter_dict(id2topic[topic_id], filtered_topic_keys)
+	# get filtered and truncated and SEP tokenized topic text
+	combined['topic'] = prep_topic_text(topic, dconfig)
 
-	# get filtered doc dict
-	combined_doc = filter_dict(id2doc[doc_id], filtered_doc_keys)
+	# get filtered and truncated and SEP tokenized doc text
+	combined['doc'] = prep_doc_text(doc, dconfig)
 
-	if 'raw_text' in combined_doc['elig_crit']:
-		del combined_doc['elig_crit']['raw_text']
-
-	if 'inc_aliased_crit' in combined_doc['elig_crit']:
-		del combined_doc['elig_crit']['inc_aliased_crit']
-		del combined_doc['elig_crit']['exc_aliased_crit']
-
-	combined['doc'] = combined_doc
-
-	# get relevancy score
-	combined['relevancy_score'] = rel_dict[topic_id][doc_id]
+	# get relevancy score as string 
+	combined['relevancy_score'] = str(rel_score)
 
 	return combined
 
 
-def save_relled_dataset(save_path: str, trec_or_kz: str = 'trec') -> None:
+def save_relled_dataset(
+		dconfig: DataConfig
+) -> None:
 	"""
 	trec_or_kz: 'trec' or 'kz'
 	desc: create dict of triplets of topic, doc, relevancy scores,
 	      save into a single jsonl file
 	"""
-	print(f"trec_or_kz: {trec_or_kz}")
-	topic_path, rel_path = get_topic_and_rel_path(trec_or_kz)
+	print(f"trec_or_kz: {dconfig.trec_or_kz}")
+	topic_path, rel_path = get_topic_and_rel_path(dconfig.trec_or_kz)
 	
 
 	# get set of all relevant doc ids
 	_, rel_dict, all_qrelled_docs = analyze_test_rels(rel_path)
 	
 	# get path to processed docs (already got topic path)
-	doc_tuples, _ = get_data_tuples(trec_or_kz)
+	doc_tuples, _ = get_data_tuples(dconfig.trec_or_kz)
 
 	# get mappings of doc ids to doc dicts and topic ids to topic dicts
 	id2doc, id2topic = get_doc_and_topic_mappings(all_qrelled_docs, doc_tuples, topic_path) 
 	print(len(id2doc), len(all_qrelled_docs))
-
-	filtered_topic_keys = {'id', 'text_sents', 'age', 'gender'}
-	filtered_doc_keys = {'id', 'elig_min_age', 'elig_max_age', 'elig_gender', 'condition', 'elig_crit'}
 	
 	missing_docs = set()
 
 	# save combined triples of doc, topic, relevancy score
-	with open(save_path, 'w') as f:
+	with open(dconfig.save_path, 'w') as f:
 		for topic_id in rel_dict:
 			for doc_id in rel_dict[topic_id]:
 					if doc_id in id2doc:
 						combined = create_combined_doc(
-							id2doc, id2topic, 
-							rel_dict, 
-							topic_id, doc_id, 
-							filtered_topic_keys, filtered_doc_keys
+							id2doc[doc_id], id2topic[topic_id], 
+							rel_dict[topic_id][doc_id], 
+						    dconfig=dconfig
 						)
 
 						# save to file as jsonl
@@ -394,7 +425,7 @@ def save_relled_dataset(save_path: str, trec_or_kz: str = 'trec') -> None:
 		print(md)
 
 
-def explore_triples(triples_path: str) -> None:
+def explore_prepped(triples_path: str) -> None:
 	with open(triples_path, 'r') as f:
 		for i, line in enumerate(f.readlines()):
 			combined = json.loads(line)
@@ -404,7 +435,7 @@ def explore_triples(triples_path: str) -> None:
 					break
 			
 
-	
+
 
 
 if __name__ == '__main__':
@@ -412,9 +443,11 @@ if __name__ == '__main__':
 	# explore_trec_data(part=2, rand_print=0.001) # select part 1-5 (~70k docs per part)
 	# explore_kz_data(rand_print=0.00001) # all in one file (~200k docs)
 
-	# save_relled_dataset(save_path=KZ_TRIPLES_PATH, trec_or_kz='kz')
-	save_relled_dataset(save_path=TREC_TRIPLES_PATH, trec_or_kz='trec')
-	# explore_triples(TREC_TRIPLES_PATH)
+	save_relled_dataset(DataConfig(save_path=KZ_ML_PATH, trec_or_kz='kz'))
+	# save_relled_dataset(DataConfig(save_path=TREC_ML_PATH, trec_or_kz='trec'))
+	# explore_prepped(TREC_PREP_PATH)
+
+
 					
 
 

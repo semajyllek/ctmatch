@@ -2,15 +2,16 @@
 
 from transformers import AutoTokenizer,  AutoModelForSequenceClassification, Trainer, TrainingArguments
 from datasets import load_dataset, ClassLabel, Dataset, Features, Value
+from numpy.linalg import norm
 from pathlib import Path
+from numpy import dot
 from torch import nn
-import pandas as pd
 import numpy as np
 import torch
 
 
 from ctmatch.ctmatch_utils import compute_metrics, train_test_val_split
-from typing import Dict, NamedTuple, Optional, Tuple
+from typing import Dict, NamedTuple, Optional
 
 
 
@@ -175,6 +176,8 @@ class CTMatch:
 
 
 
+
+
 def train_ctmatch_classifier(model_config: ModelConfig):
   ctmatch_dataset, ctmatch_model = CTMatch(model_config)
   ctmatch_model.train()
@@ -206,5 +209,5 @@ if __name__ == '__main__':
       splits={"train":0.8, "val":0.1}
     )
 
-    run_ctmatch_classifier(config)
+    train_ctmatch_classifier(config)
 

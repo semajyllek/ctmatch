@@ -197,9 +197,11 @@ if __name__ == '__main__':
     # create_dataset(trec_data_path, new_trec_data_path)
     # create_dataset(kz_data_path, new_kz_data_path)
 
+    scibert_model = 'allenai/scibert_scivocab_uncased'
+
     config = ModelConfig(
       data_path=KZ_DATA,
-      model_checkpoint='allenai/scibert_scivocab_uncased',
+      model_checkpoint=scibert_model,
       max_length=512,
       batch_size=16,
       learning_rate=2e-5,

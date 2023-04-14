@@ -85,7 +85,7 @@ class CTMatch:
             self.train_dataloader, self.val_dataloader = self.get_dataloaders()
             self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
             print(f"Using device: {self.device}")
-            self.model.to_device(self.device)
+
 
 
     def train_and_predict(self):

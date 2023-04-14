@@ -86,7 +86,7 @@ class CTMatch:
     def train_and_predict(self):
         if self.trainer:
             self.trainer.train()
-            predictions = self.trainer.predict(self.ctmatch_dataset["test"])
+            predictions = self.trainer.predict(self.ct_dataset["test"])
             print(predictions.metrics.items())
         else:
             self.torch_train()

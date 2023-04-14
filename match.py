@@ -2,9 +2,9 @@
 
 from transformers import AutoTokenizer,  AutoModelForSequenceClassification, Trainer, TrainingArguments, get_scheduler
 from datasets import load_dataset, ClassLabel, Dataset, Features, Value
+from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.metrics import confusion_matrix
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
 from torch.optim import AdamW
@@ -234,11 +234,11 @@ class CTMatch:
         )
         
 
-    def get_confusion_matrix(self):
+    def get_sklearn_metrics(self):
         y_preds = list(self.trainer.predict(self.ct_dataset["validation"]).predictions.argmax(axis=1))
         y_trues = list(self.ct_dataset["validation"]["label"])
         labels = self.ct_dataset['train']["label"].names
-        return confusion_matrix(y_trues, y_preds, labels=labels)
+        return confusion_matrix(y_trues, y_preds, labels=labels), classification_report(y_trues, y_preds, labels=labels)
 
 
 

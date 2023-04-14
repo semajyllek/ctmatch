@@ -79,9 +79,8 @@ class CTMatch:
         
         if self.trainer is False:
             self.train_dataloader, self.val_dataloader = self.get_dataloaders()
-
-        self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-        self.model.to_device(self.device)
+            self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+            self.model.to_device(self.device)
 
 
      # ------------------ native torch training loop ------------------ #

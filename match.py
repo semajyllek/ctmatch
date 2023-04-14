@@ -180,7 +180,7 @@ class CTMatch:
         )
 
         self.trainer = self.get_trainer()
-        return self.trainer
+        return self.model
 
 
     def get_label_mapping(self):

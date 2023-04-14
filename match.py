@@ -58,6 +58,7 @@ class ModelConfig(NamedTuple):
     seed: int
     splits: Dict[str, float]
     output_dir: Optional[str] = None
+    convert_snli: bool = False
 
 
   
@@ -157,9 +158,14 @@ class CTMatch:
 
 
     def add_features(self) -> None:
+        if self.model_config.convert_snli:
+            names = ['contradiction', 'entailment', 'neutral']
+        else:
+            names = ["not_relevant", "partially_relevant", "relevant"]
+
         features = Features({
             'doc': Value(dtype='string', id=None),
-            'label': ClassLabel(names=["not_relevant", "partially_relevant", "relevant"]),
+            'label': ClassLabel(names=names),
             'topic': Value(dtype='string', id=None)
         })
         self.ct_dataset["train"] = self.ct_dataset["train"].map(lambda x: x, batched=True, features=features)

@@ -5,4 +5,5 @@ scikit-learn
 transformers
 matplotlib
 datasets
+evaluate
 pandas

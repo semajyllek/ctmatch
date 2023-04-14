@@ -158,7 +158,7 @@ class CTMatch:
         self.ct_dataset.rename_column("doc", "sentence2")
         return self.ct_dataset
  
-    def load_torch_split(self, split: str = 'train') -> Dataset:
+    def load_torch_data(self, split: str = 'train') -> Dataset:
         token_ids = []
         mask_ids = []
         seg_ids = []

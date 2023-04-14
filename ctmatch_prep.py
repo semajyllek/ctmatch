@@ -7,7 +7,6 @@ import json
 from ctproc.proc import CTConfig, CTProc, CTDocument, CTTopic
 from ctproc.scripts.vis_scripts import analyze_test_rels
 from ctmatch_utils import get_processed_data, truncate
-import eda
 
 
 
@@ -26,6 +25,8 @@ class DataConfig(NamedTuple):
 	downsample_zeros_n: Optional[int] = None
 	sep: str = '[SEP]'
 	llm_prep: bool = False
+	first_n_only: Optional[int] = None
+	convert_snli: bool = False
 
 
 
@@ -166,9 +167,20 @@ def create_combined_doc(
 	combined['doc'] = prep_doc_text(doc, dconfig)
 
 	# get relevancy score as string 
+	if dconfig.convert_snli:
+		rel_score = convert_label_snli(rel_score)
+
 	combined['label'] = str(rel_score)
 
 	return combined
+
+
+def convert_label_snli(label: int) -> int:
+	if label == 2:
+		return 1
+	elif label == 1:
+		return 2
+	return label
 
 
 
@@ -184,11 +196,19 @@ def prep_topic_text(topic: Dict[str, Union[List[str], str, float]], dconfig: Dat
 	topic_text = truncate(topic_text, dconfig.max_topic_len)
 	return topic_text
 
+
+def get_n_crit(crit_list: List[str], dconfig: DataConfig) -> List[str]:
+	if dconfig.first_n_only is not None:
+		crit_list = crit_list[:min(len(crit_list), dconfig.first_n_only)]
+	return crit_list
+
+
 def prep_doc_text(doc: Dict[str, Union[List[str], str, float]], dconfig: DataConfig) -> str:
 
 	# combine lists of strings into single string
-	doc_inc = ' '.join(doc['elig_crit']['include_criteria'])
-	doc_exc = ' '.join(doc['elig_crit']['exclude_criteria'])
+
+	doc_inc = ' '.join(get_n_crit(doc['elig_crit']['include_criteria'], dconfig))
+	doc_exc = ' '.join(get_n_crit(doc['elig_crit']['exclude_criteria'], dconfig))
 
 
 	if 'condition' in dconfig.filtered_doc_keys:
@@ -271,6 +291,7 @@ def get_doc_and_topic_mappings(all_qrelled_docs: Set[str], doc_tuples: List[Tupl
 
 
 
+
 if __name__ == '__main__':
 	# proc_docs_and_topics('trec')
 	# eda.explore_trec_data(part=2, rand_print=0.001) # select part 1-5 (~70k docs per part)
@@ -279,10 +300,8 @@ if __name__ == '__main__':
 	dconfig = DataConfig(
 		trec_or_kz='kz',
 		save_path=ct_data_paths.KZ_ML_PATH,
-		downsample_zeros_n=600,
-		max_topic_len=50,
-		max_inc_len=50,
-		sep='[SEP]',
+		sep='',
+		first_n_only=2,
 	)
 	prep_dataset(dconfig)
 	# explore_prepped(ct_data_paths.TREC_ML_PATH)

@@ -83,6 +83,20 @@ class CTMatch:
             self.model.to_device(self.device)
 
 
+    def train_and_predict(self):
+        if self.trainer:
+            self.trainer.train()
+            predictions = self.trainer.predict(self.ctmatch_dataset["test"])
+            print(predictions.metrics.items())
+        else:
+            self.torch_train()
+            self.torch_eval()
+            
+
+
+
+
+
      # ------------------ native torch training loop ------------------ #
     def get_dataloaders(self) -> Tuple[DataLoader, DataLoader]:
         train_dataloader = DataLoader(self.ct_dataset['train'], shuffle=True, batch_size=self.model_config.batch_size)
@@ -221,18 +235,15 @@ class CTMatch:
         
 
     def get_confusion_matrix(self):
-        y_preds = []  
-        y_trues = []
-        for i, logits in enumerate(self.model.predict(self.ct_dataset['validation']).predictions):
-            print(dir(logits))
-            prediction = F.softmax(logits, dim=1)
-            y_pred = torch.argmax(prediction).numpy()
-            y_true = logits.label_ids
-            y_preds.append(y_pred)
-            y_trues.append(y_true)
-    
-        labels = self.ct_dataset['train'].features["label"].names
+        y_preds = list(self.trainer.predict(self.ct_dataset["validation"]).predictions.argmax(axis=1))
+        y_trues = list(self.ct_dataset["validation"]["label"])
+        labels = self.ct_dataset['train']["label"].names
         return confusion_matrix(y_trues, y_preds, labels=labels)
+
+
+
+
+
 
     # ------------------ Embedding Similarity ------------------ #
     def get_embedding_similarity(self, topic, document):
@@ -283,14 +294,6 @@ class CTMatch:
 
 
 
-def train_ctmatch_classifier(model_config: ModelConfig):
-    ctmatch_dataset, ctmatch_model = CTMatch(model_config)
-    ctmatch_model.train()
-    predictions = ctmatch_model.predict(ctmatch_dataset["test"])
-    print(predictions.metrics.items())
-    return ctmatch_model, ctmatch_dataset
-
-
 
 
 
@@ -316,7 +319,8 @@ if __name__ == '__main__':
         splits={"train":0.8, "val":0.1}
     )
 
-    train_ctmatch_classifier(config)
+    ctm = CTMatch(config)
+    ctm.train_and_predict()
 
 
 

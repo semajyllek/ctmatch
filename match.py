@@ -143,7 +143,37 @@ class CTMatch:
                 
             train_acc = total_train_acc / len(self.train_dataloader)
             train_loss = total_train_loss / len(self.train_dataloader)
+            print(f"Train loss: {train_loss:.3f}, Train acc: {train_acc:.3f}")
             self.torch_eval()
+            
+
+    def torch_eval(self):
+        self.model.eval()
+        total_val_acc  = 0
+        total_val_loss = 0
+        with torch.no_grad():
+            for _, (pair_token_ids, mask_ids, seg_ids, y) in enumerate(self.val_dataloader):
+                self.optimizer.zero_grad()
+                pair_token_ids = pair_token_ids.to(self.device)
+                mask_ids = mask_ids.to(self.device)
+                seg_ids = seg_ids.to(self.device)
+                labels = y.to(self.device)
+        
+                loss, prediction = self.model(pair_token_ids, 
+                             token_type_ids=seg_ids, 
+                             attention_mask=mask_ids, 
+                             labels=labels).values()
+        
+                acc = self.multi_acc(prediction, labels)
+
+                total_val_loss += loss.item()
+                total_val_acc  += acc.item()
+
+        val_acc  = total_val_acc/len(self.val_dataloader)
+        val_loss = total_val_loss/len(self.val_dataloader)
+        print(f"val_acc: {val_acc}, val_loss: {val_loss}")
+
+            
                 
 
 

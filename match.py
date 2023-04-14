@@ -3,9 +3,10 @@
 from transformers import AutoTokenizer,  AutoModelForSequenceClassification, Trainer, TrainingArguments, get_scheduler
 from datasets import load_dataset, ClassLabel, Dataset, Features, Value
 from sklearn.metrics import confusion_matrix, classification_report
+from torch.utils.data import Dataset, TensorDataset, DataLoader
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from torch.utils.data import DataLoader
+from torch.nn.utils.rnn import pad_sequence
 import torch.nn.functional as F
 from torch.optim import AdamW
 from numpy.linalg import norm
@@ -59,6 +60,7 @@ class ModelConfig(NamedTuple):
     splits: Dict[str, float]
     output_dir: Optional[str] = None
     convert_snli: bool = False
+    use_trainer: bool = True
 
 
   
@@ -71,6 +73,7 @@ class CTMatch:
         self.ct_dataset_df = self.ct_dataset["train"].to_pandas()
         self.optimizer = None
         self.lr_scheduler = None
+        self.trainer = None
         self.num_training_steps = self.model_config.train_epochs * len(self.ct_dataset['train'])
         self.model = self.load_model()
 
@@ -78,14 +81,15 @@ class CTMatch:
         self._spacy_model = None
         self._tfidf_model = None
         
-        if self.trainer is False:
+        if not self.model_config.use_trainer:
             self.train_dataloader, self.val_dataloader = self.get_dataloaders()
             self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+            print(f"Using device: {self.device}")
             self.model.to_device(self.device)
 
 
     def train_and_predict(self):
-        if self.trainer:
+        if self.trainer is not None:
             self.trainer.train()
             predictions = self.trainer.predict(self.ct_dataset["test"])
             print(predictions.metrics.items())
@@ -100,14 +104,16 @@ class CTMatch:
 
      # ------------------ native torch training loop ------------------ #
     def get_dataloaders(self) -> Tuple[DataLoader, DataLoader]:
-        train_dataloader = DataLoader(self.ct_dataset['train'], shuffle=True, batch_size=self.model_config.batch_size)
-        val_dataloader = DataLoader(self.ct_dataset['val'], batch_size=self.model_config.batch_size)
+        torch_train_data = self.load_torch_data(split='train')
+        torch_val_data = self.load_torch_data(split='val')
+        train_dataloader = DataLoader(torch_train_data, shuffle=True, batch_size=self.model_config.batch_size)
+        val_dataloader = DataLoader(torch_val_data, batch_size=self.model_config.batch_size)
         return train_dataloader, val_dataloader
 
     def torch_train(self):
         progress_bar = tqdm(range(self.num_training_steps))
-        self.model.train()
         for _ in range(self.model_config.train_epochs):
+            self.model.train()
             for batch in self.train_dataloader:
                 batch = {k: v.to(self.device) for k, v in batch.items()}
                 outputs = self.model(**batch)
@@ -152,6 +158,40 @@ class CTMatch:
         self.ct_dataset.rename_column("doc", "sentence2")
         return self.ct_dataset
  
+    def load_torch_split(self, split: str = 'train') -> Dataset:
+        token_ids = []
+        mask_ids = []
+        seg_ids = []
+        y = []
+
+        ct_df = self.ct_dataset[split].to_pandas()
+
+        topic_list = ct_df['topic'].to_list()
+        doc_list = ct_df['doc'].to_list()
+        label_list = ct_df['label'].to_list()
+
+        for (topic, doc, label) in zip(topic_list, doc_list, label_list):
+            topic_id = self.tokenizer.encode(topic, add_special_tokens = False, max_length=self.model_config.max_length, truncation=self.model_config.truncation)
+            doc_id = self.tokenizer.encode(doc, add_special_tokens = False, max_length=self.model_config.max_length, truncation=self.model_config.truncation)
+            pair_token_ids = [self.tokenizer.cls_token_id] + topic_id + [self.tokenizer.sep_token_id] + doc_id + [self.tokenizer.sep_token_id]
+            topic_len = len(topic_id)
+            doc_len = len(doc_id)
+
+            segment_ids = torch.tensor([0] * (topic_len + 2) + [1] * (doc_len + 1))  # sentence 0 and sentence 1
+            attention_mask_ids = torch.tensor([1] * (topic_len + doc_len + 3))       # mask padded values
+
+            token_ids.append(torch.tensor(pair_token_ids))
+            seg_ids.append(segment_ids)
+            mask_ids.append(attention_mask_ids)
+            y.append(label)
+            
+        token_ids = pad_sequence(token_ids, batch_first=True)
+        mask_ids = pad_sequence(mask_ids, batch_first=True)
+        seg_ids = pad_sequence(seg_ids, batch_first=True)
+        y = torch.tensor(y)
+        dataset = TensorDataset(token_ids, mask_ids, seg_ids, y)
+        return dataset
+
 
 
     
@@ -196,10 +236,15 @@ class CTMatch:
         self.optimizer = AdamW(self.model.parameters(), lr=self.model_config.learning_rate, weight_decay=self.model_config.weight_decay)
         self.num_training_steps = self.model_config.train_epochs * len(self.ct_dataset['train'])
         self.lr_scheduler = get_scheduler(
-            name="linear", optimizer=self.optimizer, num_warmup_steps=0, num_training_steps=self.num_training_steps
+            name="linear", 
+            optimizer=self.optimizer, 
+            num_warmup_steps=self.model_config.warmup_steps, 
+            num_training_steps=self.num_training_steps
         )
 
-        self.trainer = self.get_trainer()
+        if self.model_config.use_trainer:
+            self.trainer = self.get_trainer()
+
         return self.model
 
 

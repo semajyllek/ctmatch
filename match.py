@@ -285,7 +285,10 @@ class CTMatch:
         )
         
     def get_sklearn_metrics(self):
-        y_preds = list(self.trainer.predict(self.ct_dataset["validation"]).predictions.argmax(axis=1))
+        if self.model_config.use_trainer:
+            y_preds = list(self.trainer.predict(self.ct_dataset["validation"]).predictions.argmax(axis=1))
+        else:
+            raise NotImplementedError("Only trainer is supported for sklearn metrics")
         y_trues = list(self.ct_dataset["validation"]["label"])
         return confusion_matrix(y_trues, y_preds), classification_report(y_trues, y_preds)
 

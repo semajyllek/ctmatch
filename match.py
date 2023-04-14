@@ -114,16 +114,42 @@ class CTMatch:
         progress_bar = tqdm(range(self.num_training_steps))
         for _ in range(self.model_config.train_epochs):
             self.model.train()
-            for batch in self.train_dataloader:
-                batch = {k: v.to(self.device) for k, v in batch.items()}
-                outputs = self.model(**batch)
-                loss = outputs.loss
-                loss.backward()
+            total_train_loss = 0
+            total_train_acc  = 0
+            for batch_idx, (pair_token_ids, mask_ids, seg_ids, y) in enumerate(self.train_dataloader):
+                self.optimizer.zero_grad()
+                pair_token_ids = pair_token_ids.to(self.device)
+                mask_ids = mask_ids.to(self.device)
+                seg_ids = seg_ids.to(self.device)
+                labels = y.to(self.device)
 
+
+                loss, prediction = self.model(
+                    pair_token_ids, 
+                    token_type_ids=seg_ids, 
+                    attention_mask=mask_ids, 
+                    labels=labels
+                ).values()
+
+
+                acc = self.multi_acc(prediction, labels)
+                loss.backward()
                 self.optimizer.step()
                 self.lr_scheduler.step()
-                self.optimizer.zero_grad()
+      
+                total_train_loss += loss.item()
+                total_train_acc  += acc.item()
                 progress_bar.update(1)
+                
+            train_acc = total_train_acc / len(self.train_dataloader)
+            train_loss = total_train_loss / len(self.train_dataloader)
+            self.torch_eval()
+                
+
+
+                
+        
+               
 
 
     def torch_eval(self):
@@ -284,6 +310,13 @@ class CTMatch:
             logging_steps=len(self.ct_dataset["train"]) // self.model_config.batch_size,
         )
         
+
+
+    def multi_acc(self, y_pred, y_test):
+        acc = (torch.log_softmax(y_pred, dim=1).argmax(dim=1) == y_test).sum().float() / float(y_test.size(0))
+        return acc
+    
+
     def get_sklearn_metrics(self):
         if self.model_config.use_trainer:
             y_preds = list(self.trainer.predict(self.ct_dataset["validation"]).predictions.argmax(axis=1))

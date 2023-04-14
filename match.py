@@ -223,11 +223,11 @@ class CTMatch:
     def get_confusion_matrix(self):
         y_preds = []  
         y_trues = []
-        for example in self.ct_dataset['validation']:
-            logits = self.model(example['input_ids'])
+        for i, logits in enumerate(self.model.predict(self.ct_dataset['validation']).predictions):
+            print(dir(logits))
             prediction = F.softmax(logits, dim=1)
             y_pred = torch.argmax(prediction).numpy()
-            y_true = example['label']
+            y_true = logits.label_ids
             y_preds.append(y_pred)
             y_trues.append(y_true)
     

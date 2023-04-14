@@ -1,17 +1,22 @@
 
 
-from transformers import AutoTokenizer,  AutoModelForSequenceClassification, Trainer, TrainingArguments
+from transformers import AutoTokenizer,  AutoModelForSequenceClassification, Trainer, TrainingArguments, get_scheduler
 from datasets import load_dataset, ClassLabel, Dataset, Features, Value
+from sklearn.metrics import confusion_matrix
+from torch.utils.data import DataLoader
+import torch.nn.functional as F
+from torch.optim import AdamW
 from numpy.linalg import norm
+from tqdm.auto import tqdm
 from pathlib import Path
 from numpy import dot
 from torch import nn
 import numpy as np
+import evaluate
 import torch
 
-
 from ctmatch.ctmatch_utils import compute_metrics, train_test_val_split
-from typing import Dict, NamedTuple, Optional
+from typing import Dict, NamedTuple, Optional, Tuple
 
 
 
@@ -44,12 +49,13 @@ class ModelConfig(NamedTuple):
   truncation: bool
   batch_size: int
   learning_rate: float
-  num_train_epochs: int
+  train_epochs: int
   weight_decay: float
   warmup_steps: int
   seed: int
   splits: Dict[str, float]
   output_dir: Optional[str] = None
+
 
   
 
@@ -60,9 +66,56 @@ class CTMatch:
     self.ct_dataset = self.load_data()
     self.ct_dataset_df = self.ct_dataset["train"].to_pandas()
     self.model = self.load_model()
-  
+    self.optimizer = AdamW(self.model.parameters(), lr=self.model_config.learning_rate, weight_decay=self.model_config.weight_decay)
+    self.num_training_steps = model_config.train_epochs * len(self.ct_dataset['train'])
+    self.lr_schedule = get_scheduler(
+       name="linear", optimizer=self.optimizer, num_warmup_steps=0, num_training_steps=self.num_training_steps
+    )
 
-  
+    if self.trainer is False:
+      self.train_dataloader, self.val_dataloader = self.get_dataloaders()
+
+    self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    self.model.to_device(self.device)
+
+
+   # ------------------ native torch training loop ------------------ #
+  def get_dataloaders(self) -> Tuple[torch.DataLoader, torch.DataLoader]:
+    train_dataloader = DataLoader(self.ct_dataset['train'], shuffle=True, batch_size=self.model_config.batch_size)
+    val_dataloader = DataLoader(self.ct_dataset['val'], batch_size=self.model_config.batch_size)
+    return train_dataloader, val_dataloader
+
+  def torch_train(self):
+    progress_bar = tqdm(range(self.num_training_steps))
+    self.model.train()
+    for _ in range(self.model_config.train_epochs):
+      for batch in self.train_dataloader:
+        batch = {k: v.to(self.device) for k, v in batch.items()}
+        outputs = self.model(**batch)
+        loss = outputs.loss
+        loss.backward()
+
+        self.optimizer.step()
+        self.lr_scheduler.step()
+        self.optimizer.zero_grad()
+        progress_bar.update(1)
+
+  def torch_eval(self):
+    metric = evaluate.load("f1")
+    self.model.eval()
+    for batch in self.val_dataloader:
+      batch = {k: v.to(self.device) for k, v in batch.items()}
+      
+      # don't learn during evaluation
+      with torch.no_grad():
+        outputs = self.model(**batch)
+
+      logits = outputs.logits
+      predictions = torch.argmax(logits, dim=-1)
+      metric.add_batch(predictions=predictions, references=batch["labels"])
+
+    metric.compute()
+
 
 
   
@@ -132,6 +185,7 @@ class CTMatch:
   def get_trainer(self):
     return WeightedLossTrainer(
       model=self.model,
+      optimizers=(self.optimizer, self.lr_scheduler),
       args=self.get_training_args_obj(),
       compute_metrics=compute_metrics,
       train_dataset=self.ct_dataset["train"],
@@ -155,6 +209,26 @@ class CTMatch:
     )
     
 
+  def build_confusion_matrix(self):
+    labels = self.ct_dataset['train'].features["label"].names
+    
+    y_preds = []  
+    y_trues = []
+    for index, val_text in enumerate(self.ct_dataset['val']['texts']):
+        tokenized_val_text = self.tokenizer(
+                                [val_text], 
+                                truncation=self.model_config.truncation,
+                                padding=self.model_config.padding,
+                                return_tensor='pt'
+                            )
+        logits = self.model(tokenized_val_text)
+        prediction = F.softmax(logits, dim=1)
+        y_pred = torch.argmax(prediction).numpy()
+        y_true = self.ct_dataset['val']['label'][index]
+        y_preds.append(y_pred)
+        y_trues.append(y_true)
+    
+    return confusion_matrix(y_trues, y_preds, labels=labels)
 
   # ------------------ Embedding Similarity ------------------ #
   def get_embedding_similarity(self, topic, document):
@@ -167,6 +241,7 @@ class CTMatch:
       topic_emb = np.mean(topic_last_hidden, axis=0)
       doc_emb = np.mean(doc_last_hidden, axis=0)
       return dot(topic_emb, doc_emb)/(norm(topic_emb) * norm(doc_emb))
+
 
 
 
@@ -205,11 +280,13 @@ if __name__ == '__main__':
       max_length=512,
       batch_size=16,
       learning_rate=2e-5,
-      num_train_epochs=3,
+      train_epochs=3,
       weight_decay=0.01,
       warmup_steps=500,
       splits={"train":0.8, "val":0.1}
     )
 
     train_ctmatch_classifier(config)
+
+
 

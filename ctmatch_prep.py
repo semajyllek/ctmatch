@@ -1,13 +1,14 @@
 
 from typing import Dict, List, NamedTuple, Optional, Set, Tuple, Union
 import ct_data_paths
+import random
 import json
 
-from ctmatch_utils import get_processed_data, truncate
 from ctproc.proc import CTConfig, CTProc, CTDocument, CTTopic
-from ctproc.scripts.vis_scripts import (
-  analyze_test_rels
-)
+from ctproc.scripts.vis_scripts import analyze_test_rels
+from ctmatch_utils import get_processed_data, truncate
+import eda
+
 
 
 
@@ -22,7 +23,9 @@ class DataConfig(NamedTuple):
 	prepend_elig_age: bool = True
 	prepend_elig_gender: bool = True
 	include_only: bool = False
+	downsample_zeros_n: Optional[int] = None
 	sep: str = '[SEP]'
+	llm_prep: bool = False
 
 
 
@@ -105,7 +108,7 @@ def prep_dataset(
 	
 
 	# get set of all relevant doc ids
-	_, rel_dict, all_qrelled_docs = analyze_test_rels(rel_path)
+	rel_type_dict, rel_dict, all_qrelled_docs = analyze_test_rels(rel_path)
 	
 	# get path to processed docs (already got topic path)
 	doc_tuples, _ = get_data_tuples(dconfig.trec_or_kz)
@@ -115,26 +118,35 @@ def prep_dataset(
 	print(len(id2doc), len(all_qrelled_docs))
 	
 	missing_docs = set()
+	skipped = 0
 
 	# save combined triples of doc, topic, relevancy score
 	with open(dconfig.save_path, 'w') as f:
+		print(f"saving to: {dconfig.save_path}")
+
 		for topic_id in rel_dict:
 			for doc_id in rel_dict[topic_id]:
-					if doc_id in id2doc:
-						combined = create_combined_doc(
-							id2doc[doc_id], id2topic[topic_id], 
-							rel_dict[topic_id][doc_id], 
-						    dconfig=dconfig
-						)
+				label = rel_dict[topic_id][doc_id]	
+				if downsample_zero(label, rel_type_dict['0'], dconfig):
+					skipped += 1
+					continue
+					
+				if doc_id in id2doc:
+					combined = create_combined_doc(
+						id2doc[doc_id], 
+						id2topic[topic_id], 
+						label, 
+						dconfig=dconfig
+					)
 
-						# save to file as jsonl
-						f.write(json.dumps(combined))
-						f.write('\n')
-					else:
-						missing_docs.add(doc_id)
+					# save to file as jsonl
+					f.write(json.dumps(combined))
+					f.write('\n')
+				else:
+					missing_docs.add(doc_id)
 
 
-	print(f"number of docs missing: {len(missing_docs)}")
+	print(f"number of docs missing: {len(missing_docs)}, number of zeros skipped: {skipped}")
 	for md in missing_docs:
 		print(md)
 
@@ -160,6 +172,11 @@ def create_combined_doc(
 
 
 
+def downsample_zero(label: str, zero_ct: int, dconfig: DataConfig) -> bool:
+	if dconfig.downsample_zeros_n is not None:
+		if (label == 0) and (random.random()  >  (dconfig.downsample_zeros_n / zero_ct)):
+			return True
+	return False
 
 
 def prep_topic_text(topic: Dict[str, Union[List[str], str, float]], dconfig: DataConfig) -> str:
@@ -186,11 +203,17 @@ def prep_doc_text(doc: Dict[str, Union[List[str], str, float]], dconfig: DataCon
 		doc_inc = f"{doc['elig_gender']} {dconfig.sep} {doc_inc}"
 
 	if dconfig.prepend_elig_age:
-		doc_inc = f"{doc['elig_min_age']}-{doc['elig_max_age']} {dconfig.sep} {doc_inc}"
+		if dconfig.llm_prep:
+			doc_inc = f"A person who is between {doc['elig_min_age']}-{doc['elig_max_age']} years old who meets the following Inclusion Criteria: {doc_inc}"
+		else:
+			doc_inc = f"eligible ages (years): {doc['elig_min_age']}-{doc['elig_max_age']}, {dconfig.sep} {doc_inc}"
 
 	# combine criteria into single string
 	if dconfig.include_only:
 		return doc_inc
+	
+	if dconfig.llm_prep:
+		return f"{doc_inc} and does not meet these Exclusion Criteria: {doc_exc}"
 	return f"{doc_inc} {dconfig.sep} {doc_exc}"
 
 	
@@ -236,7 +259,7 @@ def get_doc_and_topic_mappings(all_qrelled_docs: Set[str], doc_tuples: List[Tupl
 	# get all processed docs
 	id2doc = dict()
 	for _, processed_doc_path in doc_tuples:
-		print(f"gettting docs from {processed_doc_path}")
+		print(f"getting docs from {processed_doc_path}")
 		for doc in get_processed_data(processed_doc_path):
 			if doc['id'] in all_qrelled_docs:
 				id2doc[doc['id']] = doc
@@ -250,19 +273,18 @@ def get_doc_and_topic_mappings(all_qrelled_docs: Set[str], doc_tuples: List[Tupl
 
 if __name__ == '__main__':
 	# proc_docs_and_topics('trec')
-	# explore_trec_data(part=2, rand_print=0.001) # select part 1-5 (~70k docs per part)
-	# explore_kz_data(rand_print=0.00001) # all in one file (~200k docs)
+	# eda.explore_trec_data(part=2, rand_print=0.001) # select part 1-5 (~70k docs per part)
+	# eda.explore_kz_data(rand_print=0.00001) # all in one file (~200k docs)
 
 	dconfig = DataConfig(
 		trec_or_kz='kz',
 		save_path=ct_data_paths.KZ_ML_PATH,
-		max_inc_len=100,
-		max_exc_len=100,
-		prepend_elig_gender=False
+		downsample_zeros_n=600,
+		max_topic_len=50,
+		max_inc_len=50,
+		sep='[SEP]',
 	)
 	prep_dataset(dconfig)
 	# explore_prepped(ct_data_paths.TREC_ML_PATH)
 
-
-					
 

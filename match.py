@@ -85,6 +85,7 @@ class CTMatch:
             self.train_dataloader, self.val_dataloader = self.get_dataloaders()
             self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
             print(f"Using device: {self.device}")
+            self.model = self.model.to(self.device)
 
 
 
@@ -116,8 +117,9 @@ class CTMatch:
             self.model.train()
             total_train_loss = 0
             total_train_acc  = 0
-            for batch_idx, (pair_token_ids, mask_ids, seg_ids, y) in enumerate(self.train_dataloader):
+            for _, (pair_token_ids, mask_ids, seg_ids, y) in enumerate(self.train_dataloader):
                 self.optimizer.zero_grad()
+                print(self.device)
                 pair_token_ids = pair_token_ids.to(self.device)
                 mask_ids = mask_ids.to(self.device)
                 seg_ids = seg_ids.to(self.device)

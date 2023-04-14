@@ -2,6 +2,8 @@
 
 from transformers import AutoTokenizer,  AutoModelForSequenceClassification, Trainer, TrainingArguments, get_scheduler
 from datasets import load_dataset, ClassLabel, Dataset, Features, Value
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.metrics import confusion_matrix
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
@@ -13,6 +15,7 @@ from numpy import dot
 from torch import nn
 import numpy as np
 import evaluate
+import spacy
 import torch
 
 from ctmatch.ctmatch_utils import compute_metrics, train_test_val_split
@@ -42,19 +45,19 @@ class WeightedLossTrainer(Trainer):
 
 
 class ModelConfig(NamedTuple):
-  data_path: Path
-  model_checkpoint: str
-  max_length: int
-  padding: str
-  truncation: bool
-  batch_size: int
-  learning_rate: float
-  train_epochs: int
-  weight_decay: float
-  warmup_steps: int
-  seed: int
-  splits: Dict[str, float]
-  output_dir: Optional[str] = None
+    data_path: Path
+    model_checkpoint: str
+    max_length: int
+    padding: str
+    truncation: bool
+    batch_size: int
+    learning_rate: float
+    train_epochs: int
+    weight_decay: float
+    warmup_steps: int
+    seed: int
+    splits: Dict[str, float]
+    output_dir: Optional[str] = None
 
 
   
@@ -66,9 +69,13 @@ class CTMatch:
         self.ct_dataset = self.load_data()
         self.ct_dataset_df = self.ct_dataset["train"].to_pandas()
         self.optimizer = None
-        self.lr_schedule = None
+        self.lr_scheduler = None
         self.num_training_steps = self.model_config.train_epochs * len(self.ct_dataset['train'])
         self.model = self.load_model()
+
+        # embedding attrs
+        self._spacy_model = None
+        self._tfidf_model = None
         
         if self.trainer is False:
             self.train_dataloader, self.val_dataloader = self.get_dataloaders()
@@ -169,7 +176,7 @@ class CTMatch:
         )
         self.optimizer = AdamW(self.model.parameters(), lr=self.model_config.learning_rate, weight_decay=self.model_config.weight_decay)
         self.num_training_steps = self.model_config.train_epochs * len(self.ct_dataset['train'])
-        self.lr_schedule = get_scheduler(
+        self.lr_scheduler = get_scheduler(
             name="linear", optimizer=self.optimizer, num_warmup_steps=0, num_training_steps=self.num_training_steps
         )
 
@@ -248,8 +255,34 @@ class CTMatch:
         return dot(topic_emb, doc_emb)/(norm(topic_emb) * norm(doc_emb))
 
 
+    @property
+    def spacy_model(self):
+        return self._spacy_model
 
+    @spacy_model.getter
+    def spacy_model(self):   
+        if self._spacy_model is None:
+            self._spacy_model = spacy.load("en_core_web_md")
+        return self._spacy_model
+    
+    @property
+    def tfidf_model(self):
+        return self._tfidf_model
 
+    @tfidf_model.getter
+    def tfidf_model(self):
+        if self._tfidf_model is None:
+            self._tfidf_model = TfidfVectorizer()
+        return self.tfidf_model
+
+    def get_spacy_embedding_similarity(self, topic, document):
+        topic_doc = self.spacy_model(topic)
+        doc_doc = self.spacy_model(document)
+        return topic_doc.similarity(doc_doc)
+    
+    def get_tfidf_similarity(self, topic, document):
+        tfidf_matrix = self.tfidf_model.fit_transform([topic, document])
+        return cosine_similarity(tfidf_matrix[0:1], tfidf_matrix)[0][1]
 
 
 

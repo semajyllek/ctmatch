@@ -221,24 +221,17 @@ class CTMatch:
         
 
     def get_confusion_matrix(self):
-        labels = self.ct_dataset['train'].features["label"].names
-        
         y_preds = []  
         y_trues = []
-        for index, val_text in enumerate(self.ct_dataset['validation']['texts']):
-            tokenized_val_text = self.tokenizer(
-                                    [val_text], 
-                                    truncation=self.model_config.truncation,
-                                    padding=self.model_config.padding,
-                                    return_tensor='pt'
-                                )
-            logits = self.model(tokenized_val_text)
+        for example in self.ct_dataset['validation']:
+            logits = self.model(example['input_ids'])
             prediction = F.softmax(logits, dim=1)
             y_pred = torch.argmax(prediction).numpy()
-            y_true = self.ct_dataset['val']['label'][index]
+            y_true = example['label']
             y_preds.append(y_pred)
             y_trues.append(y_true)
     
+        labels = self.ct_dataset['train'].features["label"].names
         return confusion_matrix(y_trues, y_preds, labels=labels)
 
     # ------------------ Embedding Similarity ------------------ #

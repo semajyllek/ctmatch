@@ -220,7 +220,7 @@ class CTMatch:
         )
         
 
-    def build_confusion_matrix(self):
+    def get_confusion_matrix(self):
         labels = self.ct_dataset['train'].features["label"].names
         
         y_preds = []  

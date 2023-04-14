@@ -233,16 +233,10 @@ class CTMatch:
             logging_steps=len(self.ct_dataset["train"]) // self.model_config.batch_size,
         )
         
-
     def get_sklearn_metrics(self):
-        y_preds = list(self.trainer.predict(self.ct_dataset["validation"]).predictions.argmax(axis=1))
+        y_preds = list(self.trainer.predict(ctm.ct_dataset["validation"]).predictions.argmax(axis=1))
         y_trues = list(self.ct_dataset["validation"]["label"])
-        labels = self.ct_dataset['train'].features['label'].names
-        return confusion_matrix(y_trues, y_preds, labels=labels), classification_report(y_trues, y_preds, labels=labels)
-
-
-
-
+        return confusion_matrix(y_trues, y_preds), classification_report(y_trues, y_preds)
 
 
     # ------------------ Embedding Similarity ------------------ #

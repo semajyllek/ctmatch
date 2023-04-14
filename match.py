@@ -225,7 +225,7 @@ class CTMatch:
         
         y_preds = []  
         y_trues = []
-        for index, val_text in enumerate(self.ct_dataset['val']['texts']):
+        for index, val_text in enumerate(self.ct_dataset['validation']['texts']):
             tokenized_val_text = self.tokenizer(
                                     [val_text], 
                                     truncation=self.model_config.truncation,

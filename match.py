@@ -237,7 +237,7 @@ class CTMatch:
     def get_sklearn_metrics(self):
         y_preds = list(self.trainer.predict(self.ct_dataset["validation"]).predictions.argmax(axis=1))
         y_trues = list(self.ct_dataset["validation"]["label"])
-        labels = self.ct_dataset['train']["label"].names
+        labels = self.ct_dataset['train'].features['label'].names
         return confusion_matrix(y_trues, y_preds, labels=labels), classification_report(y_trues, y_preds, labels=labels)
 
 

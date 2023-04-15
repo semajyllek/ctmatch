@@ -120,6 +120,8 @@ class CTMatch:
                 self.optimizer.step()
                 self.lr_scheduler.step()
                 self.optimizer.zero_grad()
+
+                self.torch_eval()
                 progress_bar.update(1)
             
 
@@ -146,7 +148,7 @@ class CTMatch:
             predictions = torch.argmax(logits, dim=-1)
             metric.add_batch(predictions=predictions, references=batch["labels"])
 
-        metric.compute(average='weighted')
+        print(metric.compute(average='weighted'))
 
 
 

@@ -103,75 +103,25 @@ class CTMatch:
 
      # ------------------ native torch training loop ------------------ #
     def get_dataloaders(self) -> Tuple[DataLoader, DataLoader]:
-        torch_train_data = self.load_torch_data(split='train')
-        torch_val_data = self.load_torch_data(split='validation')
-        train_dataloader = DataLoader(torch_train_data, shuffle=True, batch_size=self.model_config.batch_size)
-        val_dataloader = DataLoader(torch_val_data, batch_size=self.model_config.batch_size)
+        train_dataloader = DataLoader(self.ct_dataset['train'], shuffle=True, batch_size=self.model_config.batch_size)
+        val_dataloader = DataLoader(self.ct_dataset['validate'], batch_size=self.model_config.batch_size)
         return train_dataloader, val_dataloader
 
     def torch_train(self):
         progress_bar = tqdm(range(self.num_training_steps))
-        for _ in range(self.model_config.train_epochs):
-            self.model.train()
-            total_train_loss = 0
-            total_train_acc  = 0
-            for _, (pair_token_ids, mask_ids, seg_ids, y) in enumerate(self.train_dataloader):
-                self.optimizer.zero_grad()
-                print(self.device)
-                pair_token_ids = pair_token_ids.to(self.device)
-                mask_ids = mask_ids.to(self.device)
-                seg_ids = seg_ids.to(self.device)
-                labels = y.to(self.device)
-
-
-                loss, prediction = self.model(
-                    pair_token_ids, 
-                    token_type_ids=seg_ids, 
-                    attention_mask=mask_ids, 
-                    labels=labels
-                ).values()
-
-
-                acc = self.multi_acc(prediction, labels)
+        self.model.train()
+        for epoch in range(self.model_config.train_epochs):
+            for batch in self.train_dataloader:
+                batch = {k: v.to(self.device) for k, v in batch.items()}
+                outputs = self.model(**batch)
+                loss = outputs.loss
                 loss.backward()
+
                 self.optimizer.step()
                 self.lr_scheduler.step()
-      
-                total_train_loss += loss.item()
-                total_train_acc  += acc.item()
-                progress_bar.update(1)
-                
-            train_acc = total_train_acc / len(self.train_dataloader)
-            train_loss = total_train_loss / len(self.train_dataloader)
-            print(f"Train loss: {train_loss:.3f}, Train acc: {train_acc:.3f}")
-            self.torch_eval()
-            
-
-    def torch_eval(self):
-        self.model.eval()
-        total_val_acc  = 0
-        total_val_loss = 0
-        with torch.no_grad():
-            for _, (pair_token_ids, mask_ids, seg_ids, y) in enumerate(self.val_dataloader):
                 self.optimizer.zero_grad()
-                pair_token_ids = pair_token_ids.to(self.device)
-                mask_ids = mask_ids.to(self.device)
-                seg_ids = seg_ids.to(self.device)
-                labels = y.to(self.device)
-        
-                loss, prediction = self.model(pair_token_ids, 
-                             token_type_ids=seg_ids, 
-                             attention_mask=mask_ids, 
-                             labels=labels).values()
-        
-                acc = self.multi_acc(prediction, labels)
-
-                total_val_loss += loss.item()
-                total_val_acc  += acc.item()
-
-        val_acc  = total_val_acc/len(self.val_dataloader)
-        val_loss = total_val_loss/len(self.val_dataloader)
-        print(f"val_acc: {val_acc}, val_loss: {val_loss}")
+                progress_bar.update(1)
+            
 
             
                 
@@ -281,6 +231,9 @@ class CTMatch:
         self.ct_dataset = self.ct_dataset.map(self.tokenize_function, batched=True)
 
 
+
+
+
     # ------------------ Model Loading ------------------ #
     def load_model(self):
         id2label, label2id = self.get_label_mapping()
@@ -289,11 +242,10 @@ class CTMatch:
             num_labels=3,                                    # makes the last head be replaced with a linear layer with 3 outputs
             id2label=id2label, label2id=label2id
         )
+        
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         print(f"Using device: {self.device}")
-        if not self.model_config.use_trainer:
-            self.model = self.model.to(self.device)
-            
+       
         self.optimizer = AdamW(self.model.parameters(), lr=self.model_config.learning_rate, weight_decay=self.model_config.weight_decay)
         self.num_training_steps = self.model_config.train_epochs * len(self.ct_dataset['train'])
         self.lr_scheduler = get_scheduler(
@@ -305,6 +257,8 @@ class CTMatch:
 
         if self.model_config.use_trainer:
             self.trainer = self.get_trainer()
+        else:
+            self.model = self.model.to(self.device)
 
         return self.model
 

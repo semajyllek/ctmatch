@@ -278,7 +278,11 @@ class CTMatch:
         if self.model_config.use_trainer:
             y_preds = list(self.trainer.predict(self.ct_dataset["validation"]).predictions.argmax(axis=1))
         else:
-            raise NotImplementedError("Only trainer is supported for sklearn metrics")
+            y_preds = []
+            for input_ids in self.ct_dataset['validation']['input_ids']:
+                y_pred = self.model(input_ids).logits.argmax().item()
+                y_preds.append(y_pred)
+         
         y_trues = list(self.ct_dataset["validation"]["label"])
         return confusion_matrix(y_trues, y_preds), classification_report(y_trues, y_preds)
 

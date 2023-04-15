@@ -1,12 +1,9 @@
 
-
+from typing import Dict, Tuple
 from transformers import AutoTokenizer,  AutoModelForSequenceClassification, Trainer, TrainingArguments, get_scheduler
 from datasets import load_dataset, ClassLabel, Dataset, Features, Value
 from sklearn.metrics import confusion_matrix, classification_report
-from torch.utils.data import Dataset, TensorDataset, DataLoader
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-from torch.nn.utils.rnn import pad_sequence
+from torch.utils.data import Dataset, DataLoader
 import torch.nn.functional as F
 from torch.optim import AdamW
 from numpy.linalg import norm
@@ -19,8 +16,13 @@ import evaluate
 import spacy
 import torch
 
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn import svm
+
 from ctmatch.ctmatch_utils import compute_metrics, train_test_val_split
-from typing import Dict, NamedTuple, Optional, Tuple
+from ctmatch.model_config import ModelConfig
+
 
 
 
@@ -43,26 +45,6 @@ class WeightedLossTrainer(Trainer):
     loss = loss_func(logits, labels)
     return (loss, outputs) if return_outputs else loss
 
-
-
-class ModelConfig(NamedTuple):
-    data_path: Path
-    model_checkpoint: str
-    max_length: int
-    padding: str
-    truncation: bool
-    batch_size: int
-    learning_rate: float
-    train_epochs: int
-    weight_decay: float
-    warmup_steps: int
-    seed: int
-    splits: Dict[str, float]
-    output_dir: Optional[str] = None
-    convert_snli: bool = False
-    use_trainer: bool = True
-
-
   
 
 class CTMatch:
@@ -76,10 +58,12 @@ class CTMatch:
         self.trainer = None
         self.num_training_steps = self.model_config.train_epochs * len(self.ct_dataset['train'])
         self.model = self.load_model()
+        self.gen_model = self.model_config.gen_model
 
         # embedding attrs
         self._spacy_model = None
         self._tfidf_model = None
+        self.doc_embeddings = None
         
         if not self.model_config.use_trainer:
             self.train_dataloader, self.val_dataloader = self.get_dataloaders()
@@ -286,8 +270,40 @@ class CTMatch:
         y_trues = list(self.ct_dataset["validation"]["label"])
         return confusion_matrix(y_trues, y_preds), classification_report(y_trues, y_preds)
 
+    def l2_normalize(self, x):
+        return x / np.sqrt(np.sum(np.multiply(x, x), keep_dims=True))
+
 
     # ------------------ Embedding Similarity ------------------ #
+    def get_doc_embeddings(self, split='train'):
+        doc_embeddings = []
+        for example in self.ct_dataset:
+            doc_encoding = ctm.tokenizer_function(example['doc'])
+            doc_embeddings.append(self.model(**doc_encoding))
+
+        doc_embeddings = self.l2_normalize(np.array(doc_embeddings))
+        self.doc_embeddings = doc_embeddings
+
+
+    def get_svm_neighbors(self, query: str, top_n: int = 10):
+        if self.doc_embeddings is None:
+            self.get_doc_embeddings()
+            
+        # build and train svm
+        query_embedding = self.model(self.tokenize_function(query))
+        x = np.concatenate([query_embedding, self.doc_embeddings])
+        y = np.zeros(len(self.doc_embeddings) + 1)
+        y[0] = query_embedding
+        clf = svm.LinearSVC(class_weight='balanced', verbose=False, max_iter=10000, tol=1e-6, C=0.1)
+        clf.fit(x, y) 
+        
+        # infer for similarities
+        similarities = clf.decision_function(x)
+        sorted_neighbors = np.argsort(-similarities)
+        return sorted_neighbors[:top_n]
+            
+
+
     def get_embedding_similarity(self, topic, document):
         topic_input = self.tokenizer(topic, return_tensors='pt').to('cuda')
         doc_input = self.tokenizer(document, return_tensors='pt').to('cuda')
@@ -319,6 +335,23 @@ class CTMatch:
         if self._tfidf_model is None:
             self._tfidf_model = TfidfVectorizer()
         return self.tfidf_model
+    
+    def get_sim_model(self, model):
+        if model == 'spacy':
+            return self.get_spacy_embedding_similarity
+        elif model == 'tfidf':
+            return self.get_tfidf_similarity
+        else:
+            raise ValueError(f"model {model} not supported")
+
+    def get_top_n_similarities(self, topic, model: str, n=10):
+        sim_model = self.get_sim_model(model)
+        similarities = {}
+        for i, doc in enumerate(self.doc_embeddings):
+            similarities[i] = sim_model(topic, doc)
+
+        sorted_similarities = sorted(similarities.items(), key=lambda x: x[1], reverse=True)
+        return sorted_similarities[:n]
 
     def get_spacy_embedding_similarity(self, topic, document):
         topic_doc = self.spacy_model(topic)
@@ -328,6 +361,8 @@ class CTMatch:
     def get_tfidf_similarity(self, topic, document):
         tfidf_matrix = self.tfidf_model.fit_transform([topic, document])
         return cosine_similarity(tfidf_matrix[0:1], tfidf_matrix)[0][1]
+    
+
 
 
 

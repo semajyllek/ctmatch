@@ -104,7 +104,7 @@ class CTMatch:
      # ------------------ native torch training loop ------------------ #
     def get_dataloaders(self) -> Tuple[DataLoader, DataLoader]:
         train_dataloader = DataLoader(self.ct_dataset['train'], shuffle=True, batch_size=self.model_config.batch_size)
-        val_dataloader = DataLoader(self.ct_dataset['validate'], batch_size=self.model_config.batch_size)
+        val_dataloader = DataLoader(self.ct_dataset['validation'], batch_size=self.model_config.batch_size)
         return train_dataloader, val_dataloader
 
     def torch_train(self):

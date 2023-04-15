@@ -162,47 +162,10 @@ class CTMatch:
         self.ct_dataset.rename_column("label", "labels")
         self.ct_dataset.rename_column("topic", "sentence1")
         self.ct_dataset.rename_column("doc", "sentence2")
+        self.ct_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'token_type_ids', 'labels'])
         return self.ct_dataset
- 
-    def load_torch_data(self, split: str = 'train') -> Dataset:
-        token_ids = []
-        mask_ids = []
-        seg_ids = []
-        y = []
-
-        ct_df = self.ct_dataset[split].to_pandas()
-
-        topic_list = ct_df['topic'].to_list()
-        doc_list = ct_df['doc'].to_list()
-        label_list = ct_df['label'].to_list()
-
-        for (topic, doc, label) in zip(topic_list, doc_list, label_list):
-            topic_id = self.tokenizer.encode(topic, add_special_tokens = False, max_length=self.model_config.max_length, truncation=self.model_config.truncation)
-            doc_id = self.tokenizer.encode(doc, add_special_tokens = False, max_length=self.model_config.max_length, truncation=self.model_config.truncation)
-            pair_token_ids = [self.tokenizer.cls_token_id] + topic_id + [self.tokenizer.sep_token_id] + doc_id + [self.tokenizer.sep_token_id]
-            topic_len = len(topic_id)
-            doc_len = len(doc_id)
-
-            segment_ids = torch.tensor([0] * (topic_len + 2) + [1] * (doc_len + 1))  # sentence 0 and sentence 1
-            attention_mask_ids = torch.tensor([1] * (topic_len + doc_len + 3))       # mask padded values
-
-            token_ids.append(torch.tensor(pair_token_ids))
-            seg_ids.append(segment_ids)
-            mask_ids.append(attention_mask_ids)
-            y.append(label)
-            
-        token_ids = pad_sequence(token_ids, batch_first=True)
-        mask_ids = pad_sequence(mask_ids, batch_first=True)
-        seg_ids = pad_sequence(seg_ids, batch_first=True)
-        y = torch.tensor(y)
-        dataset = TensorDataset(token_ids, mask_ids, seg_ids, y)
-        return dataset
-
-
 
     
-
-
     def add_features(self) -> None:
         if self.model_config.convert_snli:
             names = ['contradiction', 'entailment', 'neutral']

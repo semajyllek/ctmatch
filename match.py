@@ -159,10 +159,10 @@ class CTMatch:
         self.ct_dataset = train_test_val_split(self.ct_dataset, self.model_config.splits, self.model_config.seed)
         self.add_features()
         self.tokenize_dataset()
-        self.ct_dataset.rename_column("label", "labels")
-        self.ct_dataset.rename_column("topic", "sentence1")
-        self.ct_dataset.rename_column("doc", "sentence2")
-        self.ct_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'token_type_ids', 'labels'])
+        # self.ct_dataset = self.ct_dataset.rename_column("label", "labels")
+        # self.ct_dataset = self.ct_dataset.rename_column("topic", "sentence1")
+        # self.ct_dataset = self.ct_dataset.rename_column("doc", "sentence2")
+        self.ct_dataset.set_format(type='torch', columns=['doc', 'label', 'topic', 'input_ids', 'attention_mask'])
         return self.ct_dataset
 
     

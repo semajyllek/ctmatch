@@ -163,7 +163,7 @@ class CTMatch:
         # self.ct_dataset = self.ct_dataset.rename_column("topic", "sentence1")
         # self.ct_dataset = self.ct_dataset.rename_column("doc", "sentence2")
         self.ct_dataset.set_format(type='torch', columns=['doc', 'label', 'topic', 'input_ids', 'attention_mask'])
-        if not self.use_trainer:
+        if not self.model_config.use_trainer:
             self.ct_dataset = self.ct_dataset.rename_column("label", "labels")
             self.ct_dataset = self.ct_dataset.remove_columns(['doc', 'topic'])
 

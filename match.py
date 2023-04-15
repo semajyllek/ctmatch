@@ -146,7 +146,7 @@ class CTMatch:
             predictions = torch.argmax(logits, dim=-1)
             metric.add_batch(predictions=predictions, references=batch["labels"])
 
-        metric.compute(average='weghted')
+        metric.compute(average='weighted')
 
 
 

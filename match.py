@@ -159,12 +159,11 @@ class CTMatch:
         self.ct_dataset = train_test_val_split(self.ct_dataset, self.model_config.splits, self.model_config.seed)
         self.add_features()
         self.tokenize_dataset()
-        # self.ct_dataset = self.ct_dataset.rename_column("label", "labels")
+        self.ct_dataset = self.ct_dataset.rename_column("label", "labels")
         # self.ct_dataset = self.ct_dataset.rename_column("topic", "sentence1")
         # self.ct_dataset = self.ct_dataset.rename_column("doc", "sentence2")
         self.ct_dataset.set_format(type='torch', columns=['doc', 'label', 'topic', 'input_ids', 'attention_mask'])
         if not self.model_config.use_trainer:
-            self.ct_dataset = self.ct_dataset.rename_column("label", "labels")
             self.ct_dataset = self.ct_dataset.remove_columns(['doc', 'topic'])
 
         return self.ct_dataset
@@ -231,7 +230,7 @@ class CTMatch:
 
 
     def get_label_mapping(self):
-        id2label = {idx:self.ct_dataset['train'].features["label"].int2str(idx) for idx in range(3)}
+        id2label = {idx:self.ct_dataset['train'].features["labels"].int2str(idx) for idx in range(3)}
         label2id = {v:k for k, v in id2label.items()}
         return id2label, label2id
 

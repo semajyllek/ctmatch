@@ -37,16 +37,16 @@ def add_condition_category_labels(trec_or_kz: str = 'trec', model_checkpoint=CAT
 			print(f'starting at: {i}')
 			while i < len(data):
 				next_chunk_end = min(len(data), i+chunk_size)
-				hundred_conditions = [' '.join(doc['condition']).lower() for doc in data[i:next_chunk_end]]
-				categories = gen_categories(pipe, hundred_conditions)
-				print(f"generated {len(categories)} categories for {len(hundred_conditions)} conditions...")
+				conditions = [' '.join(doc['condition']).lower() for doc in data[i:next_chunk_end]]
+				categories = gen_categories(pipe, conditions, len=len())
+				print(f"generated {len(categories)} categories for {len(conditions)} conditions...")
 				for j in range(i, next_chunk_end):
 					data[j]['category'] = categories[j - i]
 					f.write(json.dumps(data[j]))
 					f.write('\n')
 
 				
-				print(f"{i=}, doc condition: {data[i]['condition']}, generated category: {data[i]['category']}")
+				print(f"{i=}, doc condition: {data[i]['condition']}, generated category: {data[i]['category'].items()}")
 				i += chunk_size
 			
 
@@ -58,8 +58,8 @@ def gen_categories(pipe, texts: List[str]) -> str:
 	categories = []
 	for output in pipe(texts, candidate_labels=CT_CATEGORIES):
 		score_dict = {output['labels'][i]:output['scores'][i] for i in range(len(output['labels']))}
-		category = max(score_dict, key=score_dict.get)
-		categories.append(category)
+		#category = max(score_dict, key=score_dict.get)
+		categories.append(score_dict)
 	return categories
 
 

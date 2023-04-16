@@ -229,8 +229,7 @@ class CTMatch:
             train_dataset=self.ct_dataset["train"],
             eval_dataset=self.ct_dataset["validation"],
             tokenizer=self.tokenizer,
-            label_weights=self.get_label_weights(),
-            push_to_hub=self.model_config.push_to_hub
+            label_weights=self.get_label_weights()
         )
 
 
@@ -246,6 +245,7 @@ class CTMatch:
             weight_decay=self.model_config.weight_decay,
             evaluation_strategy="epoch",
             logging_steps=len(self.ct_dataset["train"]) // self.model_config.batch_size,
+            push_to_hub=self.model_config.push_to_hub
         )
         
 

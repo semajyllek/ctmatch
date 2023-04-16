@@ -222,7 +222,7 @@ class CTMatch:
 
     def get_trainer(self):
         return WeightedLossTrainer(
-            name=f"{self.model_config.model_checkpoint}_ctmatch_finetuned",
+            name=self.model_config.name,
             model=self.model,
             optimizers=(self.optimizer, self.lr_scheduler),
             args=self.get_training_args_obj(),
@@ -379,6 +379,7 @@ if __name__ == '__main__':
     scibert_model = 'allenai/scibert_scivocab_uncased'
 
     config = ModelConfig(
+        name='{scibert_model}_ctmatch_finetuned',
         data_path=KZ_DATA,
         model_checkpoint=scibert_model,
         max_length=512,

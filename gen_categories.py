@@ -7,7 +7,7 @@ import json
 CAT_GEN_MODEL = "facebook/bart-large-mnli"
 
 CT_CATEGORIES = [
-    "pulmonary", "cardiac", "gastrointestinal", "renal", "psychological", "neurological", "cancer", "reproductive", "endocrine"
+    "pulmonary", "cardiac", "gastrointestinal", "renal", "psychological", "neurological", "cancer", "reproductive", "endocrine", "other"
 ]
 
 

@@ -1,5 +1,5 @@
 
-from typing import List
+from typing import List, Optional, Tuple
 from ctmatch_utils import get_processed_data
 from ct_data_paths import get_data_tuples
 from transformers import pipeline
@@ -20,12 +20,19 @@ CT_CATEGORIES = [
 GET_ONLY = {'NCT00391586'}
 GET_ONLY = None
 
-def add_condition_category_labels(trec_or_kz: str = 'trec', model_checkpoint=CAT_GEN_MODEL, start: int = 0) -> None:
+def add_condition_category_labels(
+	trec_or_kz: str = 'trec', 
+	model_checkpoint=CAT_GEN_MODEL, 
+	start: int = 0,
+	doc_tuples: Optional[List[Tuple[str, str]]] = None
+) -> None:
 	pipe = pipeline(model=model_checkpoint)
 	chunk_size = 1000
 
 	# open the processed documents and add the category labels
-	doc_tuples, _ = get_data_tuples(trec_or_kz=trec_or_kz)
+	if doc_tuples is None:
+		doc_tuples, _ = get_data_tuples(trec_or_kz=trec_or_kz)
+
 	for _, target in doc_tuples:
 		print(f"reading and writing to: {target}")
 		data = get_processed_data(target, get_only=GET_ONLY)

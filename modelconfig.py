@@ -19,4 +19,5 @@ class ModelConfig(NamedTuple):
     convert_snli: bool = False
     use_trainer: bool = True
     gen_model: str = None
+    num_labels: int = 3
 

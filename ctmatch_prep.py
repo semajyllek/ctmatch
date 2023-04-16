@@ -1,5 +1,5 @@
 
-from typing import Dict, List, NamedTuple, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, NamedTuple, Optional, Set, Tuple, Union
 import ct_data_paths
 import random
 import json
@@ -7,7 +7,6 @@ import json
 from ctproc.proc import CTConfig, CTProc, CTDocument, CTTopic
 from ctproc.scripts.vis_scripts import analyze_test_rels
 from ctmatch_utils import get_processed_data, truncate
-
 
 
 
@@ -27,6 +26,7 @@ class DataConfig(NamedTuple):
 	llm_prep: bool = False
 	first_n_only: Optional[int] = None
 	convert_snli: bool = False
+	infer_category_model: Optional[str] = None
 
 
 
@@ -137,7 +137,7 @@ def prep_dataset(
 						id2doc[doc_id], 
 						id2topic[topic_id], 
 						label, 
-						dconfig=dconfig
+						dconfig=dconfig, 
 					)
 
 					# save to file as jsonl
@@ -156,7 +156,8 @@ def prep_dataset(
 def create_combined_doc(
 	doc, topic, 
 	rel_score, 
-	dconfig: DataConfig
+	dconfig: DataConfig,
+	gen_model: Optional[Any] = None
 ):
 	combined = dict()
 
@@ -165,6 +166,8 @@ def create_combined_doc(
 
 	# get filtered and truncated and SEP tokenized doc text
 	combined['doc'] = prep_doc_text(doc, dconfig)
+	if gen_model is not None:
+		combined['doc_condition_category'] = gen_category(gen_model, ' '.join(doc['condition']))
 
 	# get relevancy score as string 
 	if dconfig.convert_snli:
@@ -287,11 +290,6 @@ def get_doc_and_topic_mappings(all_qrelled_docs: Set[str], doc_tuples: List[Tupl
 	return id2doc, id2topic
 
 
-
-
-
-
-
 if __name__ == '__main__':
 	# proc_docs_and_topics('trec')
 	# eda.explore_trec_data(part=2, rand_print=0.001) # select part 1-5 (~70k docs per part)
@@ -305,5 +303,6 @@ if __name__ == '__main__':
 	)
 	prep_dataset(dconfig)
 	# explore_prepped(ct_data_paths.TREC_ML_PATH)
+
 
 

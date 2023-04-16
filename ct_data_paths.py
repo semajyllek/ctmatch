@@ -1,5 +1,5 @@
 
-
+from typing import List, Tuple
 
 TREC_REL_PATH =  "/Users/jameskelly/Documents/cp/ctmatch/data/trec_data/trec_21_judgments.txt"
 KZ_REL_PATH =  "/Users/jameskelly/Documents/cp/ctmatch/data/kz_data/qrels-clinical_trials.txt"

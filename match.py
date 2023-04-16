@@ -263,7 +263,7 @@ class CTMatch:
                 y_pred = self.model(input_ids).logits.argmax().item()
                 y_preds.append(y_pred)
          
-        y_trues = list(self.ct_dataset["validation"]["label"])
+        y_trues = list(self.ct_dataset["validation"]["labels"])
         return confusion_matrix(y_trues, y_preds), classification_report(y_trues, y_preds)
 
     # ------------------ Embedding Similarity ------------------ #

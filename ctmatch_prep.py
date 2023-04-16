@@ -33,7 +33,7 @@ class DataConfig(NamedTuple):
 
 def proc_docs_and_topics(trec_or_kz: str = 'trec') -> Tuple[Dict[str, Dict[str, str]], Dict[str, Dict[str, str]]]:
 
-	doc_tuples, topic_tuples = get_data_tuples(trec_or_kz)
+	doc_tuples, topic_tuples = ct_data_paths.get_data_tuples(trec_or_kz)
 
 	id2topic = dict()
 	for topic_source, topic_target in topic_tuples:
@@ -82,16 +82,6 @@ def proc_topics(topic_path: str, output_path: str, trec_or_kz: str = 'trec') -> 
 
 
 
-
-def get_data_tuples(trec_or_kz: str = 'trec') -> Tuple[Tuple[str, str], Tuple[str, str]]:
-	if trec_or_kz == 'trec':
-		return ct_data_paths.get_trec_doc_data_tuples(), ct_data_paths.get_trec_topic_data_tuples()
-	return ct_data_paths.get_kz_doc_data_tuples(), ct_data_paths.get_kz_topic_data_tuples()
-
-
-
-
-
 # --------------------------------------------------------------------------------------------------------------- #
 # pre-processing functions to save a form of triples for a particular model spec
 # --------------------------------------------------------------------------------------------------------------- #
@@ -112,7 +102,7 @@ def prep_dataset(
 	rel_type_dict, rel_dict, all_qrelled_docs = analyze_test_rels(rel_path)
 	
 	# get path to processed docs (already got topic path)
-	doc_tuples, _ = get_data_tuples(dconfig.trec_or_kz)
+	doc_tuples, _ = ct_data_paths.get_data_tuples(dconfig.trec_or_kz)
 
 	# get mappings of doc ids to doc dicts and topic ids to topic dicts
 	id2doc, id2topic = get_doc_and_topic_mappings(all_qrelled_docs, doc_tuples, topic_path) 
@@ -157,7 +147,6 @@ def create_combined_doc(
 	doc, topic, 
 	rel_score, 
 	dconfig: DataConfig,
-	gen_model: Optional[Any] = None
 ):
 	combined = dict()
 
@@ -166,8 +155,6 @@ def create_combined_doc(
 
 	# get filtered and truncated and SEP tokenized doc text
 	combined['doc'] = prep_doc_text(doc, dconfig)
-	if gen_model is not None:
-		combined['doc_condition_category'] = gen_category(gen_model, ' '.join(doc['condition']))
 
 	# get relevancy score as string 
 	if dconfig.convert_snli:

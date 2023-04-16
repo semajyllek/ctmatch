@@ -1,6 +1,7 @@
 
-
-from ctmatch_prep import get_data_tuples
+from typing import List
+from ctmatch_utils import get_processed_data
+from ct_data_paths import get_data_tuples
 from transformers import pipeline
 import json
 
@@ -16,36 +17,53 @@ CT_CATEGORIES = [
 # documents of the dataset, including test, because we can assume this is something that is realistic to pre-compute
 # since you have the documents apriori
 # --------------------------------------------------------------------------------------------------------------- #
+GET_ONLY = {'NCT00391586'}
+GET_ONLY = None
 
-
-def add_condition_category_labels(model_checkpoint=CAT_GEN_MODEL, trec_or_kz: str = 'trec') -> None:
-	pipe = pipeline(model_checkpoint)
+def add_condition_category_labels(trec_or_kz: str = 'trec', model_checkpoint=CAT_GEN_MODEL, start: int = 0) -> None:
+	pipe = pipeline(model=model_checkpoint)
+	chunk_size = 1000
 
 	# open the processed documents and add the category labels
-	for _, target in get_data_tuples(trec_or_kz=trec_or_kz):
+	doc_tuples, _ = get_data_tuples(trec_or_kz=trec_or_kz)
+	for _, target in doc_tuples:
 		print(f"reading and writing to: {target}")
-		with open(target, 'r') as f:
-			data = json.load(f)
-
-		for record in data:
-			record['category'] = gen_category(pipe, line['doc']['condition'])
-			print(record['doc'])
-
-		
+		data = get_processed_data(target, get_only=GET_ONLY)
+		print(f"got {len(data)} records from {target}...")
 
 		# overwrite with new records having inferred category feature
 		with open('test_category_data', 'w') as f:
-			for line in data:
-				f.write(json.dumps(line))
-				f.write('\n')
+			i = start
+			print(f'starting at: {i}')
+			while i < len(data):
+				next_chunk_end = min(len(data), i+chunk_size)
+				hundred_conditions = [' '.join(doc['condition']).lower() for doc in data[i:next_chunk_end]]
+				categories = gen_categories(pipe, hundred_conditions)
+				print(f"generated {len(categories)} categories for {len(hundred_conditions)} conditions...")
+				for j in range(i, next_chunk_end):
+					data[j]['category'] = categories[j - i]
+					f.write(json.dumps(data[j]))
+					f.write('\n')
 
+				
+				print(f"{i=}, doc condition: {data[i]['condition']}, generated category: {data[i]['category']}")
+				i += chunk_size
+			
 
-def gen_category(pipe, text: str) -> str:
-	output = pipe(text, candidate_labels=CT_CATEGORIES)
-	score_dict = {output['labels'][i]:output['scores'][i] for i in range(len(output['labels']))}
-	return sorted(score_dict.items, lambda x: x[1], reverse=True)[0][0]
+		
+
+	
+
+def gen_categories(pipe, texts: List[str]) -> str:
+	categories = []
+	for output in pipe(texts, candidate_labels=CT_CATEGORIES):
+		score_dict = {output['labels'][i]:output['scores'][i] for i in range(len(output['labels']))}
+		category = max(score_dict, key=score_dict.get)
+		categories.append(category)
+	return categories
+
 
 
 
 if __name__ == '__main__':
-	add_condition_category_labels('kz')
+	add_condition_category_labels(model_checkpoint=CAT_GEN_MODEL, trec_or_kz='kz')

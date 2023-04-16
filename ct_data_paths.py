@@ -14,6 +14,11 @@ TREC_ML_PATH = '/Users/jameskelly/Documents/cp/ctmatch/data/trec_data/trec_data.
 KZ_ML_PATH = '/Users/jameskelly/Documents/cp/ctmatch/data/kz_data/kz_data.jsonl'
 
 
+def get_data_tuples(trec_or_kz: str = 'trec') -> List[Tuple[str, str]]:
+	if trec_or_kz == 'trec':
+		return get_trec_doc_data_tuples(), get_trec_topic_data_tuples()
+	return get_kz_doc_data_tuples(), get_kz_topic_data_tuples()
+
 
 
 # --------------------------------------------------------------------------------------------------------------- #

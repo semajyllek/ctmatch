@@ -38,7 +38,7 @@ def add_condition_category_labels(trec_or_kz: str = 'trec', model_checkpoint=CAT
 			while i < len(data):
 				next_chunk_end = min(len(data), i+chunk_size)
 				conditions = [' '.join(doc['condition']).lower() for doc in data[i:next_chunk_end]]
-				categories = gen_categories(pipe, conditions, len=len())
+				categories = gen_categories(pipe, conditions)
 				print(f"generated {len(categories)} categories for {len(conditions)} conditions...")
 				for j in range(i, next_chunk_end):
 					data[j]['category'] = categories[j - i]

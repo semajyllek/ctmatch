@@ -1,6 +1,6 @@
 
 from typing import Tuple
-from transformers import AutoTokenizer,  AutoModelForSequenceClassification, Trainer, TrainingArguments, get_scheduler
+from transformers import AutoModelForCausalLM, AutoTokenizer,  AutoModelForSequenceClassification, Trainer, TrainingArguments, get_scheduler
 from datasets import load_dataset, ClassLabel, Dataset, Features, Value
 from sklearn.metrics import confusion_matrix, classification_report
 from torch.utils.data import Dataset, DataLoader
@@ -175,10 +175,13 @@ class CTMatch:
     # ------------------ Model Loading ------------------ #
 
     def get_model(self):
-        id2label, label2id = self.get_label_mapping()
         if self.model_config.num_classes == 0:
-            return AutoModelForSequenceClassification.from_pretrained(self.model_config.model_checkpoint)
+            if self.model_config.model_checkpoint == 'microsoft/biogpt':
+                return AutoModelForCausalLM.from_pretrained(self.model_config.model_checkpoint)
+            else:
+                return AutoModelForSequenceClassification.from_pretrained(self.model_config.model_checkpoint)
         
+        id2label, label2id = self.get_label_mapping()
         return AutoModelForSequenceClassification.from_pretrained(
             self.model_config.model_checkpoint,
             um_labels=self.model_config.num_classes,     # makes the last head be replaced with a linear layer with num_labels outputs (fine-tuning)
@@ -186,9 +189,7 @@ class CTMatch:
         )
         
 
-
     def load_model(self):
-        
         self.model = self.get_model()
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         print(f"Using device: {self.device}")
@@ -270,7 +271,7 @@ class CTMatch:
     def get_doc_embeddings(self, split='train'):
         doc_embeddings = []
         for example in self.ct_dataset:
-            doc_encoding = ctm.tokenizer_function(example['doc'])
+            doc_encoding = self.tokenize_function(example)
             doc_embeddings.append(self.model(**doc_encoding))
 
         doc_embeddings = l2_normalize(np.array(doc_embeddings))
@@ -305,7 +306,7 @@ class CTMatch:
         doc_last_hidden = np.squeeze(doc_output.hidden_states[-1].detach().cpu().numpy(), axis=0)
         topic_emb = np.mean(topic_last_hidden, axis=0)
         doc_emb = np.mean(doc_last_hidden, axis=0)
-        return dot(topic_emb, doc_emb)/(norm(topic_emb) * norm(doc_emb))
+        return np.dot(topic_emb, doc_emb)/(norm(topic_emb) * norm(doc_emb))
 
 
     @property

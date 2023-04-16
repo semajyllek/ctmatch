@@ -2,7 +2,9 @@
 from typing import Any, Dict, List, Optional, Set
 
 from sklearn.metrics import f1_score
+from numpy.linalg import norm
 from datasets import Dataset
+import numpy as np
 import json
 import re
 
@@ -102,6 +104,11 @@ def train_test_val_split(dataset, splits: Dict[str, float], seed: int = 37) -> D
 # computation methods
 #----------------------------------------------------------------#
 
+def l2_normalize(self, x):
+  return x / np.sqrt(np.sum(np.multiply(x, x), keep_dims=True))
+
+def cosine_sim(x_emb, y_emb) -> float:
+    return np.dot(x_emb, y_emb)/(norm(x_emb) * norm(y_emb))
 
 def compute_metrics(pred):
   labels = pred.label_ids

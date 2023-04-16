@@ -1,8 +1,12 @@
 
-from ctmatch.model_config import ModelConfig
+from ctmatch.modelconfig import ModelConfig
 from transformers import set_seed
+from numpy.linalg import norm
+import numpy as np
 import random
 import torch
+
+from ctmatch.ctmatch_utils import cosine_sim
 
 
 
@@ -10,11 +14,12 @@ class GenModel:
     def __init__(self, model_config: ModelConfig):
         self.gen_tokenizer = None
         self.gen_model = None
+        self.model_config = model_config
         self.add_gen_model(model_config.gen_model)
         
 def add_gen_model(self, model_name='biogpt') -> None:
     if model_name == 'biogpt':
-        from transformers import BioGptTokenizer, BioGptForCausalLM,
+        from transformers import BioGptTokenizer, BioGptForCausalLM
         self.gen_tokenizer = BioGptTokenizer.from_pretrained("microsoft/biogpt")
         self.gen_model = BioGptForCausalLM.from_pretrained("microsoft/biogpt")
     elif model_name == 'gpt2':
@@ -57,18 +62,38 @@ def gen_response(self, prompt: str) -> str:
 					)
 	return self.gen_tokenizer.decode(beam_output[0], skip_special_tokens=True)
 
+
+def get_embedding(self, s: str):
+    input = self.gen_tokenizer(s, return_tensors='pt').to('cuda')
+    output = self.gen_model(**input, output_hidden_states=True)
+    input_last_hidden = np.squeeze(output.hidden_states[-1].detach().cpu().numpy(), axis=0)
+    return np.mean(input_last_hidden, axis=0)
+
+
+
 def infer_relevance_from_gen_topic(self, topic, document) -> int:
     pos_example = self.ct_dataset_df.where(self.ct_dataset_df['label'] == '2').sample(1)
     neg_example = self.ct_dataset_df.where(self.ct_dataset_df['label'] == '0').sample(1)
-    
-	# gen pos topic example
-	prompt = f"here is a clinical trial document: {pos_example['doc']}. here is a topic that recieves a 2, or relevant score for this document: {pos_example['topic']}, "
+    prompt = f"here is a clinical trial document: {pos_example['doc']}. here is a topic that recieves a 2, or relevant score for this document: {pos_example['topic']}, "
     prompt += f" here is another clinical trial document: {document}, here is a topic that recieves a 2, or relevant score for this document: "
     pseudo_pos_topic = self.gen_response(prompt)
-    
-	# gen neg topic example
-	prompt = f"here is a clinical trial document: {neg_example['doc']}. here is a topic that recieves a 0, or not relevant score for this document: {neg_example['topic']}, "
+    prompt = f"here is a clinical trial document: {neg_example['doc']}. here is a topic that recieves a 0, or not relevant score for this document: {neg_example['topic']}, "
     prompt += f" here is another clinical trial document: {document}, here is a topic that recieves a 0, or relevant score for this document: "
     pseudo_neg_topic = self.gen_response(prompt)
+    pseudo_pos_topic_embedding = self.get_embedding(pseudo_pos_topic)
+    pseudo_neg_topic_embedding = self.get_embedding(pseudo_neg_topic)
+    topic_embedding = norm(self.get_embedding(topic))
+    return self.infer_rel_from_topic_similarity(pseudo_neg_topic_embedding, pseudo_pos_topic_embedding, topic_embedding)
+
+def infer_rel_from_topic_similarity(self, pos_topic, neg_topic, topic, neutral_margin: float = 0.001) -> int:
+    pos_dist = self.cosine_sim(pos_topic, topic)
+    neg_dist = self.cosine_sim(neg_topic, topic)
+    if pos_dist > neg_dist:
+        if pos_dist < neutral_margin:
+            return 1
+        return 2
+    else:
+        if pos_dist < neutral_margin:
+            return 1
+        return 0
     
-	return self.infer_rel_from_topic_similarity(pseudo_pos_topic, pseudo_neg_topic, topic)

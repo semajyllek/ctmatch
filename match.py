@@ -8,7 +8,6 @@ from torch.optim import AdamW
 from numpy.linalg import norm
 from tqdm.auto import tqdm
 from pathlib import Path
-from numpy import dot
 from torch import nn
 import numpy as np
 import evaluate
@@ -19,7 +18,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn import svm
 
-from ctmatch.ctmatch_utils import compute_metrics, train_test_val_split
+from ctmatch.ctmatch_utils import compute_metrics, train_test_val_split, l2_normalize
 from ctmatch.modelconfig import ModelConfig
 
 
@@ -258,10 +257,6 @@ class CTMatch:
         y_trues = list(self.ct_dataset["validation"]["label"])
         return confusion_matrix(y_trues, y_preds), classification_report(y_trues, y_preds)
 
-    def l2_normalize(self, x):
-        return x / np.sqrt(np.sum(np.multiply(x, x), keep_dims=True))
-
-
     # ------------------ Embedding Similarity ------------------ #
     def get_doc_embeddings(self, split='train'):
         doc_embeddings = []
@@ -269,7 +264,7 @@ class CTMatch:
             doc_encoding = ctm.tokenizer_function(example['doc'])
             doc_embeddings.append(self.model(**doc_encoding))
 
-        doc_embeddings = self.l2_normalize(np.array(doc_embeddings))
+        doc_embeddings = l2_normalize(np.array(doc_embeddings))
         self.doc_embeddings = doc_embeddings
 
 

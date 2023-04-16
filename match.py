@@ -175,10 +175,10 @@ class CTMatch:
     # ------------------ Model Loading ------------------ #
     def get_model(self):
         if self.model_config.num_classes == 0:
-            if self.model_config.model_checkpoint == 'microsoft/biogpt':
-                return AutoModelForCausalLM.from_pretrained(self.model_config.model_checkpoint)
-            else:
-                return AutoModelForSequenceClassification.from_pretrained(self.model_config.model_checkpoint)
+            return AutoModelForSequenceClassification.from_pretrained(self.model_config.model_checkpoint)
+        
+        if self.model_config.model_checkpoint == 'microsoft/biogpt':
+            return AutoModelForCausalLM.from_pretrained(self.model_config.model_checkpoint)
         
         id2label, label2id = self.get_label_mapping()
         return AutoModelForSequenceClassification.from_pretrained(

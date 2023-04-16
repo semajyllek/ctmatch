@@ -222,6 +222,7 @@ class CTMatch:
 
     def get_trainer(self):
         return WeightedLossTrainer(
+            name=f"{self.model_config.model_checkpoint}_ctmatch_finetuned",
             model=self.model,
             optimizers=(self.optimizer, self.lr_scheduler),
             args=self.get_training_args_obj(),
@@ -229,7 +230,8 @@ class CTMatch:
             train_dataset=self.ct_dataset["train"],
             eval_dataset=self.ct_dataset["validation"],
             tokenizer=self.tokenizer,
-            label_weights=self.get_label_weights()
+            label_weights=self.get_label_weights(),
+            push_to_hub=self.model_config.push_to_hub
         )
 
 

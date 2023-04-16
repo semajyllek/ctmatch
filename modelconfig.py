@@ -20,4 +20,4 @@ class ModelConfig(NamedTuple):
     use_trainer: bool = True
     gen_model: str = None
     num_classes: int = 3
-
+    push_to_hub: bool = False

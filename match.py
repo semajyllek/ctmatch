@@ -173,14 +173,23 @@ class CTMatch:
 
 
     # ------------------ Model Loading ------------------ #
-    def load_model(self):
+
+    def get_model(self):
         id2label, label2id = self.get_label_mapping()
-        self.model = AutoModelForSequenceClassification.from_pretrained(
+        if self.model_config.num_classes == 0:
+            return AutoModelForSequenceClassification.from_pretrained(self.model_config.model_checkpoint)
+        
+        return AutoModelForSequenceClassification.from_pretrained(
             self.model_config.model_checkpoint,
-            num_labels=self.model_config.num_classes,             # makes the last head be replaced with a linear layer with num_labels outputs (fine-tuning)
+            um_labels=self.model_config.num_classes,     # makes the last head be replaced with a linear layer with num_labels outputs (fine-tuning)
             id2label=id2label, label2id=label2id
         )
         
+
+
+    def load_model(self):
+        
+        self.model = self.get_model()
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         print(f"Using device: {self.device}")
        

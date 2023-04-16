@@ -3,6 +3,7 @@
 #pyserini==0.12.0
 scikit-learn
 transformers
+sacremosis
 matplotlib
 datasets
 evaluate

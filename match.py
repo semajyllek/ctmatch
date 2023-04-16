@@ -1,10 +1,9 @@
 
-from typing import Dict, Tuple
+from typing import Tuple
 from transformers import AutoTokenizer,  AutoModelForSequenceClassification, Trainer, TrainingArguments, get_scheduler
 from datasets import load_dataset, ClassLabel, Dataset, Features, Value
 from sklearn.metrics import confusion_matrix, classification_report
 from torch.utils.data import Dataset, DataLoader
-import torch.nn.functional as F
 from torch.optim import AdamW
 from numpy.linalg import norm
 from tqdm.auto import tqdm
@@ -21,7 +20,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn import svm
 
 from ctmatch.ctmatch_utils import compute_metrics, train_test_val_split
-from ctmatch.model_config import ModelConfig
+from ctmatch.modelconfig import ModelConfig
 
 
 
@@ -109,15 +108,6 @@ class CTMatch:
                 progress_bar.update(1)
             
 
-            
-                
-
-
-                
-        
-               
-
-
     def torch_eval(self):
         metric = evaluate.load("f1")
         self.model.eval()
@@ -134,9 +124,6 @@ class CTMatch:
 
         print(metric.compute(average='weighted'))
 
-
-
-  
 
     
     # ------------------ Data Loading ------------------ #
@@ -236,6 +223,7 @@ class CTMatch:
             tokenizer=self.tokenizer,
             label_weights=self.get_label_weights()
         )
+
 
     def get_training_args_obj(self):
         output_dir = self.model_config.output_dir if self.model_config.output_dir is not None else self.model_config.data_path.parent.parent.as_posix()

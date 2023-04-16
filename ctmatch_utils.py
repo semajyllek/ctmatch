@@ -73,16 +73,16 @@ def get_processed_data(proc_loc: str, get_only: Optional[Set[str]] = None):
   if get_only is None:
     for json_str in json_list:
       yield json.loads(json_str)
-  
-  data = []
-  for s in json_list:
-    s_data = json.loads(s)
-    if s_data["id"] in get_only:
-      yield s_data
-      get_only.remove(s_data['id'])
-      if len(get_only) == 0:
-        return
-  return
+
+  else:
+    for s in json_list:
+      s_data = json.loads(s)
+      if s_data["id"] in get_only:
+        yield s_data
+        get_only.remove(s_data['id'])
+        if len(get_only) == 0:
+          return
+
   
   
 

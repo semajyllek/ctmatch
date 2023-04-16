@@ -173,7 +173,6 @@ class CTMatch:
 
 
     # ------------------ Model Loading ------------------ #
-
     def get_model(self):
         if self.model_config.num_classes == 0:
             if self.model_config.model_checkpoint == 'microsoft/biogpt':

@@ -222,7 +222,6 @@ class CTMatch:
 
     def get_trainer(self):
         return WeightedLossTrainer(
-            name=self.model_config.name,
             model=self.model,
             optimizers=(self.optimizer, self.lr_scheduler),
             args=self.get_training_args_obj(),

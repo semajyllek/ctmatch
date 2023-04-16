@@ -3,6 +3,7 @@ from typing import Dict, NamedTuple, Optional
 from pathlib import Path
 
 class ModelConfig(NamedTuple):
+    name: str
     data_path: Path
     model_checkpoint: str
     max_length: int

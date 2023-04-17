@@ -8,7 +8,7 @@ CAT_GEN_MODEL = "facebook/bart-large-mnli"
 CAT_GEN_MODEL = "microsoft/biogpt"
 
 CT_CATEGORIES = [
-    "pulmonary", "cardiac", "gastrointestinal", "renal", "psychological", "genetic", "blood", "pediatric",
+    "pulmonary", "cardiac", "gastrointestinal", "renal", "psychological", "genetic", "pediatric",
 	"neurological", "cancer", "reproductive", "endocrine", "infection", "other"
 ]
 

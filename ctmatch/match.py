@@ -18,7 +18,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn import svm
 
-from utils.ctmatch_utils import compute_metrics, train_test_val_split, l2_normalize
+from .utils.ctmatch_utils import compute_metrics, train_test_val_split, l2_normalize
 from modelconfig import ModelConfig
 
 

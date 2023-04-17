@@ -1,6 +1,6 @@
 from typing import Generator, List, Optional, Tuple
-from ctmatch.ctmatch_utils import get_processed_data
-from ctmatch.ct_data_paths import get_data_tuples
+from ctmatch_utils import get_processed_data
+from ct_data_paths import get_data_tuples
 from transformers import pipeline
 import json
 

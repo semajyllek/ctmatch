@@ -266,11 +266,14 @@ class CTMatch:
          
         y_trues = list(self.ct_dataset["validation"]["labels"])
         return confusion_matrix(y_trues, y_preds), classification_report(y_trues, y_preds)
+    
+
+
 
     # ------------------ Embedding Similarity ------------------ #
     def get_doc_embeddings(self, split='train'):
         doc_embeddings = []
-        for example in self.ct_dataset:
+        for example in self.ct_dataset[split]:
             doc_encoding = self.tokenize_function(example)
             doc_embeddings.append(self.model(**doc_encoding))
 

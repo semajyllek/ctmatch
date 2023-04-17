@@ -2,14 +2,14 @@
 from transformers import BioGptTokenizer, BioGptForCausalLM
 
 
-from ctmatch.modelconfig import ModelConfig
+from modelconfig import ModelConfig
 from transformers import set_seed
 from numpy.linalg import norm
 import numpy as np
 import random
 import torch
 
-from ctmatch.ctmatch_utils import cosine_sim
+from utils.ctmatch_utils import cosine_sim
 
 
 

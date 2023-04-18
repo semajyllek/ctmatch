@@ -32,9 +32,6 @@ class GenModel:
             raise ValueError(f"Model name {model_name} not supported")
 
 
-    def get_random_example(self, target_label: str):
-        return self.ct_dataset_df.where(self.ct_dataset_df['label'] == target_label).sample(1)
-
     def build_rel_prompt(self, topic, document) -> str:
         neg_pair = self.get_random_example(target_label='0')
         neutral_pair = self.get_random_example(tagret_label='1')
@@ -72,10 +69,7 @@ class GenModel:
         return np.mean(input_last_hidden, axis=0)
 
 
-
     def gen_relevance(self, topic, document, pos_example, neg_example) -> int:
-        pos_example = self.ct_dataset_df.where(self.ct_dataset_df['label'] == '2').sample(1)
-        neg_example = self.ct_dataset_df.where(self.ct_dataset_df['label'] == '0').sample(1)
         prompt = f"here is a clinical trial document: {pos_example['doc']}. here is a topic that recieves a 2, or 'relevant' score for this document: {pos_example['topic']}, "
         prompt += f" here is another clinical trial document: {document}, here is a topic that recieves a 2, or 'relevant' score for this document: "
         pseudo_pos_topic = self.gen_response(prompt)

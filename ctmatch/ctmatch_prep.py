@@ -278,17 +278,17 @@ def get_doc_and_topic_mappings(all_qrelled_docs: Set[str], doc_tuples: List[Tupl
 
 
 if __name__ == '__main__':
-	# proc_docs_and_topics('trec')
+	proc_docs_and_topics('trec')
 	# eda.explore_trec_data(part=2, rand_print=0.001) # select part 1-5 (~70k docs per part)
 	# eda.explore_kz_data(rand_print=0.00001) # all in one file (~200k docs)
 
-	dconfig = DataConfig(
-		trec_or_kz='kz',
-		save_path=ct_data_paths.KZ_ML_PATH,
-		sep='',
-		first_n_only=2,
-	)
-	prep_dataset(dconfig)
+	# dconfig = DataConfig(
+	# 	trec_or_kz='kz',
+	# 	save_path=ct_data_paths.KZ_ML_PATH,
+	# 	sep='',
+	# 	first_n_only=2,
+	# )
+	# prep_dataset(dconfig)
 	# explore_prepped(ct_data_paths.TREC_ML_PATH)
 
 

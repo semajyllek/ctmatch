@@ -37,6 +37,7 @@ class LModel:
     def __init__(self, model_config: ModelConfig, data: DataPrep):
         self.model_config = model_config
         self.dataset = data.ct_dataset
+        self.dataset_df = data.ct_dataset.to_pandas()
         self.tokenizer = data.tokenizer
         self.trainer = None
         self.optimizer = None
@@ -73,7 +74,7 @@ class LModel:
         print(f"Using device: {self.device}")
        
         self.optimizer = AdamW(self.lm_model.parameters(), lr=self.model_config.learning_rate, weight_decay=self.model_config.weight_decay)
-        self.num_training_steps = self.model_config.train_epochs * len(self.ct_dataset['train'])
+        self.num_training_steps = self.model_config.train_epochs * len(self.dataset['train'])
         self.lr_scheduler = get_scheduler(
             name="linear", 
             optimizer=self.optimizer, 
@@ -90,12 +91,12 @@ class LModel:
 
 
     def get_label_mapping(self):
-        id2label = {idx:self.ct_dataset['train'].features["labels"].int2str(idx) for idx in range(3)}
+        id2label = {idx:self.dataset['train'].features["labels"].int2str(idx) for idx in range(3)}
         label2id = {v:k for k, v in id2label.items()}
         return id2label, label2id
 
     def get_label_weights(self):
-        label_weights = (1 - (self.ct_dataset_df["labels"].value_counts().sort_index() / len(self.ct_dataset_df))).values
+        label_weights = (1 - (self.dataset_df["labels"].value_counts().sort_index() / len(self.dataset_df))).values
         label_weights = torch.from_numpy(label_weights).float().to("cuda")
 
 
@@ -105,8 +106,8 @@ class LModel:
             optimizers=(self.optimizer, self.lr_scheduler),
             args=self.get_training_args_obj(),
             compute_metrics=compute_metrics,
-            train_dataset=self.ct_dataset["train"],
-            eval_dataset=self.ct_dataset["validation"],
+            train_dataset=self.dataset["train"],
+            eval_dataset=self.dataset["validation"],
             tokenizer=self.tokenizer,
             label_weights=self.get_label_weights()
         )
@@ -123,7 +124,7 @@ class LModel:
             per_device_eval_batch_size=self.model_config.batch_size,
             weight_decay=self.model_config.weight_decay,
             evaluation_strategy="epoch",
-            logging_steps=len(self.ct_dataset["train"]) // self.model_config.batch_size,
+            logging_steps=len(self.dataset["train"]) // self.model_config.batch_size,
             push_to_hub=self.model_config.push_to_hub
         )
         
@@ -132,7 +133,7 @@ class LModel:
     def train_and_predict(self):
         if self.trainer is not None:
             self.trainer.train()
-            predictions = self.trainer.predict(self.ct_dataset["test"])
+            predictions = self.trainer.predict(self.dataset["test"])
             print(predictions.metrics.items())
         else:
             self.torch_train()
@@ -142,8 +143,9 @@ class LModel:
 
      # ------------------ native torch training loop ------------------ #
     def get_dataloaders(self) -> Tuple[DataLoader, DataLoader]:
-        train_dataloader = DataLoader(self.ct_dataset['train'], shuffle=True, batch_size=self.model_config.batch_size)
-        val_dataloader = DataLoader(self.ct_dataset['validation'], batch_size=self.model_config.batch_size)
+        train_dataloader = DataLoader(self.dataset['train'], shuffle=True, batch_size=self.model_config.batch_size)
+        val_dataloader = DataLoader(self.
+        dataset['validation'], batch_size=self.model_config.batch_size)
         return train_dataloader, val_dataloader
 
 
@@ -187,13 +189,13 @@ class LModel:
 
     def get_sklearn_metrics(self):
         if self.model_config.use_trainer:
-            y_preds = list(self.trainer.predict(self.ct_dataset["validation"]).predictions.argmax(axis=1))
+            y_preds = list(self.trainer.predict(self.dataset["validation"]).predictions.argmax(axis=1))
         else:
             y_preds = []
-            for input_ids in self.ct_dataset['validation']['input_ids']:
+            for input_ids in self.dataset['validation']['input_ids']:
                 y_pred = self.lm_model(input_ids).logits.argmax().item()
                 y_preds.append(y_pred)
          
-        y_trues = list(self.ct_dataset["validation"]["labels"])
+        y_trues = list(self.dataset["validation"]["labels"])
         return confusion_matrix(y_trues, y_preds), classification_report(y_trues, y_preds)
     

@@ -1,5 +1,5 @@
 
-from .match import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM
 from .scripts.gen_categories import gen_single_category_vector
 from .modelconfig import ModelConfig
 from .match import TfidfVectorizer

@@ -36,7 +36,7 @@ class LModel:
     
     def __init__(self, model_config: ModelConfig, data: DataPrep):
         self.model_config = model_config
-        self.dataset = data.dataset
+        self.dataset = data.ct_dataset
         self.tokenizer = data.tokenizer
         self.trainer = None
         self.optimizer = None

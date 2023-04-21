@@ -13,7 +13,8 @@ from .modelconfig import ModelConfig
 
 SUPPORTED_LMS = [
     'roberta-large', 'cross-encoder/nli-roberta-base',
-    'microsoft/biogpt', 'microsoft/biobert-base-cased-v1.1', 'microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext']
+    'microsoft/biogpt', 'microsoft/biobert-base-cased-v1.1', 'microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext'
+]
 
 
 class DataPrep:

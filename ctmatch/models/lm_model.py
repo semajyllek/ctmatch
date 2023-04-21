@@ -149,14 +149,13 @@ class LModel:
         return train_dataloader, val_dataloader
 
 
-
     def torch_train(self):
         progress_bar = tqdm(range(self.num_training_steps))
         self.model.train()
         for epoch in range(self.model_config.train_epochs):
             for batch in self.train_dataloader:
                 batch = {k: v.to(self.device) for k, v in batch.items()}
-                outputs = self.model(**batch)
+                outputs = self.model(**batch, labels=batch['input_ids'])
                 loss = outputs.loss
                 loss.backward()
 
@@ -176,7 +175,7 @@ class LModel:
             
             # don't learn during evaluation
             with torch.no_grad():
-                outputs = self.model(**batch)
+                outputs = self.model(**batch, labels=batch['input_ids'])
 
             logits = outputs.logits
             predictions = torch.argmax(logits, dim=-1)

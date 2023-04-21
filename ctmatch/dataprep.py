@@ -11,7 +11,9 @@ import numpy as np
 from .utils.ctmatch_utils import train_test_val_split
 from .modelconfig import ModelConfig
 
-SUPPORTED_LMS = ['roberta-large', 'microsoft/biogpt', 'microsoft/biobert-base-cased-v1.1', 'microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext']
+SUPPORTED_LMS = [
+    'roberta-large', 'cross-encoder/nli-roberta-base',
+    'microsoft/biogpt', 'microsoft/biobert-base-cased-v1.1', 'microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext']
 
 
 class DataPrep:

@@ -73,7 +73,7 @@ class LModel:
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         print(f"Using device: {self.device}")
        
-        self.optimizer = AdamW(self.lm_model.parameters(), lr=self.model_config.learning_rate, weight_decay=self.model_config.weight_decay)
+        self.optimizer = AdamW(self.model.parameters(), lr=self.model_config.learning_rate, weight_decay=self.model_config.weight_decay)
         self.num_training_steps = self.model_config.train_epochs * len(self.dataset['train'])
         self.lr_scheduler = get_scheduler(
             name="linear", 
@@ -102,7 +102,7 @@ class LModel:
 
     def get_trainer(self):
         return WeightedLossTrainer(
-            model=self.lm_model,
+            model=self.model,
             optimizers=(self.optimizer, self.lr_scheduler),
             args=self.get_training_args_obj(),
             compute_metrics=compute_metrics,
@@ -152,11 +152,11 @@ class LModel:
 
     def torch_train(self):
         progress_bar = tqdm(range(self.num_training_steps))
-        self.lm_model.train()
+        self.model.train()
         for epoch in range(self.model_config.train_epochs):
             for batch in self.train_dataloader:
                 batch = {k: v.to(self.device) for k, v in batch.items()}
-                outputs = self.lm_model(**batch)
+                outputs = self.model(**batch)
                 loss = outputs.loss
                 loss.backward()
 
@@ -170,13 +170,13 @@ class LModel:
 
     def torch_eval(self):
         metric = evaluate.load("f1")
-        self.lm_model.eval()
+        self.model.eval()
         for batch in self.val_dataloader:
             batch = {k: v.to(self.device) for k, v in batch.items()}
             
             # don't learn during evaluation
             with torch.no_grad():
-                outputs = self.lm_model(**batch)
+                outputs = self.model(**batch)
 
             logits = outputs.logits
             predictions = torch.argmax(logits, dim=-1)
@@ -193,7 +193,7 @@ class LModel:
         else:
             y_preds = []
             for input_ids in self.dataset['validation']['input_ids']:
-                y_pred = self.lm_model(input_ids).logits.argmax().item()
+                y_pred = self.model(input_ids).logits.argmax().item()
                 y_preds.append(y_pred)
          
         y_trues = list(self.dataset["validation"]["labels"])

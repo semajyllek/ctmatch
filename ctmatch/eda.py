@@ -1,6 +1,6 @@
 	
 from typing import Dict, NamedTuple, Tuple
-from ctmatch_utils import get_processed_data
+from utils.ctmatch_utils import get_processed_data
 from collections import defaultdict
 import ct_data_paths
 import random

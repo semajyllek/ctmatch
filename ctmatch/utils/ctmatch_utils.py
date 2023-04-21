@@ -1,6 +1,6 @@
 
 from typing import Any, Dict, List, Optional, Set
-
+from sklearn.metrics.pairwise import linear_kernel
 from sklearn.metrics import f1_score
 from numpy.linalg import norm
 from datasets import Dataset
@@ -108,11 +108,18 @@ def train_test_val_split(dataset, splits: Dict[str, float], seed: int = 37) -> D
 # computation methods
 #----------------------------------------------------------------#
 
-def l2_normalize(self, x):
+def l2_normalize(x):
   return x / np.sqrt(np.sum(np.multiply(x, x), keep_dims=True))
 
 def cosine_sim(x_emb, y_emb) -> float:
     return np.dot(x_emb, y_emb)/(norm(x_emb) * norm(y_emb))
+
+def linear_kernel_sim(x_emb, y_emb) -> np.Array[float]:
+    """
+    desc:    computes the linear kernel similarity between two embeddings
+    """
+    total_mat = np.concatenate((x_emb, y_emb), axis=0)
+    sim_row = linear_kernel(total_mat, total_mat)[0]
 
 def compute_metrics(pred):
   labels = pred.label_ids

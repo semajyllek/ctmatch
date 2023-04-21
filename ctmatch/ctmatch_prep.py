@@ -4,10 +4,10 @@ import ct_data_paths
 import random
 import json
 
-from ctproc.proc import CTConfig, CTProc, CTDocument, CTTopic
-from ctproc.scripts.vis_scripts import analyze_test_rels
-from ctmatch_utils import get_processed_data, truncate
-
+#from ctproc.proc import CTConfig, CTProc, CTDocument, CTTopic
+from utils.ctmatch_utils import get_processed_data, truncate
+from scripts.vis_script import analyze_test_rels
+import eda
 
 
 class DataConfig(NamedTuple):
@@ -278,8 +278,8 @@ def get_doc_and_topic_mappings(all_qrelled_docs: Set[str], doc_tuples: List[Tupl
 
 
 if __name__ == '__main__':
-	proc_docs_and_topics('trec')
-	# eda.explore_trec_data(part=2, rand_print=0.001) # select part 1-5 (~70k docs per part)
+	# proc_docs_and_topics('trec')
+	eda.explore_trec_data(part=2, rand_print=0.001) # select part 1-5 (~70k docs per part)
 	# eda.explore_kz_data(rand_print=0.00001) # all in one file (~200k docs)
 
 	# dconfig = DataConfig(
@@ -289,7 +289,7 @@ if __name__ == '__main__':
 	# 	first_n_only=2,
 	# )
 	# prep_dataset(dconfig)
-	# explore_prepped(ct_data_paths.TREC_ML_PATH)
+	#explore_prepped(ct_data_paths.TREC_ML_PATH)
 
 
 

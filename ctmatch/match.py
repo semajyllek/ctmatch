@@ -4,7 +4,7 @@ from typing import List, Optional, Set
 # external imports
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from datasets import KeyDataset
+from transformers.pipelines.pt_utils import KeyDataset
 from pathlib import Path
 from sklearn import svm
 import pandas as pd

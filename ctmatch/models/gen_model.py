@@ -8,7 +8,7 @@ from numpy.linalg import norm
 import numpy as np
 import torch
 
-from utils.ctmatch_utils import cosine_sim
+from ctmatch.utils.ctmatch_utils import cosine_sim
 
 
 
@@ -81,8 +81,8 @@ class GenModel:
         return self.infer_rel_from_topic_similarity(pseudo_neg_topic_embedding, pseudo_pos_topic_embedding, topic_embedding)
 
     def infer_rel_from_topic_similarity(self, pos_topic, neg_topic, topic, neutral_margin: float = 0.001) -> int:
-        pos_dist = self.cosine_sim(pos_topic, topic)
-        neg_dist = self.cosine_sim(neg_topic, topic)
+        pos_dist = cosine_sim(pos_topic, topic)
+        neg_dist = cosine_sim(neg_topic, topic)
         if pos_dist < neg_dist:
 
             # it's closer to the positive example, but close enough to not be neutral?

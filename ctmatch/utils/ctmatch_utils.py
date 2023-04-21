@@ -114,7 +114,7 @@ def l2_normalize(x):
 def cosine_sim(x_emb, y_emb) -> float:
     return np.dot(x_emb, y_emb)/(norm(x_emb) * norm(y_emb))
 
-def linear_kernel_sim(x_emb, y_emb) -> np.Array[float]:
+def linear_kernel_sim(x_emb, y_emb):
     """
     desc:    computes the linear kernel similarity between two embeddings
     """

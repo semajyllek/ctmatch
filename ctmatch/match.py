@@ -88,7 +88,7 @@ class CTMatch:
         return doc_df
     
 
-    def svm_filter(self, topic_embedding: np.Array, doc_df: pd.DataFrame, top_n: int = 100) -> List[int]:
+    def svm_filter(self, topic_embedding, doc_df: pd.DataFrame, top_n: int = 100) -> List[int]:
         if self.doc_embeddings is None:
             self.data.create_doc_embeddings()
 

@@ -45,6 +45,8 @@ class DataPrep:
         if not self.model_config.use_trainer:
             self.ct_dataset = self.ct_dataset.remove_columns(['doc', 'topic', 'categories'])
 
+        self.ct_dataset_df = self.ct_dataset['train'].to_pandas()
+
         return self.ct_dataset
 
     

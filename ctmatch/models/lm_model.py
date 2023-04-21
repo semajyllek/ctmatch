@@ -37,7 +37,7 @@ class LModel:
     def __init__(self, model_config: ModelConfig, data: DataPrep):
         self.model_config = model_config
         self.dataset = data.ct_dataset
-        self.dataset_df = data.ct_dataset.to_pandas()
+        self.train_dataset_df = data.ct_dataset['train'].to_pandas()
         self.tokenizer = data.tokenizer
         self.trainer = None
         self.optimizer = None
@@ -96,7 +96,7 @@ class LModel:
         return id2label, label2id
 
     def get_label_weights(self):
-        label_weights = (1 - (self.dataset_df["labels"].value_counts().sort_index() / len(self.dataset_df))).values
+        label_weights = (1 - (self.train_dataset_df["labels"].value_counts().sort_index() / len(self.train_dataset_df))).values
         label_weights = torch.from_numpy(label_weights).float().to("cuda")
 
 

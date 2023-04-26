@@ -54,10 +54,7 @@ class LModel:
     def get_model(self):
         if self.model_config.num_classes == 0:
             return AutoModelForSequenceClassification.from_pretrained(self.model_config.model_checkpoint)
-        
-        if self.model_config.model_checkpoint == 'microsoft/biogpt':
-            return AutoModelForCausalLM.from_pretrained(self.model_config.model_checkpoint)
-        
+
         id2label, label2id = self.get_label_mapping()
         return AutoModelForSequenceClassification.from_pretrained(
             self.model_config.model_checkpoint,
@@ -136,8 +133,8 @@ class LModel:
             predictions = self.trainer.predict(self.dataset["test"])
             print(predictions.metrics.items())
         else:
-            self.torch_train()
-            self.torch_eval()
+            self.manual_train()
+            self.manual_eval()
 
 
 
@@ -149,7 +146,7 @@ class LModel:
         return train_dataloader, val_dataloader
 
 
-    def torch_train(self):
+    def manual_train(self):
         progress_bar = tqdm(range(self.num_training_steps))
         self.model.train()
         for epoch in range(self.model_config.train_epochs):
@@ -163,11 +160,11 @@ class LModel:
                 self.lr_scheduler.step()
                 self.optimizer.zero_grad()
 
-                self.torch_eval()
+                self.manual_eval()
                 progress_bar.update(1)
             
 
-    def torch_eval(self):
+    def manual_eval(self):
         metric = evaluate.load("f1")
         self.model.eval()
         for batch in self.val_dataloader:
@@ -179,7 +176,7 @@ class LModel:
 
             logits = outputs.logits
             predictions = torch.argmax(logits, dim=-1)
-            metric.add_batch(predictions=predictions, references=batch["labels"])
+            metric.add_batch(predictions=predictions, references=batch["labe"])
 
         print(metric.compute(average='weighted'))
 

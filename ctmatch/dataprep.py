@@ -22,7 +22,7 @@ class DataPrep:
         self.model_config = model_config
         self.tokenizer = self.get_tokenizer()
         self.ct_dataset = None
-        self.ct_dataset_df = None
+        self.ct_train_dataset_df = None
         self.load_data()
         
 	
@@ -46,7 +46,7 @@ class DataPrep:
         if not self.model_config.use_trainer:
             self.ct_dataset = self.ct_dataset.remove_columns(['doc', 'topic'])  # removing labels for next-token prediction...
 
-        self.ct_dataset_df = self.ct_dataset['train'].to_pandas()
+        self.ct_train_dataset_df = self.ct_dataset['train'].to_pandas()
 
         return self.ct_dataset
 
@@ -69,7 +69,7 @@ class DataPrep:
 
     def tokenize_function(self, examples):
         return self.tokenizer(
-            examples["doc"], examples["topic"], 
+            examples["topic"], examples["doc"], 
             truncation=self.model_config.truncation, 
             padding=self.model_config.padding, 
             max_length=self.model_config.max_length
@@ -110,5 +110,5 @@ class DataPrep:
 
 
     def get_random_example(self, target_label: str):
-        return self.ct_dataset_df.where(self.ct_dataset_df['label'] == target_label).sample(1)
+        return self.ct_train_dataset_df.where(self.ct_train_dataset_df['label'] == target_label).sample(1)
 

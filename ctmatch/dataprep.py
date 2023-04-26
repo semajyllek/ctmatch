@@ -44,7 +44,7 @@ class DataPrep:
         # self.ct_dataset = self.ct_dataset.rename_column("doc", "sentence2")
         self.ct_dataset.set_format(type='torch', columns=['doc', 'labels', 'topic', 'input_ids', 'attention_mask'])
         if not self.model_config.use_trainer:
-            self.ct_dataset = self.ct_dataset.remove_columns(['doc', 'topic', 'labels'])  # removing labels for next-token prediction...
+            self.ct_dataset = self.ct_dataset.remove_columns(['doc', 'topic'])  # removing labels for next-token prediction...
 
         self.ct_dataset_df = self.ct_dataset['train'].to_pandas()
 

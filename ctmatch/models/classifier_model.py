@@ -1,7 +1,7 @@
 
 from typing import Tuple
 
-from transformers import AutoModelForCausalLM, AutoModelForSequenceClassification, Trainer, TrainingArguments, get_scheduler
+from transformers import AutoModelForSequenceClassification, Trainer, TrainingArguments, get_scheduler
 from sklearn.metrics import confusion_matrix, classification_report
 from torch.utils.data import DataLoader
 from torch.optim import AdamW
@@ -32,7 +32,7 @@ class WeightedLossTrainer(Trainer):
 
 
 
-class LModel:
+class ClassifierModel:
     
     def __init__(self, model_config: ModelConfig, data: DataPrep):
         self.model_config = model_config

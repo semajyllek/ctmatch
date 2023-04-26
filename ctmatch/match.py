@@ -14,7 +14,7 @@ import spacy
 # package tools
 from .models.gen_model import GenModel
 from .modelconfig import ModelConfig
-from .models.lm_model import LModel
+from .models.classifier_model import ClassifierModel
 from .pipetopic import PipeTopic
 from .dataprep import DataPrep
 
@@ -28,7 +28,7 @@ class CTMatch:
     def __init__(self, model_config: ModelConfig) -> None:
         self.model_config = model_config
         self.data = DataPrep(self.model_config)
-        self.lm_model = LModel(self.model_config, self.data)
+        self.classifier_model = ClassifierModel(self.model_config, self.data)
         self.gen_model = GenModel(self.model_config)
 
         # embedding attrs
@@ -53,7 +53,7 @@ class CTMatch:
         # get topic representations for pipeline filters
         pipe_topic = PipeTopic(
             topic=topic, 
-            lm_model=self.lm_model, 
+            classifier_model=self.classifier_model, 
             tfidf_model=self.tfidf_model,
             model_config=self.model_config
         )
@@ -65,7 +65,7 @@ class CTMatch:
         doc_set = self.svm_filter(pipe_topic, doc_set, top_n=100)
 
         # third filter, LM
-        doc_set = self.lm_filter(pipe_topic, doc_set, top_k=min(top_k, 100))
+        doc_set = self.gen_filter(pipe_topic, doc_set, top_k=min(top_k, 100))
 
         return doc_set
 
@@ -105,7 +105,7 @@ class CTMatch:
         return self.get_filtered_docs(doc_df, get_only=sorted_neighbors[:top_n])
         
 
-    def lm_filter(self, pipe_topic: PipeTopic, doc_df: pd.DataFrame, top_k: int) -> List[str]:
+    def gen_filter(self, pipe_topic: PipeTopic, doc_df: pd.DataFrame, top_k: int) -> List[str]:
         dist_dict_results = []
         for doc_text in doc_df['doc']:
             pos_ex, neg_ex = self.data.get_pos_neg_examples()

@@ -1,12 +1,14 @@
 #ctproc
 #https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.4.0/en_core_sci_md-0.4.0.tar.gz
 #pyserini==0.12.0
-git+https://github.com/semajyllek/transformers.git@add-biogpt-sequenceclassifier
+
 huggingface_hub
 scikit-learn
+git+https://github.com/semajyllek/transformers.git@add-biogpt-sequenceclassifier
 #transformers
 sacremoses
 matplotlib
+accelerate
 datasets
 evaluate
 pandas

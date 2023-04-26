@@ -172,7 +172,8 @@ class ClassifierModel:
             
             # don't learn during evaluation
             with torch.no_grad():
-                outputs = self.model(**batch, labels=batch['input_ids'])
+
+                outputs = self.model(**batch)
 
             logits = outputs.logits
             predictions = torch.argmax(logits, dim=-1)

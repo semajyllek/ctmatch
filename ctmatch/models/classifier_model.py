@@ -152,7 +152,7 @@ class ClassifierModel:
         for epoch in range(self.model_config.train_epochs):
             for batch in self.train_dataloader:
                 batch = {k: v.to(self.device) for k, v in batch.items()}
-                outputs = self.model(**batch, labels=batch['input_ids'])
+                outputs = self.model(**batch)
                 loss = outputs.loss
                 loss.backward()
 

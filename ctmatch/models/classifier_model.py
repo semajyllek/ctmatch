@@ -141,8 +141,7 @@ class ClassifierModel:
      # ------------------ native torch training loop ------------------ #
     def get_dataloaders(self) -> Tuple[DataLoader, DataLoader]:
         train_dataloader = DataLoader(self.dataset['train'], shuffle=True, batch_size=self.model_config.batch_size)
-        val_dataloader = DataLoader(self.
-        dataset['validation'], batch_size=self.model_config.batch_size)
+        val_dataloader = DataLoader(self.dataset['validation'], batch_size=self.model_config.batch_size)
         return train_dataloader, val_dataloader
 
 
@@ -153,6 +152,7 @@ class ClassifierModel:
             for batch in self.train_dataloader:
                 batch = {k: v.to(self.device) for k, v in batch.items()}
                 outputs = self.model(**batch)
+                print(outputs)
                 loss = outputs.loss
                 loss.backward()
 
@@ -170,14 +170,13 @@ class ClassifierModel:
         for batch in self.val_dataloader:
             batch = {k: v.to(self.device) for k, v in batch.items()}
             
-            # don't learn during evaluation
+            # training on the test set is cheatin
             with torch.no_grad():
-
                 outputs = self.model(**batch)
 
             logits = outputs.logits
             predictions = torch.argmax(logits, dim=-1)
-            metric.add_batch(predictions=predictions, references=batch["labe"])
+            metric.add_batch(predictions=predictions, references=batch["label"])
 
         print(metric.compute(average='weighted'))
 

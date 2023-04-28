@@ -224,7 +224,7 @@ if __name__ == '__main__':
     )
 
     ctm = CTMatch(config)
-    ctm.train_and_predict()
+    ctm.classifier_model.train_and_predict()
 
 
 

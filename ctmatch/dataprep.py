@@ -13,7 +13,8 @@ from .modelconfig import ModelConfig
 
 SUPPORTED_LMS = [
     'roberta-large', 'cross-encoder/nli-roberta-base',
-    'microsoft/biogpt', 'allenai/scibert_scivocab_uncased'
+    'microsoft/biogpt', 'allenai/scibert_scivocab_uncased', 
+    'facebook/bart-large'
 ]
 
 

@@ -145,40 +145,43 @@ class ClassifierModel:
         return train_dataloader, val_dataloader
 
 
+
+    # taken from ctmatch for messing about 
     def manual_train(self):
-        progress_bar = tqdm(range(self.num_training_steps))
+        progress_bar = tqdm(range(self.model_config.num_training_steps))
         self.model.train()
         for epoch in range(self.model_config.train_epochs):
-            for batch in self.train_dataloader:
-                batch = {k: v.to(self.device) for k, v in batch.items()}
+            for batch in tqdm(self.train_dataloader):
+                batch = {k: v.to(self.model.device) for k, v in batch.items()}
                 outputs = self.model(**batch)
-                print(outputs)
-                loss = outputs.loss
+                loss = self.loss_func(outputs.logits, batch['labels'])
+                #total_loss += loss.item()
                 loss.backward()
-
+                
                 self.optimizer.step()
                 self.lr_scheduler.step()
                 self.optimizer.zero_grad()
-
                 self.manual_eval()
+                print(f"{loss=}")
                 progress_bar.update(1)
             
+
+
 
     def manual_eval(self):
         metric = evaluate.load("f1")
         self.model.eval()
         for batch in self.val_dataloader:
-            batch = {k: v.to(self.device) for k, v in batch.items()}
-            
-            # training on the test set is cheatin
+            batch = {k: v.to(self.model.device) for k, v in batch.items()}
+        
+            # don't learn during evaluation
             with torch.no_grad():
                 outputs = self.model(**batch)
 
             logits = outputs.logits
             predictions = torch.argmax(logits, dim=-1)
-            metric.add_batch(predictions=predictions, references=batch["label"])
-
-        print(metric.compute(average='weighted'))
+            metric.add_batch(predictions=predictions, references=batch["labels"])
+            print(metric.compute(average='weighted'))
 
 
 

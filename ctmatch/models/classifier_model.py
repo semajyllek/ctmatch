@@ -188,7 +188,11 @@ class ClassifierModel:
 
     def get_sklearn_metrics(self):
         if self.model_config.use_trainer:
-            y_preds = list(self.trainer.predict(self.dataset["validation"]).predictions.argmax(axis=1))
+            preds = self.trainer.predict(self.dataset["validation"]).predictions
+            if self.config.model_name == "bart":
+                preds = preds[0]
+
+            y_preds = list(preds.argmax(axis=1))
         else:
             y_preds = []
             for input_ids in self.dataset['validation']['input_ids']:

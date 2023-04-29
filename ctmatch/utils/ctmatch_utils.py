@@ -126,6 +126,8 @@ def compute_metrics(pred):
   preds = pred.predictions
   print("length labels: ", len(labels))
   print("length preds: ",len(preds[0]), len(preds[1]))
+  print(preds[0][0])
+  print(preds[1][0])
   f1 = f1_score(labels, preds, average="weighted")
   return {"f1":f1}
 

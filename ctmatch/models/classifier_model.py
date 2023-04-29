@@ -189,7 +189,7 @@ class ClassifierModel:
     def get_sklearn_metrics(self):
         if self.model_config.use_trainer:
             preds = self.trainer.predict(self.dataset["validation"]).predictions
-            if self.model_config.name == "bart":
+            if "bart" in self.model_config.name:
                 preds = preds[0]
 
             y_preds = list(preds.argmax(axis=1))
@@ -206,7 +206,7 @@ class ClassifierModel:
     def compute_metrics(self, pred):
         labels = pred.label_ids
         preds = pred.predictions
-        if self.model_config.name == "bart":
+        if "bart" in self.model_config.name:
             preds = preds[0]
         
         preds = preds.argmax(-1)

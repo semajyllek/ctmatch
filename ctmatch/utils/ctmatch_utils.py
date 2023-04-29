@@ -1,7 +1,6 @@
 
 from typing import Any, Dict, List, Optional, Set
 from sklearn.metrics.pairwise import linear_kernel
-from sklearn.metrics import f1_score
 from numpy.linalg import norm
 from datasets import Dataset
 import numpy as np
@@ -119,11 +118,6 @@ def linear_kernel_sim(x_emb, y_emb):
     desc:    computes the linear kernel similarity between two embeddings
     """
     total_mat = np.concatenate((x_emb, y_emb), axis=0)
-    sim_row = linear_kernel(total_mat, total_mat)[0]
+    return linear_kernel(total_mat, total_mat)[0]
 
-def compute_metrics(pred):
-  labels = pred.label_ids
-  preds = pred.predictions[0].argmax(-1)
-  f1 = f1_score(labels, preds, average="weighted")
-  return {"f1":f1}
 

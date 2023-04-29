@@ -4,13 +4,13 @@ from typing import Tuple
 from transformers import AutoModelForSequenceClassification, Trainer, TrainingArguments, get_scheduler
 from sklearn.metrics import confusion_matrix, classification_report
 from torch.utils.data import DataLoader
+from sklearn.metrics import f1_score
 from torch.optim import AdamW
 from tqdm.auto import tqdm
 from torch import nn
 import evaluate
 import torch
 
-from ..utils.ctmatch_utils import compute_metrics
 from ..modelconfig import ModelConfig
 from ..dataprep import DataPrep
 
@@ -102,7 +102,7 @@ class ClassifierModel:
             model=self.model,
             optimizers=(self.optimizer, self.lr_scheduler),
             args=self.get_training_args_obj(),
-            compute_metrics=compute_metrics,
+            compute_metrics=self.compute_metrics,
             train_dataset=self.dataset["train"],
             eval_dataset=self.dataset["validation"],
             tokenizer=self.tokenizer,
@@ -198,3 +198,14 @@ class ClassifierModel:
         y_trues = list(self.dataset["validation"]["labels"])
         return confusion_matrix(y_trues, y_preds), classification_report(y_trues, y_preds)
     
+
+    def compute_metrics(self, pred):
+        labels = pred.label_ids
+        preds = pred.predictions
+        if self.model_config.model_name == "bart":
+            preds = preds[0]
+        
+        preds = preds.argmax(-1)
+        f1 = f1_score(labels, preds, average="weighted")
+        return {"f1":f1}
+

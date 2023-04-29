@@ -124,6 +124,8 @@ def linear_kernel_sim(x_emb, y_emb):
 def compute_metrics(pred):
   labels = pred.label_ids
   preds = pred.predictions
+  print("labels: ", labels)
+  print("preds: ", preds)
   f1 = f1_score(labels, preds, average="weighted")
   return {"f1":f1}
 

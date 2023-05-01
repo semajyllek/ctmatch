@@ -67,10 +67,10 @@ class ClassifierModel:
 
     def add_pad_token(self, model):
         if model.config.pad_token_id is None:
-            model.config.pad_token_id = self.model.config.eos_token_id
+            model.config.pad_token_id = model.config.eos_token_id
         return model
-          
-            
+
+
     def load_model(self):
         self.model = self.get_model()
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")

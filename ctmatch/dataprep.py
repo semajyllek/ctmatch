@@ -31,7 +31,9 @@ class DataPrep:
         model_checkpoint = self.model_config.model_checkpoint
         if model_checkpoint not in SUPPORTED_LMS:
             raise ValueError(f"Model checkpoint {model_checkpoint} not supported. Please use one of {SUPPORTED_LMS}")
-        return AutoTokenizer.from_pretrained(self.model_config.model_checkpoint)
+        tokenizer = AutoTokenizer.from_pretrained(self.model_config.model_checkpoint)
+        if self.model_config.model_checkpoint == 'gpt2':
+            tokenizer.pad_token = tokenizer.eos_token
 
 
     # ------------------ Data Loading ------------------ #

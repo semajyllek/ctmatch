@@ -56,15 +56,21 @@ class ClassifierModel:
             return AutoModelForSequenceClassification.from_pretrained(self.model_config.model_checkpoint)
 
         id2label, label2id = self.get_label_mapping()
-        return AutoModelForSequenceClassification.from_pretrained(
+        model = AutoModelForSequenceClassification.from_pretrained(
             self.model_config.model_checkpoint,
             num_labels=self.model_config.num_classes,     # makes the last head be replaced with a linear layer with num_labels outputs (fine-tuning)
             id2label=id2label, label2id=label2id
         )
+
+        return self.add_pad_token(model)
+
+
+    def add_pad_token(self, model):
+        if model.config.pad_token_id is None:
+            model.config.pad_token_id = self.model.config.eos_token_id
+        return model
+          
             
-
-
-
     def load_model(self):
         self.model = self.get_model()
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")

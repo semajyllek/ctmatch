@@ -34,6 +34,7 @@ class DataPrep:
         tokenizer = AutoTokenizer.from_pretrained(self.model_config.model_checkpoint)
         if self.model_config.model_checkpoint == 'gpt2':
             tokenizer.pad_token = tokenizer.eos_token
+        return tokenizer
 
 
     # ------------------ Data Loading ------------------ #

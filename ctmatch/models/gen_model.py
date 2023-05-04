@@ -14,19 +14,19 @@ from ctmatch.utils.ctmatch_utils import cosine_sim
 
 class GenModel:
     def __init__(self, model_config: ModelConfig):
-        self.gen_tokenizer = None
-        self.gen_model = None
+        self.tokenizer = None
+        self.model = None
         self.model_config = model_config
         self.add_gen_model(model_config.gen_model)
     
     def add_gen_model(self, model_name='biogpt') -> None:
         if model_name == 'biogpt':
-            self.gen_tokenizer = BioGptTokenizer.from_pretrained("microsoft/biogpt")
-            self.gen_model = BioGptForCausalLM.from_pretrained("microsoft/biogpt")
+            self.tokenizer = BioGptTokenizer.from_pretrained("microsoft/biogpt")
+            self.model = BioGptForCausalLM.from_pretrained("microsoft/biogpt")
         elif model_name == 'gpt2':
             from transformers import GPT2Tokenizer, GPT2LMHeadModel
-            self.gen_tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
-            self.gen_model = GPT2LMHeadModel.from_pretrained("gpt2")
+            self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+            self.model = GPT2LMHeadModel.from_pretrained("gpt2")
         else:
             raise ValueError(f"Model name {model_name} not supported")
 
@@ -48,22 +48,22 @@ class GenModel:
             
 
     def gen_response(self, prompt: str) -> str:
-        inputs = self.gen_tokenizer(prompt, return_tensors="pt")
+        inputs = self.tokenizer(prompt, return_tensors="pt")
         set_seed(self.model_config.seed)
         with torch.no_grad():
-            beam_output = self.gen_model.generate(
+            beam_output = self.model.generate(
                             **inputs,
                             min_length=100,
                             max_length=1024,
                             num_beams=5,
                             early_stopping=True
                         )
-        return self.gen_tokenizer.decode(beam_output[0], skip_special_tokens=True)
+        return self.tokenizer.decode(beam_output[0], skip_special_tokens=True)
 
 
     def get_embedding(self, s: str):
-        input = self.gen_tokenizer(s, return_tensors='pt').to('cuda')
-        output = self.gen_model(**input, output_hidden_states=True)
+        input = self.tokenizer(s, return_tensors='pt').to('cuda')
+        output = self.model(**input, output_hidden_states=True)
         input_last_hidden = np.squeeze(output.hidden_states[-1].detach().cpu().numpy(), axis=0)
         return np.mean(input_last_hidden, axis=0)
 

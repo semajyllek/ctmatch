@@ -25,6 +25,7 @@ class ModelConfig(NamedTuple):
     early_stopping: bool = False
     push_to_hub: bool = False
     ir_save_path: Optional[str] = None
+    category_path: Optional[str] = None
     processed_data_paths: Optional[List[str]] = None
 
 

@@ -63,10 +63,7 @@ class GenModel:
 
     def get_embedding(self, s: str):
         input = self.tokenizer(s, return_tensors='pt').to('cuda')
-        output = self.model(**input, output_hidden_states=True)
-        input_last_hidden = np.squeeze(output.hidden_states[-1].detach().cpu().numpy(), axis=0)
-        return np.mean(input_last_hidden, axis=0)
-
+        return norm(self.model(**input, output_hidden_states=True).last_hidden_state)
 
     def gen_sim_pos_topic_embedding(self, doc_text, pos_example, debug=False):
         prompt = f"here is a clinical trial document: {pos_example['doc']}. here is a topic that recieves a 2, or 'relevant' score for this document: {pos_example['topic']}, "

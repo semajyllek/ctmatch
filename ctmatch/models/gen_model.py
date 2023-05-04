@@ -63,6 +63,7 @@ class GenModel:
 
     def get_embedding(self, s: str):
         input = self.tokenizer(s, return_tensors='pt')
+        print(s)
         return norm(self.model(**input).last_hidden_state)
 
     def gen_sim_pos_topic_embedding(self, doc_text, pos_example, debug=False):

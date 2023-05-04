@@ -145,7 +145,7 @@ class CTMatch:
                 ir_data_entry['nct_id'] = doc['id']
                 doc_text = self.prep_ir_text(doc)
                 ir_data_entry['doc_text'] = doc_text
-                ir_data_entry['doc_embedding'] = self.gen_model.model.encode(doc_text)
+                ir_data_entry['doc_embedding'] = self.gen_model.get_embedding(doc_text)
 
                 random_pos = self.data.get_random_example('2')
                 random_neg = self.data.get_random_example('0')

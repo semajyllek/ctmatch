@@ -14,7 +14,7 @@ from .modelconfig import ModelConfig
 SUPPORTED_LMS = [
     'roberta-large', 'cross-encoder/nli-roberta-base',
     'microsoft/biogpt', 'allenai/scibert_scivocab_uncased', 
-    'facebook/bart-large', 'gpt2', 'allenai/scibert_scivocab_uncased-classifier'
+    'facebook/bart-large', 'gpt2', 'ctmatch_finetuned_allenai/scibert_scivocab_uncased-classifier'
 ]
 
 

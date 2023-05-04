@@ -68,17 +68,30 @@ class GenModel:
         return np.mean(input_last_hidden, axis=0)
 
 
-    def gen_relevance(self, topic, document, pos_example, neg_example) -> int:
+    def gen_sim_pos_topic_embedding(self, doc_text, pos_example, debug=False):
         prompt = f"here is a clinical trial document: {pos_example['doc']}. here is a topic that recieves a 2, or 'relevant' score for this document: {pos_example['topic']}, "
-        prompt += f" here is another clinical trial document: {document}, here is a topic that recieves a 2, or 'relevant' score for this document: "
-        pseudo_pos_topic = self.gen_response(prompt)
+        prompt += f" here is another clinical trial document: {doc_text}, here is a topic that recieves a 2, or 'relevant' score for this document: "
+        sim_pos_topic = self.gen_response(prompt)
+        if debug:
+            print(sim_pos_topic)
+
+        return norm(self.get_embedding(sim_pos_topic))
+    
+    def gen_sim_neg_topic_embedding(self, doc_text, neg_example, debug=False):
         prompt = f"here is a clinical trial document: {neg_example['doc']}. here is a topic that recieves a 0, or 'not relevant' score for this document: {neg_example['topic']}, "
-        prompt += f" here is another clinical trial document: {document}, here is a topic that recieves a 0, or 'not relevant' score for this document: "
-        pseudo_neg_topic = self.gen_response(prompt)
-        pseudo_pos_topic_embedding = self.get_embedding(pseudo_pos_topic)
-        pseudo_neg_topic_embedding = self.get_embedding(pseudo_neg_topic)
+        prompt += f" here is another clinical trial document: {doc_text}, here is a topic that recieves a 0, or 'not relevant' score for this document: "
+        sim_neg_topic = self.gen_response(prompt)
+        if debug:
+            print(sim_neg_topic)
+
+        return norm(self.get_embedding(sim_neg_topic))
+
+
+    def gen_relevance(self, topic, document, pos_example, neg_example) -> int:
+        sim_pos_topic_embedding = self.gen_sim_pos_topic_embedding(document, pos_example)
+        sim_neg_topic_embedding = self.gen_sim_neg_topic_embedding(document, neg_example)
         topic_embedding = norm(self.get_embedding(topic))
-        return self.infer_rel_from_topic_similarity(pseudo_neg_topic_embedding, pseudo_pos_topic_embedding, topic_embedding)
+        return self.infer_rel_from_topic_similarity(sim_pos_topic_embedding, sim_neg_topic_embedding, topic_embedding)
 
     def infer_rel_from_topic_similarity(self, pos_topic, neg_topic, topic, neutral_margin: float = 0.001) -> int:
         pos_dist = cosine_sim(pos_topic, topic)

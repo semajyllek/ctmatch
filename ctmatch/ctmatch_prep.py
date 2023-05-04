@@ -1,6 +1,6 @@
 
-from typing import Any, Dict, List, NamedTuple, Optional, Set, Tuple, Union
-import ctproc_ct_data_paths as ctpaths
+from typing import Dict, List, NamedTuple, Optional, Set, Tuple, Union
+import ct_data_paths as ctpaths
 import numpy as np
 import random
 import json
@@ -43,9 +43,9 @@ def proc_docs_and_topics(trec_or_kz: str = 'trec') -> Tuple[Dict[str, Dict[str, 
 		print(f"processed {trec_or_kz} topic source: {topic_source}, and wrote to {topic_target}")
 	
 	id2doc = dict()
-	# for doc_source, doc_target in doc_tuples:
-	# 	id2doc.update(proc_docs(doc_source, doc_target))
-	# 	print(f"processed {trec_or_kz} doc source: {doc_source}, and wrote to {doc_target}")
+	for doc_source, doc_target in doc_tuples:
+		id2doc.update(proc_docs(doc_source, doc_target))
+		print(f"processed {trec_or_kz} doc source: {doc_source}, and wrote to {doc_target}")
 
 
 	return id2topic, id2doc
@@ -224,7 +224,6 @@ def get_n_crit(crit_list: List[str], dconfig: DataConfig) -> List[str]:
 
 def prep_doc_text(doc: Dict[str, Union[List[str], str, float]], dconfig: DataConfig) -> str:
 	
-
 	# combine lists of strings into single string
 	doc_inc = ' '.join(get_n_crit(doc['elig_crit']['include_criteria'], dconfig))
 	doc_exc = ' '.join(get_n_crit(doc['elig_crit']['exclude_criteria'], dconfig))
@@ -318,7 +317,7 @@ if __name__ == '__main__':
 	# eda.explore_trec_data(part=2, rand_print=0.001) # select part 1-5 (~70k docs per part)
 	# eda.explore_kz_data(rand_print=0.00001) # all in one file (~200k docs)
 
-
+# example config:
 # class DataConfig(NamedTuple):
 # 	save_path: str
 # 	trec_or_kz: str = 'trec'

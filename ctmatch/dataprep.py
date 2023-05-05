@@ -8,7 +8,7 @@ from numpy.linalg import norm
 import numpy as np
 
 # package tools
-from .utils.ctmatch_utils import train_test_val_split
+from .utils.ctmatch_utils import train_test_val_split, get_processed_data
 from .modelconfig import ModelConfig
 
 SUPPORTED_LMS = [
@@ -89,6 +89,16 @@ class DataPrep:
     def tokenize_dataset(self):
         self.ct_dataset = self.ct_dataset.map(self.tokenize_function, batched=True)
 
+
+    def get_category_data(self):
+        category_data = dict()
+        for cdata in get_processed_data(self.model_config.category_path):
+
+            # cdata = {<nct_id>: {cat1: float1, cat2: float2...}}
+            cdata = list(cdata.items())[0]
+            category_data[cdata[0]] = cdata[1]
+        return category_data
+    
 
      # ------------------ Embedding Similarity ------------------ #
     def create_doc_embeddings(self, split='train'):

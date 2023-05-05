@@ -128,9 +128,10 @@ class CTMatch:
         return ' '.join(split_text[:min(max_len, len(split_text))])
 
 
-    def prep_and_save_ir_dataset(self):
-        category_data = [cdata for cdata in get_processed_data(self.model_config.category_path)]
 
+
+    def prep_and_save_ir_dataset(self):
+        category_data = self.data.get_category_data()
         with open(self.model_config.ir_save_path, 'w') as wf:
             for ir_data in self.prep_ir_data():
                 ir_data['categories'] = sorted(category_data[ir_data['id']]).values()

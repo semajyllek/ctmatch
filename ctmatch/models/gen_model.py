@@ -64,8 +64,9 @@ class GenModel:
     def get_embedding(self, s: str):
         input = self.tokenizer(s, return_tensors='pt')
         with torch.no_grad():
-            embedding = self.model(**input).last_hidden_state[:, -1, :]
+            logits = self.model(**input)[0]
 
+        embedding = logits[:, -1, :]
         return norm(embedding)
 
     def gen_sim_pos_topic_embedding(self, doc_text, pos_example, debug=False):

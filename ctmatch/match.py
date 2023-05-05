@@ -129,7 +129,7 @@ class CTMatch:
 
 
     def prep_and_save_ir_dataset(self):
-        category_data = get_processed_data(self.model_config.category_path)
+        category_data = [cdata for cdata in get_processed_data(self.model_config.category_path)]
 
         with open(self.model_config.ir_save_path, 'w') as wf:
             for ir_data in self.prep_ir_data():

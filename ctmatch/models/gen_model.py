@@ -64,7 +64,7 @@ class GenModel:
     def get_embedding(self, s: str):
         input = self.tokenizer(s, return_tensors='pt')
         with torch.no_grad():
-            embedding = self.model(input['input_ids']).last_hidden_state
+            embedding = self.model(input['input_ids']).hidden_states[-1]
 
         return norm(embedding)
 

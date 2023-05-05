@@ -134,8 +134,6 @@ class CTMatch:
         category_data = self.data.get_category_data()
         with open(self.model_config.ir_save_path, 'w') as wf:
             for ir_data in self.prep_ir_data():
-                x = sorted(category_data[ir_data['id']])
-                print(x)
                 ir_data['categories'] = category_data[ir_data['id']]
                 wf.write(json.dumps(ir_data))
                 wf.write('\n')

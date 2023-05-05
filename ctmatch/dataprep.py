@@ -57,7 +57,7 @@ class DataPrep:
         if not self.model_config.use_trainer:
             self.ct_dataset = self.ct_dataset.remove_columns(['doc', 'topic'])  # removing labels for next-token prediction...
 
-        self.ct_train_dataset_df = self.ct_dataset['train'].to_pandas()
+        self.ct_train_dataset_df = self.ct_dataset['train'].remove_columns(['input_ids', 'attention_mask', 'token_type_ids']).to_pandas()
 
         return self.ct_dataset
 
@@ -121,6 +121,6 @@ class DataPrep:
 
     def get_random_example(self, target_label: str):
         print(self.ct_train_dataset_df.head(5))
-        return self.ct_train_dataset_df.where(self.ct_train_dataset_df['label'] == target_label).sample(1)
+        return self.ct_train_dataset_df.where(self.ct_train_dataset_df['labels'] == target_label).sample(1)
 
 

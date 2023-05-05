@@ -135,7 +135,7 @@ class CTMatch:
         with open(self.model_config.ir_save_path, 'w') as wf:
             for ir_data in self.prep_ir_data():
                 ir_data['categories'] = category_data[ir_data['id']]
-                wf.write(json.dumps(ir_data))
+                wf.write(json.dumps(str(ir_data)))
                 wf.write('\n')
 
 

@@ -2,11 +2,11 @@
 from typing import Dict, List, Optional, Set
 
 # external imports
-from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from transformers.pipelines.pt_utils import KeyDataset
 from pathlib import Path
 from sklearn import svm
+from tqdm import tqdm
 import pandas as pd
 import numpy as np
 import spacy
@@ -140,7 +140,7 @@ class CTMatch:
 
 
     def prep_ir_data(self):
-        for data_path in self.model_config.processed_data_paths:
+        for data_path in tqdm(self.model_config.processed_data_paths):
             for doc in get_processed_data(data_path):
                 ir_data_entry = dict()
                 ir_data_entry['id'] = doc['id']

@@ -69,21 +69,21 @@ class GenModel:
         embedding = logits[:, -1, :]
         return norm(embedding)
 
-    def gen_sim_pos_topic_embedding(self, doc_text, pos_example, debug=False):
+    def gen_sim_pos_topic_embedding(self, doc_text, pos_example, debug=True):
         prompt = f"here is a clinical trial document: {pos_example['doc']}. here is a topic that recieves a 2, or 'relevant' score for this document: {pos_example['topic']}, "
         prompt += f" here is another clinical trial document: {doc_text}, here is a topic that recieves a 2, or 'relevant' score for this document: "
         sim_pos_topic = self.gen_response(prompt)
         if debug:
-            print(sim_pos_topic)
+            print(f"document:\n{doc_text}\ngenerated positive topic:\n{sim_pos_topic}\n")
 
         return norm(self.get_embedding(sim_pos_topic))
     
-    def gen_sim_neg_topic_embedding(self, doc_text, neg_example, debug=False):
+    def gen_sim_neg_topic_embedding(self, doc_text, neg_example, debug=True):
         prompt = f"here is a clinical trial document: {neg_example['doc']}. here is a topic that recieves a 0, or 'not relevant' score for this document: {neg_example['topic']}, "
         prompt += f" here is another clinical trial document: {doc_text}, here is a topic that recieves a 0, or 'not relevant' score for this document: "
         sim_neg_topic = self.gen_response(prompt)
         if debug:
-            print(sim_neg_topic)
+            print(f"document:\n{doc_text}\ngenerated negative topic:\n{sim_neg_topic}\n")
 
         return norm(self.get_embedding(sim_neg_topic))
 

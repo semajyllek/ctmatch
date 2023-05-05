@@ -120,6 +120,7 @@ class DataPrep:
 
 
     def get_random_example(self, target_label: str):
+        print(self.ct_train_dataset_df.head(5))
         return self.ct_train_dataset_df.where(self.ct_train_dataset_df['label'] == target_label).sample(1)
 
 

@@ -142,7 +142,7 @@ class CTMatch:
         for data_path in self.model_config.processed_data_paths:
             for doc in get_processed_data(data_path):
                 ir_data_entry = dict()
-                ir_data_entry['nct_id'] = doc['id']
+                ir_data_entry['id'] = doc['id']
                 doc_text = self.prep_ir_text(doc)
                 ir_data_entry['doc_text'] = doc_text
                 ir_data_entry['doc_embedding'] = self.gen_model.get_embedding(doc_text)

@@ -19,7 +19,7 @@ class ModelConfig(NamedTuple):
     output_dir: Optional[str] = None
     convert_snli: bool = False
     use_trainer: bool = True
-    gen_model: str = 'gpt2'
+    gen_model: str = 'biogpt'
     num_classes: int = 3
     fp16: bool = False
     early_stopping: bool = False

@@ -159,8 +159,8 @@ class CTMatch:
                     print(f"Prepping doc {i}")
 
                 #ir_data_entry['doc_embedding'] = self.gen_model.get_embedding(doc_text)
-                print(doc['doc_text'])
-                wf.write(doc['doc_text'])
+                #print(doc['doc_text'])
+                wf.write(doc['doc_text'], 'utf-8')
                 wf.write('\n')
        
 

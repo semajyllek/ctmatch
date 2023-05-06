@@ -153,14 +153,14 @@ class CTMatch:
 
 
     def save_texts(self):
-        with open(Path(self.model_config.ir_save_path).parent / 'texts', 'w') as wf:
+        with open(Path(self.model_config.ir_save_path).parent / 'texts', 'w', encoding='utf-8') as wf:
             for i, doc in enumerate(get_processed_data(self.model_config.ir_save_path)):
                 if i % 10000 == 0:
                     print(f"Prepping doc {i}")
 
                 #ir_data_entry['doc_embedding'] = self.gen_model.get_embedding(doc_text)
                 #print(doc['doc_text'])
-                wf.write(doc['doc_text'], 'utf-8')
+                wf.write(doc['doc_text'])
                 wf.write('\n')
        
 

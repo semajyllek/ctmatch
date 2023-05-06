@@ -128,6 +128,7 @@ class ClassifierModel:
             weight_decay=self.model_config.weight_decay,
             evaluation_strategy="epoch",
             logging_steps=len(self.dataset["train"]) // self.model_config.batch_size,
+            fp16=self.model_config.fp16,
             push_to_hub=self.model_config.push_to_hub
         )
         

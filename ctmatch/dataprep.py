@@ -131,14 +131,5 @@ class DataPrep:
         doc_emb = np.mean(doc_last_hidden, axis=0)
         return np.dot(topic_emb, doc_emb)/(norm(topic_emb) * norm(doc_emb))
 
-    
-    def get_pos_and_neg_examples(self) -> Tuple[Any, Any]:
-        pos_example = self.get_random_example('2')
-        neg_example = self.get_random_example('0')
-        return pos_example, neg_example
-
-
-    def get_random_example(self, target_label: str):
-        return self.ct_train_dataset_df.where(self.ct_train_dataset_df['labels'] == target_label).sample(1)
-
+  
 

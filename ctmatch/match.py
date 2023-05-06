@@ -147,15 +147,6 @@ class CTMatch:
                 doc_text = self.prep_ir_text(doc)
                 ir_data_entry['doc_text'] = doc_text
                 ir_data_entry['doc_embedding'] = self.gen_model.get_embedding(doc_text)
-
-                random_pos = self.data.get_random_example('2')
-                random_neg = self.data.get_random_example('0')
-
-
-                # make simulated neg and positive topic embeddings
-                ir_data_entry['pos_sim_topic_embedding'] = self.gen_model.gen_sim_pos_topic_embedding(doc_text, random_pos)
-                ir_data_entry['neg_sim_topic_embedding'] = self.gen_model.gen_sim_neg_topic_embedding(doc_text, random_neg)
-                
                 yield ir_data_entry
 
 

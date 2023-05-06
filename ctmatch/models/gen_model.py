@@ -1,6 +1,4 @@
 
-from transformers import BioGptTokenizer, BioGptForCausalLM
-
 
 from ctmatch.modelconfig import ModelConfig
 from transformers import set_seed
@@ -21,6 +19,7 @@ class GenModel:
     
     def add_gen_model(self, model_name='biogpt') -> None:
         if model_name == 'biogpt':
+            from transformers import BioGptTokenizer, BioGptForCausalLM
             self.tokenizer = BioGptTokenizer.from_pretrained("microsoft/biogpt")
             self.model = BioGptForCausalLM.from_pretrained("microsoft/biogpt")
         elif model_name == 'gpt2':

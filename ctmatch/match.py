@@ -142,7 +142,7 @@ class CTMatch:
     def prep_ir_data(self):
         for data_path in self.model_config.processed_data_paths:
             for i, doc in enumerate(get_processed_data(data_path)):
-                if i % 1000 == 0:
+                if i % 10000 == 0:
                     print(f"Prepping doc {i}")
 
                 ir_data_entry = dict()
@@ -155,11 +155,11 @@ class CTMatch:
     def save_texts(self):
         with open(Path(self.model_config.ir_save_path).parent / 'texts', 'w') as wf:
             for i, doc in enumerate(get_processed_data(self.model_config.ir_save_path)):
-                if i % 1000 == 0:
+                if i % 10000 == 0:
                     print(f"Prepping doc {i}")
 
                 #ir_data_entry['doc_embedding'] = self.gen_model.get_embedding(doc_text)
-                wf.write(doc['text'])
+                wf.write(doc['doc_text'])
                 wf.write('\n')
        
 

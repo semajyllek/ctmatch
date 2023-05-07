@@ -120,10 +120,10 @@ class CTMatch:
             return doc_df.iloc[get_only]
 
 
-    def prep_ir_text(self, doc: Dict[str, List[str]], max_len: int = 256) -> str:
+    def prep_ir_text(self, doc: Dict[str, List[str]], max_len: int = 512) -> str:
         inc_text = ' '.join(doc['elig_crit']['include_criteria'])
         exc_text = ' '.join(doc['elig_crit']['exclude_criteria'])
-        all_text = inc_text + exc_text
+        all_text = f"Inclusion Criteria: {inc_text}, Exclusion Criteria: {exc_text}"
         split_text = all_text.split()
         return ' '.join(split_text[:min(max_len, len(split_text))])
 

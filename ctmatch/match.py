@@ -152,9 +152,11 @@ class CTMatch:
                 yield ir_data_entry
 
 
-    def save_texts(self):
+    def save_texts(self) -> Dict[int, str]:
+        idx2id = dict()
         with open(Path(self.model_config.ir_save_path).parent / 'texts', 'w', encoding='utf-8') as wf:
             for i, doc in enumerate(get_processed_data(self.model_config.ir_save_path)):
+                idx2id[i] = doc['id']
                 if i % 10000 == 0:
                     print(f"Prepping doc {i}")
 
@@ -162,6 +164,7 @@ class CTMatch:
                 #print(doc['doc_text'])
                 wf.write(doc['doc_text'])
                 wf.write('\n')
+        return idx2id
        
 
 

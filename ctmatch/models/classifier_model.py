@@ -169,9 +169,10 @@ class ClassifierModel:
                 self.optimizer.step()
                 self.lr_scheduler.step()
                 self.optimizer.zero_grad()
-                self.manual_eval()
-                print(f"{loss=}")
-                progress_bar.update(1)
+                
+            self.manual_eval()
+            print(f"{loss=}")
+            progress_bar.update(1)
             
 
 

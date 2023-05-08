@@ -7,10 +7,8 @@ from sentence_transformers import SentenceTransformer
 from transformers.pipelines.pt_utils import KeyDataset
 from pathlib import Path
 from sklearn import svm
-from tqdm import tqdm
 import pandas as pd
 import numpy as np
-import spacy
 import json
 
 # package tools
@@ -31,7 +29,7 @@ class CTMatch:
         self.model_config = model_config
         self.data = DataPrep(self.model_config)
         self.classifier_model = ClassifierModel(self.model_config, self.data)
-        self.embdding_model = SentenceTransformer(model_id) 
+        self.embdding_model = SentenceTransformer(self.model_config.embedding_model) 
 
         # embedding attrs
         self._spacy_model = None
@@ -161,8 +159,6 @@ class CTMatch:
                 if i % 10000 == 0:
                     print(f"Prepping doc {i}")
 
-                #ir_data_entry['doc_embedding'] = self.gen_model.get_embedding(doc_text)
-                #print(doc['doc_text'])
                 wf.write(doc['doc_text'])
                 wf.write('\n')
         return idx2id

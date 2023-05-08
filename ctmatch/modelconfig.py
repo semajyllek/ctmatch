@@ -4,7 +4,6 @@ from pathlib import Path
 
 class ModelConfig(NamedTuple):
     name: str
-    classified_data_path: Path
     model_checkpoint: str
     max_length: int
     padding: str
@@ -16,11 +15,12 @@ class ModelConfig(NamedTuple):
     warmup_steps: int
     seed: int
     splits: Dict[str, float]
+    classified_data_path: Path = "semaj83/ctmatch/combined_classifier_data.jsonl"
     output_dir: Optional[str] = None
     convert_snli: bool = False
     use_trainer: bool = True
     gen_model: str = 'biogpt'
-    encoding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     num_classes: int = 3
     fp16: bool = False
     early_stopping: bool = False

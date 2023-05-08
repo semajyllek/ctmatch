@@ -46,7 +46,7 @@ class DataPrep:
 
     # ------------------ Data Loading ------------------ #
     def load_data(self) -> Dataset:
-        self.ct_dataset = load_dataset(self.model_config.classified_data_path)
+        self.ct_dataset = load_dataset('semaj83/ctmatch', data_files=self.model_config.classified_data_path)
         self.ct_dataset = train_test_val_split(self.ct_dataset, self.model_config.splits, self.model_config.seed)
         self.add_features()
         self.tokenize_dataset()

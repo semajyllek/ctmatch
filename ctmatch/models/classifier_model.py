@@ -140,6 +140,7 @@ class ClassifierModel:
             predictions = self.trainer.predict(self.dataset["test"])
             print(predictions.metrics.items())
         else:
+            self.loss_func = nn.CrossEntropyLoss(weight=self.get_label_weights())
             self.manual_train()
             self.manual_eval()
 

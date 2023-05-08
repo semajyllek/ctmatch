@@ -169,10 +169,10 @@ class ClassifierModel:
                 self.optimizer.step()
                 self.lr_scheduler.step()
                 self.optimizer.zero_grad()
-                
-            self.manual_eval()
-            print(f"{loss=}")
-            progress_bar.update(1)
+
+                self.manual_eval()
+                print(f"{loss=}")
+                progress_bar.update(1)
             
 
 
@@ -190,7 +190,8 @@ class ClassifierModel:
             logits = outputs.logits
             predictions = torch.argmax(logits, dim=-1)
             metric.add_batch(predictions=predictions, references=batch["labels"])
-            print(metric.compute(average='weighted'))
+        
+        print(metric.compute(average='weighted'))
 
 
 

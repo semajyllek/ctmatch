@@ -155,7 +155,7 @@ class ClassifierModel:
 
     # taken from ctmatch for messing about 
     def manual_train(self):
-        progress_bar = tqdm(range(self.model_config.num_training_steps))
+        progress_bar = tqdm(range(self.num_training_steps))
         self.model.train()
         for epoch in range(self.model_config.train_epochs):
             for batch in tqdm(self.train_dataloader):

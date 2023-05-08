@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Set
 
 # external imports
 from sklearn.metrics.pairwise import cosine_similarity
+from sentence_transformers import SentenceTransformer
 from transformers.pipelines.pt_utils import KeyDataset
 from pathlib import Path
 from sklearn import svm
@@ -30,7 +31,7 @@ class CTMatch:
         self.model_config = model_config
         self.data = DataPrep(self.model_config)
         self.classifier_model = ClassifierModel(self.model_config, self.data)
-        self.gen_model = GenModel(self.model_config)
+        self.embdding_model = SentenceTransformer(model_id) 
 
         # embedding attrs
         self._spacy_model = None
@@ -165,6 +166,10 @@ class CTMatch:
                 wf.write(doc['doc_text'])
                 wf.write('\n')
         return idx2id
+    
+
+    def get_embeddings(self, texts: List[str]) -> List[float]:
+        return self.embedding_model.encode(texts)
        
 
 

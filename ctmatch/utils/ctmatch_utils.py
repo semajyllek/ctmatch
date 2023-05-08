@@ -113,11 +113,9 @@ def l2_normalize(x):
 def cosine_sim(x_emb, y_emb) -> float:
     return np.dot(x_emb, y_emb)/(norm(x_emb) * norm(y_emb))
 
-def linear_kernel_sim(x_emb, y_emb):
+def linear_kernel_sim(query_emb, doc_embs):
     """
-    desc:    computes the linear kernel similarity between two embeddings
+    desc:    computes the linear kernel similarity between a query embedding x, and a set of document embeddings y
     """
-    total_mat = np.concatenate((x_emb, y_emb), axis=0)
+    total_mat = np.concatenate((query_emb, doc_embs), axis=0)
     return linear_kernel(total_mat, total_mat)[0]
-
-

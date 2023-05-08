@@ -2,6 +2,7 @@
 #https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.4.0/en_core_sci_md-0.4.0.tar.gz
 #pyserini==0.12.0
 
+sentence-transformers
 huggingface_hub
 scikit-learn
 git+https://github.com/semajyllek/transformers.git@add-biogpt-sequenceclassifier
@@ -12,3 +13,4 @@ accelerate
 datasets
 evaluate
 pandas
+openai

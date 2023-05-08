@@ -39,6 +39,7 @@ class ClassifierModel:
         self.dataset = data.ct_dataset
         self.train_dataset_df = data.ct_dataset['train'].to_pandas()
         self.tokenizer = data.tokenizer
+        self.tokenize_func = data.tokenize_function
         self.trainer = None
         self.optimizer = None
         self.lr_scheduler = None
@@ -197,19 +198,22 @@ class ClassifierModel:
 
 
     def get_sklearn_metrics(self):
-        if self.model_config.use_trainer:
-            preds = self.trainer.predict(self.dataset["validation"]).predictions
-            if "bart" in self.model_config.name:
-                preds = preds[0]
+        with torch.no_grad():
+            if self.model_config.use_trainer:
+                preds = self.trainer.predict(self.dataset['test']).predictions
+                if "bart" in self.model_config.name:
+                    preds = preds[0]
 
-            y_preds = list(preds.argmax(axis=1))
-        else:
-            y_preds = []
-            for input_ids in self.dataset['validation']['input_ids']:
-                y_pred = self.model(input_ids).logits.argmax().item()
-                y_preds.append(y_pred)
+                y_preds = list(preds.argmax(axis=1))
+            else:
+                self.model.to(self.device)
+                y_preds = []
+                for input_ids in self.dataset['test']['input_ids']:
+                    input_ids = torch.tensor(input_ids).unsqueeze(0).to(self.device)
+                    y_pred = self.model(input_ids).logits.argmax().item()
+                    y_preds.append(y_pred)
          
-        y_trues = list(self.dataset["validation"]["labels"])
+        y_trues = list(self.dataset['test']['labels'])
         return confusion_matrix(y_trues, y_preds), classification_report(y_trues, y_preds)
     
 
@@ -223,3 +227,12 @@ class ClassifierModel:
         f1 = f1_score(labels, preds, average="weighted")
         return {"f1":f1}
 
+
+    
+    def run_inference_single_example(self, topic: str, doc: str) -> str:
+        """
+        desc: method to predict relevance label on new topic, doc examples 
+        """
+        ex = {'doc':doc, 'topic':topic}
+        inputs = torch.LongTensor(self.tokenize_func(ex)['input_ids']).unsqueeze(0)
+        return str(self.model(inputs).logits.argmax().item())

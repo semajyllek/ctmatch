@@ -1,15 +1,24 @@
 
-from typing import Any, Tuple
+
 
 # external imports
 from datasets import Dataset, load_dataset, ClassLabel, Features, Value
 from transformers import AutoTokenizer
-from numpy.linalg import norm
+import pandas as pd
 import numpy as np
 
 # package tools
 from .utils.ctmatch_utils import train_test_val_split, get_processed_data
 from .modelconfig import ModelConfig
+
+
+# path to ctmatch dataset on HF hub
+CTMATCH_DATASET_ROOT = "semaj83/ctmatch"
+DOC_TEXT_PATH = f"{CTMATCH_DATASET_ROOT}/doc_texts.txt"
+DOC_CATEGORY_VEC_PATH = f"{CTMATCH_DATASET_ROOT}/doc_categories.csv"
+DOC_EMBEDDINGS_VEC_PATH = f"{CTMATCH_DATASET_ROOT}/doc_embeddings.csv"
+INDEX2DOCID_PATH = f"{CTMATCH_DATASET_ROOT}/index2docid.csv"
+
 
 SUPPORTED_LMS = [
     'roberta-large', 'cross-encoder/nli-roberta-base',
@@ -28,25 +37,34 @@ class DataPrep:
 
     def __init__(self, model_config: ModelConfig) -> None:
         self.model_config = model_config
-        self.tokenizer = self.get_tokenizer()
+        self.classifier_tokenizer = self.get_classifier_tokenizer()
         self.ct_dataset = None
         self.ct_train_dataset_df = None
-        self.load_data()
+        self.index2id = None
+        self.doc_embeddings_df = None
+        self.doc_categories_df = None
+
+        self.load_classifier_data()
+
+        if model_config.ir_setup:
+            self.load_ir_data()
+
+
         
 	
-    def get_tokenizer(self):
-        model_checkpoint = self.model_config.model_checkpoint
+    def get_classifier_tokenizer(self):
+        model_checkpoint = self.model_config.classifier_model_checkpoint
         if model_checkpoint not in SUPPORTED_LMS:
             raise ValueError(f"Model checkpoint {model_checkpoint} not supported. Please use one of {SUPPORTED_LMS}")
-        tokenizer = AutoTokenizer.from_pretrained(self.model_config.model_checkpoint)
-        if self.model_config.model_checkpoint == 'gpt2':
+        tokenizer = AutoTokenizer.from_pretrained(self.model_config.classifier_model_checkpoint)
+        if self.model_config.classifier_model_checkpoint == 'gpt2':
             tokenizer.pad_token = tokenizer.eos_token
         return tokenizer
 
 
-    # ------------------ Data Loading ------------------ #
-    def load_data(self) -> Dataset:
-        self.ct_dataset = load_dataset('semaj83/ctmatch', data_files=self.model_config.classified_data_path)
+    # ------------------ Classifier Data Loading ------------------ #
+    def load_classifier_data(self) -> Dataset:
+        self.ct_dataset = load_dataset(CTMATCH_DATASET_ROOT, data_files=self.model_config.classifier_data_path)
         self.ct_dataset = train_test_val_split(self.ct_dataset, self.model_config.splits, self.model_config.seed)
         self.add_features()
         self.tokenize_dataset()
@@ -79,7 +97,7 @@ class DataPrep:
 
 
     def tokenize_function(self, examples):
-        return self.tokenizer(
+        return self.classifier_tokenizer(
             examples["topic"], examples["doc"], 
             truncation=self.model_config.truncation, 
             padding=self.model_config.padding, 
@@ -109,27 +127,13 @@ class DataPrep:
         return category_data
     
 
-     # ------------------ Embedding Similarity ------------------ #
-    def create_doc_embeddings(self, split='train'):
-        doc_embeddings = []
-        for example in self.ct_dataset[split]:
-            doc_encoding = self.tokenize_function(example)
-            doc_embeddings.append(self.lm_model(**doc_encoding.last_hidden_state.numpy()))
-
-        self.doc_embeddings = norm(np.array(doc_embeddings))
-
+    
+    # ------------------ IR Data Loading ------------------ #
+    def load_ir_data(self) -> None:
+        self.index2id = load_dataset(INDEX2DOCID_PATH)
+        self.doc_embeddings_df = pd.DataFrame(load_dataset(DOC_EMBEDDINGS_VEC_PATH))
+        self.doc_categories_df = pd.DataFrame(load_dataset(DOC_CATEGORY_VEC_PATH))
+        self.doc_texts_df = pd.DataFrame(load_dataset(DOC_TEXT_PATH))
 
 
-    def get_embedding_similarity(self, lm_model, topic, document):
-        topic_input = self.tokenizer(topic, return_tensors='pt').to('cuda')
-        doc_input = self.tokenizer(document, return_tensors='pt').to('cuda')
-        topic_output = lm_model(**topic_input, output_hidden_states=True)
-        doc_output =lm_model(**doc_input, output_hidden_states=True)
-        topic_last_hidden = np.squeeze(topic_output.hidden_states[-1].detach().cpu().numpy(), axis=0)
-        doc_last_hidden = np.squeeze(doc_output.hidden_states[-1].detach().cpu().numpy(), axis=0)
-        topic_emb = np.mean(topic_last_hidden, axis=0)
-        doc_emb = np.mean(doc_last_hidden, axis=0)
-        return np.dot(topic_emb, doc_emb)/(norm(topic_emb) * norm(doc_emb))
-
-  
 

@@ -20,7 +20,6 @@ CT_CATEGORIES = [
 # documents of the dataset, including test, because we can assume this is something that is realistic to pre-compute
 # since you have the documents apriori
 # --------------------------------------------------------------------------------------------------------------- #
-GET_ONLY = {'NCT00391586'}
 GET_ONLY = None
 
 
@@ -85,6 +84,7 @@ def gen_categories(pipe, text_dataset: Generator[str, None, None]) -> str:
 		#category = max(score_dict, key=score_dict.get)
 		categories.append(score_dict)
 	return categories
+
 
 def gen_single_category_vector(pipe, text: str) -> str:
     output = pipe(text, candidate_labels=CT_CATEGORIES)

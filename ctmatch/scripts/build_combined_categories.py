@@ -34,7 +34,7 @@ def load_category_dict(cat_path=COMBINED_CAT_PATH) -> Tuple[List, Dict[str, List
 
 
 
-def load_idx2id(index2id_path: str = INDEX2ID_PATH) -> Dict[str, int]:
+def load_index2id(index2id_path: str = INDEX2ID_PATH) -> Dict[str, int]:
     """
     desc:   loads id2idx from csv path
     """
@@ -48,20 +48,6 @@ def load_idx2id(index2id_path: str = INDEX2ID_PATH) -> Dict[str, int]:
     
     return index2id
 
-
-
-def rebuild_idx2id(index2id_path: str = INDEX2ID_PATH) -> None:
-    """
-    desc:   loads id2idx from csv path
-    """
-
-    index2id = load_idx2id(index2id_path)
-    with open(INDEX2ID_FIX_PATH, 'w') as f:
-        for i, (idx, nct_id) in enumerate(index2id.items()):
-            f.write(f'{i},{nct_id}\n')
-
-       
-    
 
 
 def build_cat_csv(save_path: str = CAT_SAVE_PATH) -> None:
@@ -83,8 +69,7 @@ def build_cat_csv(save_path: str = CAT_SAVE_PATH) -> None:
 
 
 if __name__ == '__main__':
-    rebuild_idx2id()
-    #build_cat_csv()
+    build_cat_csv()
 
     
     

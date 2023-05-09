@@ -1,14 +1,15 @@
 
-from typing import Dict, List, Optional, Set
+from typing import Dict, List
 
 # external imports
-from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
-from transformers.pipelines.pt_utils import KeyDataset
+from sklearn.metrics.pairwise import linear_kernel
+from transformers import pipeline
 from pathlib import Path
 from sklearn import svm
 import pandas as pd
 import numpy as np
+import torch
 import json
 
 # package tools
@@ -19,43 +20,38 @@ from .modelconfig import ModelConfig
 from .pipetopic import PipeTopic
 from .dataprep import DataPrep
 
-# TODO: replace w huggingface dataset...
-TREC_DATA = Path('/Users/jameskelly/Documents/cp/ctmatch/data/trec_data/trec_data.jsonl')
-KZ_DATA = Path('/Users/jameskelly/Documents/cp/ctmatch/data/kz_data/kz_data.jsonl')
+
+CT_CATEGORIES = [
+    "pulmonary", "cardiac", "gastrointestinal", "renal", "psychological", "genetic", "pediatric",
+	"neurological", "cancer", "reproductive", "endocrine", "infection", "healthy", "other"
+]
+
+
+GEN_INIT_PROMPT =  "I will give you a patient description and a set of clinical trial documents. Each document will have a NCTID. I would like you to return the set of NCTIDs ranked from most to least relevant for patient in the description.\n"
 
 
 class CTMatch:
     def __init__(self, model_config: ModelConfig) -> None:
         self.model_config = model_config
+        self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         self.data = DataPrep(self.model_config)
-        self.classifier_model = ClassifierModel(self.model_config, self.data)
-        self.embdding_model = SentenceTransformer(self.model_config.embedding_model) 
-
-        # embedding attrs
-        self._spacy_model = None
-        self._tfidf_model = None
-        self.doc_embeddings = None
-
-        # comparison matrices
-        self.doc_tfidf_matrix = None
-        self.doc_category_matrix = None
-            
-
-
+        self.classifier_model = ClassifierModel(self.model_config, self.data, self.device)
+        self.embedding_model = SentenceTransformer(self.model_config.embedding_model_checkpoint) 
+        self.gen_model = GenModel(self.model_config)
+        self.category_model = None
+        
+    
+    # main api method
     def match_pipeline(self, topic: str, top_n: int, mode: str ='normal') -> List[str]:
 
-        # get doc set
-        doc_set = KeyDataset(self.data.ct_dataset, 'doc').to_pandas()
-
-        # build comparison matrices
-        self.build_comparison_matrices()
+        # start off will all doc indexes
+        doc_set = self.data.index2id.keys()
         
         # get topic representations for pipeline filters
         pipe_topic = PipeTopic(
-            topic=topic, 
-            classifier_model=self.classifier_model, 
-            tfidf_model=self.tfidf_model,
-            model_config=self.model_config
+            topic_text=topic, 
+            embedding_vec=self.get_embeddings([topic])[0],
+            category_vec=self.get_categories([topic])
         )
 
         # first filter, category + embedding similarity
@@ -70,54 +66,91 @@ class CTMatch:
         return doc_set
 
 
+    # ------------------------------------------------------------------------------------------ #
+    # filtering methods
+    # ------------------------------------------------------------------------------------------ #
 
-    def sim_filter(self, pipe_topic: PipeTopic, doc_df: pd.DataFrame, top_n: int = 1000) -> List[str]:
+    def sim_filter(self, pipe_topic: PipeTopic, doc_set: List[int], top_n: int = 1000) -> List[str]:
 
-        # get category similiarity
-        category_sim = cosine_similarity(pipe_topic.topic_category_vector, self.doc_category_matrix).flatten()
+        # get selected doc category and embedding vectors (matrices)
+        doc_categories_mat = self.data.doc_categories_df.iloc[doc_set].values
+        doc_embeddings_mat = self.data.doc_embeddings_df.iloc[doc_set].values
 
-        # first filter, top n docs by alpha similiarity
-        top_n_indexes = np.argsort(category_sim)[::-1][:top_n]
+        # concatenate the topic representation with the matricies for linear kernel calculation
+        cat_comparison_mat = np.concatenate([pipe_topic.category_vec, doc_categories_mat], axis=0)
+        emb_comparison_mat = np.concatenate([pipe_topic.embedding_vec, doc_embeddings_mat], axis=0)
 
-        doc_df = self.get_filtered_docs(doc_df, get_only=top_n_indexes)
-        return doc_df
+        # get combined similiarity scores
+        category_sim = linear_kernel(cat_comparison_mat)[0]
+        embedding_sim = linear_kernel(emb_comparison_mat)[0]
+        combined_sim = category_sim + embedding_sim
+
+        # return top n doc indices by combined similiarity
+        return np.argsort(combined_sim)[::-1][:min(len(doc_set), top_n)]
     
 
-    def svm_filter(self, topic_embedding, doc_df: pd.DataFrame, top_n: int = 100) -> List[int]:
-        if self.doc_embeddings is None:
-            self.data.create_doc_embeddings()
-            
-        x = np.concatenate([topic_embedding, doc_df['doc_embedding'].values.tolist()])
-        y = np.zeros(len(doc_df) + 1)
+
+    def svm_filter(self, topic: PipeTopic, doc_set: List[int], top_n: int = 100) -> List[int]:
+        doc_embeddings_mat = self.data.doc_embeddings_df.iloc[doc_set].values
+
+        # build training data and prediction vector of single positive class for SVM
+        x = np.concatenate([topic.embedding_vec, doc_embeddings_mat], axis=0)
+        y = np.zeros(len(doc_set) + 1)
         y[0] = 1
+
+        # define and fit SVM
         clf = svm.LinearSVC(class_weight='balanced', verbose=False, max_iter=10000, tol=1e-6, C=0.1)
         clf.fit(x, y) 
         
         # infer for similarities
         similarities = clf.decision_function(x)
-        sorted_neighbors = np.argsort(-similarities)
-        return self.get_filtered_docs(doc_df, get_only=sorted_neighbors[:top_n])
+
+        # return top n doc indices by similiarity
+        return np.argsort(-similarities)[::-1][:min(len(doc_set), top_n)]
         
-
-    def gen_filter(self, pipe_topic: PipeTopic, doc_df: pd.DataFrame, top_n: int) -> List[str]:
-        dist_dict_results = []
-        for doc_text in doc_df['doc']:
-            pos_ex, neg_ex = self.data.get_pos_neg_examples()
-            dist_dict = self.gen_model.gen_relevance(pipe_topic.topic, doc_text, pos_ex, neg_ex)
-            dist_dict['text'] = doc_text
-            dist_dict_results.append(dist_dict)
-
-        return sorted(dist_dict_results, key=lambda x: x['dist'], reverse=True)[:top_n]
+        
+    def gen_filter(self, pipe_topic: PipeTopic, doc_set: List[int], top_n: int) -> List[str]:
+        """gen model supplies a ranking of remaming docs by evaluating the pairs of topic and doc texts"""
+        query_prompt = self.get_gen_query_prompt(pipe_topic, doc_set)
+        return self.gen_model.gen_response(query_prompt)[:min(len(doc_set), top_n)]
 
 
 
+    # ------------------------------------------------------------------------------------------ #
+    # filter helper methods
+    # ------------------------------------------------------------------------------------------ #
+    def get_embeddings(self, texts: List[str]) -> List[float]:
+        return self.embedding_model.encode(texts)
+    
+    def get_categories(self, text: str) -> str:
+        if self.category_model is None:
+            self.category_model = pipeline(
+                'zero-shot-classification', 
+                model=self.model_config.category_model_checkpoint, 
+                device=self.device
+            )
+        output = self.category_model(text, candidate_labels=CT_CATEGORIES)
+        score_dict = {output['labels'][i]:output['scores'][i] for i in range(len(output['labels']))}
 
-    def get_filtered_docs(self, doc_df: pd.DataFrame, get_only: Optional[Set[int]] = None) -> pd.DataFrame:
-        if get_only is None:
-            return doc_df
-        else:
-            return doc_df.iloc[get_only]
+        # to be consistent with doc category vecs
+        sorted_keys = sorted(score_dict.keys())
+        return np.array([score_dict[k] for k in sorted_keys])
 
+
+    def get_gen_query_prompt(self, topic: PipeTopic, doc_set: List[int]) -> str:
+        query_prompt = f"{GEN_INIT_PROMPT}Patient description: {topic.topic_text}\n"
+    
+        for i, doc_text in enumerate(self.data.doc_texts_df.iloc[doc_set].values):
+            query_prompt += f"ID: {doc_set[i]}, "
+            query_prompt += f"Eligbility Criteria: {doc_text}\n"
+
+        return query_prompt
+    
+
+
+    # ------------------------------------------------------------------------------------------ #
+    # data prep methods that rely on model in CTMatch object (not run during routine program) 
+    # ------------------------------------------------------------------------------------------ #
 
     def prep_ir_text(self, doc: Dict[str, List[str]], max_len: int = 512) -> str:
         inc_text = ' '.join(doc['elig_crit']['include_criteria'])
@@ -125,8 +158,6 @@ class CTMatch:
         all_text = f"Inclusion Criteria: {inc_text}, Exclusion Criteria: {exc_text}"
         split_text = all_text.split()
         return ' '.join(split_text[:min(max_len, len(split_text))])
-
-
 
 
     def prep_and_save_ir_dataset(self):
@@ -162,40 +193,4 @@ class CTMatch:
                 wf.write(doc['doc_text'])
                 wf.write('\n')
         return idx2id
-    
-
-    def get_embeddings(self, texts: List[str]) -> List[float]:
-        return self.embedding_model.encode(texts)
-       
-
-
-
-
-if __name__ == '__main__':
-    # trec_data_path = '/Users/jameskelly/Documents/cp/ctmatch/data/trec_data/trec21_labelled_triples.jsonl'
-    # kz_data_path = '/Users/jameskelly/Documents/cp/ctmatch/data/kz_data/kz_labelled_triples.jsonl'
-    # new_trec_data_path = '/Users/jameskelly/Documents/cp/ctmatch/data/trec_data/trec_data.jsonl'
-    # new_kz_data_path = '/Users/jameskelly/Documents/cp/ctmatch/data/kz_data/kz_data.jsonl'
-    # create_dataset(trec_data_path, new_trec_data_path)
-    # create_dataset(kz_data_path, new_kz_data_path)
-
-    scibert_model = 'allenai/scibert_scivocab_uncased'
-
-    config = ModelConfig(
-        name='{scibert_model}_ctmatch_finetuned',
-        classified_data_path=KZ_DATA,
-        model_checkpoint=scibert_model,
-        max_length=512,
-        batch_size=16,
-        learning_rate=2e-5,
-        train_epochs=3,
-        weight_decay=0.01,
-        warmup_steps=500,
-        splits={"train":0.8, "val":0.1}
-    )
-
-    ctm = CTMatch(config)
-    ctm.classifier_model.train_and_predict()
-
-
 

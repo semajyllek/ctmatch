@@ -17,24 +17,23 @@ from ..dataprep import DataPrep
 
 
 class WeightedLossTrainer(Trainer):
+    def __init__(self, label_weights, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.label_weights = label_weights
 
-  def __init__(self, label_weights, *args, **kwargs):
-    super().__init__(*args, **kwargs)
-    self.label_weights = label_weights
-
-  def compute_loss(self, model, inputs, return_outputs=False):
-    outputs = model(**inputs)
-    logits = outputs.get("logits")
-    labels = inputs.get("labels")
-    loss_func = nn.CrossEntropyLoss(weight=self.label_weights)
-    loss = loss_func(logits, labels)
-    return (loss, outputs) if return_outputs else loss
+    def compute_loss(self, model, inputs, return_outputs=False):
+        outputs = model(**inputs)
+        logits = outputs.get("logits")
+        labels = inputs.get("labels")
+        loss_func = nn.CrossEntropyLoss(weight=self.label_weights)
+        loss = loss_func(logits, labels)
+        return (loss, outputs) if return_outputs else loss
 
 
 
 class ClassifierModel:
     
-    def __init__(self, model_config: ModelConfig, data: DataPrep):
+    def __init__(self, model_config: ModelConfig, data: DataPrep, device: str):
         self.model_config = model_config
         self.dataset = data.ct_dataset
         self.train_dataset_df = data.ct_dataset['train'].to_pandas()
@@ -44,6 +43,7 @@ class ClassifierModel:
         self.optimizer = None
         self.lr_scheduler = None
         self.num_training_steps = self.model_config.train_epochs * len(self.dataset['train'])
+        self.device = device
         self.model = self.load_model()
     
         if not self.model_config.use_trainer:
@@ -74,9 +74,6 @@ class ClassifierModel:
 
     def load_model(self):
         self.model = self.get_model()
-        self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-        print(f"Using device: {self.device}")
-       
         self.optimizer = AdamW(self.model.parameters(), lr=self.model_config.learning_rate, weight_decay=self.model_config.weight_decay)
         self.num_training_steps = self.model_config.train_epochs * len(self.dataset['train'])
         self.lr_scheduler = get_scheduler(

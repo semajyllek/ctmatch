@@ -1,10 +1,6 @@
 ### ctmatch
 
 
-category_data order of features:
-cancer,cardiac,endocrine,gastrointestinal,genetic,healthy,infection,neurological,other,pediatric,psychological,pulmonary,renal,reproductive
-
-
 **repo in development for matching clinical trials to patient text descriptions**
 
 This package is designed generally for the task described in the precision medicine track of TREC since 2021,

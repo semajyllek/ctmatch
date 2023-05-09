@@ -58,11 +58,11 @@ class CTMatch:
             model_config=self.model_config
         )
 
-        # first filter, category + tfidf similiarity
-        doc_set = self.sim_filter(pipe_topic, doc_set, top_n=1000)
+        # first filter, category + embedding similarity
+        doc_set = self.sim_filter(pipe_topic, doc_set, top_n=10000)
 
         # second filter, SVM
-        doc_set = self.svm_filter(pipe_topic, doc_set, top_n=100)
+        doc_set = self.svm_filter(pipe_topic, doc_set, top_n=1000)
 
         # third filter, LM
         doc_set = self.gen_filter(pipe_topic, doc_set, top_n=min(top_n, 100))

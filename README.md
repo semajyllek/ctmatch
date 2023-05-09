@@ -1,7 +1,7 @@
 ### ctmatch
 
 
-**repo in development for matching clinical trials to patient text descriptions**
+**program for matching clinical trials to patient text descriptions**
 
 This package is designed generally for the task described in the precision medicine track of TREC since 2021,
 that is, an information retrieval task to match patient descriptions (topics) to clinical trials data (xml documents)

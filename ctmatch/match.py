@@ -68,7 +68,7 @@ class CTMatch:
         # third filter, LM
         doc_set = self.gen_filter(pipe_topic, doc_set, top_n=min(top_n, 10))
 
-        return doc_set
+        return [self.data.index2docid[i] for i in doc_set]
 
 
     # ------------------------------------------------------------------------------------------ #
@@ -137,8 +137,8 @@ class CTMatch:
         assert top_n > 0, "top_n must be greater than 0"
 
         ranked_docs = doc_set
-        while len(ranked_docs) > top_n:
-            logger.info(f"remaining docs to rank: {len(ranked_docs)}")
+        iters = 0
+        while (len(ranked_docs) > top_n) and (iters < 10):
             query_prompts = self.get_subqueries(topic, ranked_docs)
 
             # get gen model response for each query_prompt
@@ -146,14 +146,13 @@ class CTMatch:
             for prompt in query_prompts:
                 subranking = self.gen_model.gen_response(prompt)
 
-                logger.info(f"subranking length: {len(subranking)}")
-
                 # keep the top half of each subranking
                 subrankings.extend(subranking[:len(subranking) // 2])
 
             ranked_docs = subranking
+            iters += 1
         
-        return ranked_docs
+        return ranked_docs[:min(len(ranked_docs), top_n)]
 
     # ------------------------------------------------------------------------------------------ #
     # filter helper methods

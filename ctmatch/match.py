@@ -116,7 +116,7 @@ class CTMatch:
         similarities = clf.decision_function(x)
 
         # get top n doc indices by similiarity
-        result = np.argsort(similarities)[::-1][:min(len(doc_set) + 1, top_n + 1)]
+        result = list(np.argsort(similarities)[::-1][:min(len(doc_set) + 1, top_n + 1)])
 
         # remove topic from result
         result.remove(0)

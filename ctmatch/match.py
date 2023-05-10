@@ -68,7 +68,7 @@ class CTMatch:
         # third filter, LM
         doc_set = self.gen_filter(pipe_topic, doc_set, top_n=min(top_n, 10))
 
-        return [self.data.index2docid[i] for i in doc_set]
+        return self.data.index2docid.iloc[doc_set]
 
 
     # ------------------------------------------------------------------------------------------ #
@@ -130,10 +130,10 @@ class CTMatch:
         """
             gen model supplies a ranking of remaming docs by evaluating the pairs of topic and doc texts
 
-            in order to overcome the context length limitation, we need to do a kind of binary search over multiple 
+            in order to overcome the context length limitation, we need to do a kind of left-binary search over multiple 
             prompts to arrive at a ranking that meets the number of documents requirement (top_n)
 
-            may take several minutes to run through all queries and subqueries depending on size of doc_set
+            may take a minute to run through all queries and subqueries depending on size of doc_set
         
         """
         assert top_n > 0, "top_n must be greater than 0"

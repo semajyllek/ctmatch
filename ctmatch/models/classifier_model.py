@@ -1,4 +1,5 @@
 
+import logging
 from typing import Tuple
 
 from transformers import AutoModelForSequenceClassification, Trainer, TrainingArguments, get_scheduler
@@ -14,6 +15,8 @@ import torch
 from ..modelconfig import ModelConfig
 from ..dataprep import DataPrep
 
+
+logger = logging.getLogger(__name__)
 
 
 class WeightedLossTrainer(Trainer):
@@ -136,7 +139,7 @@ class ClassifierModel:
         if self.trainer is not None:
             self.trainer.train()
             predictions = self.trainer.predict(self.dataset["test"])
-            print(predictions.metrics.items())
+            logger.info(predictions.metrics.items())
         else:
             self.loss_func = nn.CrossEntropyLoss(weight=self.get_label_weights())
             self.manual_train()
@@ -169,7 +172,7 @@ class ClassifierModel:
                 self.optimizer.zero_grad()
 
                 self.manual_eval()
-                print(f"{loss=}")
+                logger.info(f"{loss=}")
                 progress_bar.update(1)
             
 
@@ -189,7 +192,7 @@ class ClassifierModel:
             predictions = torch.argmax(logits, dim=-1)
             metric.add_batch(predictions=predictions, references=batch["labels"])
         
-        print(metric.compute(average='weighted'))
+        logger.info(metric.compute(average='weighted'))
 
 
 
@@ -226,10 +229,13 @@ class ClassifierModel:
 
 
     
-    def run_inference_single_example(self, topic: str, doc: str) -> str:
+    def run_inference_single_example(self, topic: str, doc: str, return_logits: bool = False) -> str:
         """
         desc: method to predict relevance label on new topic, doc examples 
         """
         ex = {'doc':doc, 'topic':topic}
         inputs = torch.LongTensor(self.tokenize_func(ex)['input_ids']).unsqueeze(0)
-        return str(self.model(inputs).logits.argmax().item())
+        outputs = self.model(inputs).logits
+        if return_logits:
+            return outputs
+        return str(outputs.argmax().item())

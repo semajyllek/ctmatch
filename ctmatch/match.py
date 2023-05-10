@@ -1,4 +1,5 @@
 
+import logging
 from typing import Dict, List, Optional
 
 # external imports
@@ -18,6 +19,11 @@ from .models.gen_model import GenModel
 from .modelconfig import ModelConfig
 from .pipetopic import PipeTopic
 from .dataprep import DataPrep
+
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.addHandler(logging.StreamHandler())
 
 
 CT_CATEGORIES = [
@@ -133,6 +139,7 @@ class CTMatch:
 
         ranked_docs = doc_set
         while len(ranked_docs) > top_n:
+            logger.info(f"remaining docs to rank: {len(ranked_docs)}")
             query_prompts = self.get_subqueries(topic, ranked_docs)
 
             # get gen model response for each query_prompt
@@ -223,7 +230,7 @@ class CTMatch:
         for data_path in self.model_config.processed_data_paths:
             for i, doc in enumerate(get_processed_data(data_path)):
                 if i % 10000 == 0:
-                    print(f"Prepping doc {i}")
+                    logger.info(f"Prepping doc {i}")
 
                 ir_data_entry = dict()
                 ir_data_entry['id'] = doc['id']
@@ -238,7 +245,7 @@ class CTMatch:
             for i, doc in enumerate(get_processed_data(self.model_config.ir_save_path)):
                 idx2id[i] = doc['id']
                 if i % 10000 == 0:
-                    print(f"Prepping doc {i}")
+                    logger.info(f"Prepping doc {i}")
 
                 wf.write(doc['doc_text'])
                 wf.write('\n')

@@ -147,7 +147,7 @@ class DataPrep:
         return pd.DataFrame(arrays)
 
     def load_ir_data(self) -> None:
-        self.index2docid = self.process_data_from_hf(INDEX2DOCID_PATH, is_texts=True)
+        self.index2docid = self.process_data_from_hf(INDEX2DOCID_PATH, is_text=True)
         self.doc_embeddings_df = self.process_data_from_hf(DOC_EMBEDDINGS_VEC_PATH)
         self.doc_categories_df = self.process_data_from_hf(DOC_CATEGORIES_VEC_PATH)
         self.doc_texts_df = self.process_data_from_hf(DOC_TEXTS_PATH, is_text=True)

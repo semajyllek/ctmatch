@@ -3,18 +3,18 @@ from typing import Dict, List, NamedTuple, Optional
 from pathlib import Path
 
 class ModelConfig(NamedTuple):
-    name: str
-    classifier_model_checkpoint: str
-    max_length: int
-    padding: str
-    truncation: bool
-    batch_size: int
-    learning_rate: float
-    train_epochs: int
-    weight_decay: float
-    warmup_steps: int
-    seed: int
-    splits: Dict[str, float]
+    name: str = 'scibert_finetuned_ctmatch'
+    classifier_model_checkpoint: str = 'semaj83/scibert_finetuned_ctmatch'
+    max_length: int = 512
+    padding: str = True
+    truncation: bool = True
+    batch_size: int = 16
+    learning_rate: float = 2e-5
+    train_epochs: int = 3
+    weight_decay: float = 0.01
+    warmup_steps: int = 500
+    seed: int  = 42
+    splits: Dict[str, float] = {"train":0.8, "val":0.1}
     classifier_data_path: Path = "combined_classifier_data.jsonl"
     output_dir: Optional[str] = None
     convert_snli: bool = False

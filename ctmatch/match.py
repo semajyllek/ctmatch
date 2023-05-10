@@ -80,7 +80,7 @@ class CTMatch:
         filter documents by similarity to topic
         doing this with loop and cosine similarity instead of linear kernel because of memory issues
         """
-        logger.info(f"Running similarity filter on {len(doc_set)} documents")
+        logger.info(f"running similarity filter on {len(doc_set)} documents")
 
        
         norm_topic_cat = norm(pipe_topic.category_vec)
@@ -99,7 +99,7 @@ class CTMatch:
 
 
     def svm_filter(self, topic: PipeTopic, doc_set: List[int], top_n: int = 100) -> List[int]:
-        logger.info(f"Running svm filter on {len(doc_set)} documents")
+        logger.info(f"running svm filter on {len(doc_set)} documents")
 
         # build training data and prediction vector of single positive class for SVM
         x = np.concatenate([topic.embedding_vec, self.data.doc_embeddings_df.iloc[doc_set].values], axis=0)
@@ -134,7 +134,7 @@ class CTMatch:
             may take a few minutes to run through all queries and subqueries depending on size of doc_set
         
         """
-        logger.info(f"Running gen filter on {len(doc_set)} documents")
+        logger.info(f"running gen filter on {len(doc_set)} documents")
 
         assert top_n > 0, "top_n must be greater than 0"
 
@@ -143,7 +143,7 @@ class CTMatch:
         while (len(ranked_docs) > top_n) and (iters < 10) and (len(ranked_docs) // 2 > top_n):
             query_prompts = self.get_subqueries(topic, ranked_docs)
 
-            logger.info(f"running gen model on {len(query_prompts)} subqueries")
+            logger.info(f"calling gen model on {len(query_prompts)} subqueries")
 
             # get gen model response for each query_prompt
             subrankings = []
@@ -209,12 +209,12 @@ class CTMatch:
         return query_prompts
 
 
-    def get_return_set(self, doc_set: List[int]) -> List[Tuple[str, str]]:
-        return_set = []
+    def get_return_data(self, doc_set: List[int]) -> List[Tuple[str, str]]:
+        return_data = []
         for idx in doc_set:
             nctid = self.data.index2docid.iloc[doc_set].values[0]
-            return_set.append((nctid, self.data.doc_texts_df.iloc[idx].values[0]))
-        return return_set
+            return_data.append((nctid, self.data.doc_texts_df.iloc[idx].values[0]))
+        return return_data
 
 
 

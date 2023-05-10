@@ -98,7 +98,8 @@ class ClassifierModel:
 
 
     def get_label_mapping(self):
-        id2label = {idx:self.dataset['train'].features["labels"].int2str(idx) for idx in range(3)}
+        #id2label = {idx:self.dataset['train'].features["labels"].int2str(idx) for idx in range(3)}
+        id2label =  {'0':'not_relevant', '1':'partially_relevant', '2':'relevant'}
         label2id = {v:k for k, v in id2label.items()}
         return id2label, label2id
 

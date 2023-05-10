@@ -53,10 +53,10 @@ class DataPrep:
         self.doc_embeddings_df = None
         self.doc_categories_df = None
 
-        self.load_classifier_data()
-
         if model_config.ir_setup:
             self.load_ir_data()
+        else:
+            self.load_classifier_data()
 
 
         

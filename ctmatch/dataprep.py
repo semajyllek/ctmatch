@@ -13,7 +13,8 @@ from .modelconfig import ModelConfig
 
 
 # path to ctmatch dataset on HF hub
-CTMATCH_DATASET_ROOT = "semaj83/ctmatch"
+CTMATCH_CLASSIFICATION_DATASET_ROOT = "semaj83/ctmatch_classification"
+CTMATCH_IR_DATASET_ROOT = "semaj83/ctmatch_ir"
 CLASSIFIER_DATA_PATH = "combined_classifier_data.jsonl"
 DOC_TEXTS_PATH = "doc_texts.txt"
 DOC_CATEGORIES_VEC_PATH = "doc_categories.txt"
@@ -73,7 +74,7 @@ class DataPrep:
 
     # ------------------ Classifier Data Loading ------------------ #
     def load_classifier_data(self) -> Dataset:
-        self.ct_dataset = load_dataset(CTMATCH_DATASET_ROOT, data_files=CLASSIFIER_DATA_PATH)
+        self.ct_dataset = load_dataset(CTMATCH_CLASSIFICATION_DATASET_ROOT, data_files=CLASSIFIER_DATA_PATH)
         self.ct_dataset = train_test_val_split(self.ct_dataset, self.model_config.splits, self.model_config.seed)
         self.add_features()
         self.tokenize_dataset()
@@ -138,8 +139,8 @@ class DataPrep:
 
     
     # ------------------ IR Data Loading ------------------ #
-    def process_data_from_hf(self, ds_path, is_text: bool = False):
-        ds = load_dataset(CTMATCH_DATASET_ROOT, data_files=ds_path)
+    def process_ir_data_from_hf(self, ds_path, is_text: bool = False):
+        ds = load_dataset(CTMATCH_IR_DATASET_ROOT, data_files=ds_path)
         if is_text:
             return pd.DataFrame(ds['train'])
     
@@ -147,7 +148,7 @@ class DataPrep:
         return pd.DataFrame(arrays)
 
     def load_ir_data(self) -> None:
-        self.index2docid = self.process_data_from_hf(INDEX2DOCID_PATH, is_text=True)
-        self.doc_embeddings_df = self.process_data_from_hf(DOC_EMBEDDINGS_VEC_PATH)
-        self.doc_categories_df = self.process_data_from_hf(DOC_CATEGORIES_VEC_PATH)
-        self.doc_texts_df = self.process_data_from_hf(DOC_TEXTS_PATH, is_text=True)
+        self.index2docid = self.process_ir_data_from_hf(INDEX2DOCID_PATH, is_text=True)
+        self.doc_embeddings_df = self.process_ir_data_from_hf(DOC_EMBEDDINGS_VEC_PATH)
+        self.doc_categories_df = self.process_ir_data_from_hf(DOC_CATEGORIES_VEC_PATH)
+        self.doc_texts_df = self.process_ir_data_from_hf(DOC_TEXTS_PATH, is_text=True)

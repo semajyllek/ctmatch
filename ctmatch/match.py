@@ -81,14 +81,18 @@ class CTMatch:
         cat_comparison_mat = np.concatenate([pipe_topic.category_vec, doc_categories_mat], axis=0)
         emb_comparison_mat = np.concatenate([pipe_topic.embedding_vec, doc_embeddings_mat], axis=0)
 
-        # get combined similiarity scores
+        # [0] because we only want the similarity of the first (topic) vector with all the others
         category_sim = linear_kernel(cat_comparison_mat)[0]
         embedding_sim = linear_kernel(emb_comparison_mat)[0]
         combined_sim = category_sim + embedding_sim
 
         # return top n doc indices by combined similiarity
-        return np.argsort(combined_sim)[::-1][:min(len(doc_set), top_n)]
+        result = list(np.argsort(combined_sim)[::-1][:min(len(doc_set), top_n)])
+
+        # remove topic from result
+        result.remove(0)
     
+        return result
 
 
     def svm_filter(self, topic: PipeTopic, doc_set: List[int], top_n: int = 100) -> List[int]:

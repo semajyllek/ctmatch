@@ -212,7 +212,7 @@ class CTMatch:
     def get_return_data(self, doc_set: List[int]) -> List[Tuple[str, str]]:
         return_data = []
         for idx in doc_set:
-            nctid = self.data.index2docid.iloc[doc_set].values[0]
+            nctid = self.data.index2docid.iloc[doc_set].values[0][0]
             return_data.append((nctid, self.data.doc_texts_df.iloc[idx].values[0]))
         return return_data
 

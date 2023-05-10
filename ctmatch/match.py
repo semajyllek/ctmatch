@@ -55,12 +55,9 @@ class CTMatch:
         # get topic representations for pipeline filters
         pipe_topic = PipeTopic(
             topic_text=topic, 
-            embedding_vec=self.get_embeddings([topic])[0],
-            category_vec=self.get_categories(topic)[np.newaxis, :]
+            embedding_vec=self.get_embeddings([topic]),          # 1 x embedding_dim (default=384)
+            category_vec=self.get_categories(topic)[np.newaxis, :]  # 1 x 14
         )
-
-        print(pipe_topic.category_vec.shape)
-        print(pipe_topic.embedding_vec.shape)
 
         # first filter, category + embedding similarity
         doc_set = self.sim_filter(pipe_topic, doc_set, top_n=10000)

@@ -130,10 +130,10 @@ class CTMatch:
                 model=self.model_config.category_model_checkpoint, 
                 device=0
             )
-        output = self.category_model(text, candidate_labels=CT_CATEGORIES)
+        output = self.category_model(text, candidate_labels=CT_CATEGORIES)[0]
         score_dict = {output['labels'][i]:output['scores'][i] for i in range(len(output['labels']))}
 
-        # to be consistent with doc category vecs
+        # to be consistent with doc category vecs 
         sorted_keys = sorted(score_dict.keys())
         return np.array([score_dict[k] for k in sorted_keys])
 

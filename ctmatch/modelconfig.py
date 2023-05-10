@@ -29,7 +29,7 @@ class ModelConfig(NamedTuple):
     category_model_checkpoint: str = "facebook/bart-large-mnli"
     embedding_model_checkpoint: str = "sentence-transformers/all-MiniLM-L6-v2"
     gen_model_checkpoint: str = 'text-davinci-003'
-    openapi_key: Optional[str] = None
+    openai_api_key: Optional[str] = None
     ir_setup: bool = False
 
 

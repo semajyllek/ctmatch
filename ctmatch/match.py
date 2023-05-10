@@ -143,15 +143,20 @@ class CTMatch:
         while (len(ranked_docs) > top_n) and (iters < 10):
             query_prompts = self.get_subqueries(topic, ranked_docs)
 
+            logger.info(f"Running gen model on {len(query_prompts)} subqueries")
+
             # get gen model response for each query_prompt
             subrankings = []
             for prompt in query_prompts:
                 subranking = self.gen_model.gen_response(prompt)
 
+                logger.info(f"Gen model returned {len(subranking)} subranking documents (taking top half of these)")
+
                 # keep the top half of each subranking
                 subrankings.extend(subranking[:len(subranking) // 2])
 
             ranked_docs = subranking
+            logger.info(f"Gen model returned {len(ranked_docs)} new ranked documents, for next loop, {iters=}")
             iters += 1
         
         return ranked_docs[:min(len(ranked_docs), top_n)]

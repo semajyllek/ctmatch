@@ -37,7 +37,7 @@ class ClassifierModel:
         self.model_config = model_config
         self.dataset = data.ct_dataset
         self.train_dataset_df = data.ct_dataset['train'].to_pandas()
-        self.tokenizer = data.tokenizer
+        self.tokenizer = data.classifier_tokenizer
         self.tokenize_func = data.tokenize_function
         self.trainer = None
         self.optimizer = None

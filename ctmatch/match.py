@@ -92,7 +92,7 @@ class CTMatch:
             emb_dist = np.dot(pipe_topic.embedding_vec, self.data.doc_embeddings_df.iloc[doc_id].values) / (norm_topic_emb * norm(self.data.doc_embeddings_df.iloc[doc_id].values))
             cosine_dists.append(cat_dist + emb_dist)
 
-        # return top n doc indices by combined similiarity
+        # return top n doc indices by combined similiarity, biggest to smallest
         return list(np.argsort(-np.asarray(cosine_dists))[:min(len(doc_set), top_n)])
     
        
@@ -113,7 +113,7 @@ class CTMatch:
         # infer for similarities
         similarities = clf.decision_function(x)
 
-        # get top n doc indices by similiarity
+        # get top n doc indices by similiarity, biggest to smallest
         result = list(np.argsort(-similarities)[:min(len(doc_set) + 1, top_n + 1)])
 
         # remove topic from result

@@ -143,7 +143,7 @@ class DataPrep:
         if is_text:
             return pd.DataFrame(ds['train'])
     
-        arrays = [np.asarray(a['text'].split(',')) for a in ds['train']]
+        arrays = [np.asarray(a['text'].split(','), dtype=float) for a in ds['train']]
         return pd.DataFrame(arrays)
 
     def load_ir_data(self) -> None:

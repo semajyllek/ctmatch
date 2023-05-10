@@ -63,10 +63,10 @@ class CTMatch:
         doc_set = self.sim_filter(pipe_topic, doc_set, top_n=10000)
 
         # second filter, SVM
-        doc_set = self.svm_filter(pipe_topic, doc_set, top_n=1000)
+        doc_set = self.svm_filter(pipe_topic, doc_set, top_n=100)
 
         # third filter, LM
-        doc_set = self.gen_filter(pipe_topic, doc_set, top_n=min(top_n, 100))
+        doc_set = self.gen_filter(pipe_topic, doc_set, top_n=min(top_n, 10))
 
         return doc_set
 
@@ -145,6 +145,8 @@ class CTMatch:
             subrankings = []
             for prompt in query_prompts:
                 subranking = self.gen_model.gen_response(prompt)
+
+                logger.info(f"subranking length: {len(subranking)}")
 
                 # keep the top half of each subranking
                 subrankings.extend(subranking[:len(subranking) // 2])

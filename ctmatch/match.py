@@ -155,7 +155,8 @@ class CTMatch:
                 # keep the top half of each subranking
                 subrankings.extend(subranking[:len(subranking) // 2])
 
-            ranked_docs = subranking
+
+            ranked_docs = subrankings
             logger.info(f"Gen model returned {len(ranked_docs)} new ranked documents, for next loop, {iters=}")
             iters += 1
         

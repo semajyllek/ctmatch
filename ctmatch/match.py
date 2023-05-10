@@ -6,6 +6,7 @@ from typing import Dict, List, Optional
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import linear_kernel
 from transformers import pipeline
+from numpy.linalg import norm
 from pathlib import Path
 from sklearn import svm
 import numpy as np
@@ -76,29 +77,32 @@ class CTMatch:
     # ------------------------------------------------------------------------------------------ #
 
     def sim_filter(self, pipe_topic: PipeTopic, doc_set: List[int], top_n: int = 1000) -> List[str]:
+        """
+        filter documents by similarity to topic
+        doing this with loop and cosine similarity instead of linear kernel because of memory issues
+        """
         logger.info(f"Running similarity filter on {len(doc_set)} documents")
 
-        # [0] because we only want the similarity of the first (topic) vector with all the others
-        combined_sim = linear_kernel(np.concatenate([pipe_topic.category_vec, self.data.doc_categories_df.iloc[doc_set].values], axis=0))[0] + \
-                       linear_kernel(np.concatenate([pipe_topic.embedding_vec, self.data.doc_embeddings_df.iloc[doc_set].values], axis=0))[0]
        
-        # return top n doc indices by combined similiarity (+ 1 because topic is included in doc_set)
-        result = list(np.argsort(-combined_sim)[:min(len(doc_set) + 1, top_n + 1)])
+        norm_topic_cat = norm(pipe_topic.category_vec)
+        norm_topic_emb = norm(pipe_topic.embedding_vec)
+        cosine_dists = []
+        for doc_id in doc_set:
+            cat_dist = np.dot(pipe_topic.category_vec, self.data.doc_categories_df.iloc[doc_id].values) / (norm_topic_cat * norm(self.data.doc_categories_df.iloc[doc_id].values))
+            emb_dist = np.dot(pipe_topic.embedding_vec, self.data.doc_embeddings_df.iloc[doc_id].values) / (norm_topic_emb * norm(self.data.doc_embeddings_df.iloc[doc_id].values))
+            cosine_dists.append(cat_dist + emb_dist)
 
-        # remove topic from result
-        result.remove(0)
+        # return top n doc indices by combined similiarity
+        return list(np.argsort(-np.asarray(cosine_dists))[:min(len(doc_set), top_n)])
     
-        # indexes got shifted by 1 because topic was included in doc_set
-        return [(r - 1) for r in result]
+       
 
 
     def svm_filter(self, topic: PipeTopic, doc_set: List[int], top_n: int = 100) -> List[int]:
         logger.info(f"Running svm filter on {len(doc_set)} documents")
 
-        doc_embeddings_mat = self.data.doc_embeddings_df.iloc[doc_set].values
-
         # build training data and prediction vector of single positive class for SVM
-        x = np.concatenate([topic.embedding_vec, doc_embeddings_mat], axis=0)
+        x = np.concatenate([topic.embedding_vec, self.data.doc_embeddings_df.iloc[doc_set].values], axis=0)
         y = np.zeros(len(doc_set) + 1)
         y[0] = 1
 
@@ -110,7 +114,7 @@ class CTMatch:
         similarities = clf.decision_function(x)
 
         # get top n doc indices by similiarity
-        result = list(np.argsort(similarities)[::-1][:min(len(doc_set) + 1, top_n + 1)])
+        result = list(np.argsort(-similarities)[:min(len(doc_set) + 1, top_n + 1)])
 
         # remove topic from result
         result.remove(0)

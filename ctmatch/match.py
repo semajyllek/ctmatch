@@ -68,7 +68,7 @@ class CTMatch:
         # third filter, LM
         doc_set = self.gen_filter(pipe_topic, doc_set, top_n=min(top_n, 10))
 
-        return self.data.index2docid.iloc[doc_set]
+        return self.data.index2docid.iloc[doc_set].values.tolist()
 
 
     # ------------------------------------------------------------------------------------------ #

@@ -4,7 +4,6 @@ from typing import Dict, List, Optional
 
 # external imports
 from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import linear_kernel
 from transformers import pipeline
 from numpy.linalg import norm
 from pathlib import Path
@@ -76,7 +75,7 @@ class CTMatch:
     # filtering methods
     # ------------------------------------------------------------------------------------------ #
 
-    def sim_filter(self, pipe_topic: PipeTopic, doc_set: List[int], top_n: int = 1000) -> List[str]:
+    def sim_filter(self, pipe_topic: PipeTopic, doc_set: List[int], top_n: int = 1000) -> List[int]:
         """
         filter documents by similarity to topic
         doing this with loop and cosine similarity instead of linear kernel because of memory issues
@@ -90,10 +89,11 @@ class CTMatch:
         for doc_id in doc_set:
             cat_dist = np.dot(pipe_topic.category_vec, self.data.doc_categories_df.iloc[doc_id].values) / (norm_topic_cat * norm(self.data.doc_categories_df.iloc[doc_id].values))
             emb_dist = np.dot(pipe_topic.embedding_vec, self.data.doc_embeddings_df.iloc[doc_id].values) / (norm_topic_emb * norm(self.data.doc_embeddings_df.iloc[doc_id].values))
-            cosine_dists.append(cat_dist + emb_dist)
+            combined_dist = cat_dist + emb_dist
+            cosine_dists.append(combined_dist[0])
 
         # return top n doc indices by combined similiarity, biggest to smallest
-        return list(np.argsort(-np.asarray(cosine_dists))[:min(len(doc_set), top_n)])
+        return list(np.argsort(cosine_dists))[:min(len(doc_set), top_n)]
     
        
 

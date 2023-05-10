@@ -78,15 +78,12 @@ class CTMatch:
     def sim_filter(self, pipe_topic: PipeTopic, doc_set: List[int], top_n: int = 1000) -> List[str]:
         logger.info(f"Running similarity filter on {len(doc_set)} documents")
 
-        # get selected doc category and embedding vectors (matrices)
-        doc_categories_mat = self.data.doc_categories_df.iloc[doc_set].values
-        doc_embeddings_mat = self.data.doc_embeddings_df.iloc[doc_set].values
-
         # [0] because we only want the similarity of the first (topic) vector with all the others
-        combined_sim = linear_kernel(np.concatenate([pipe_topic.category_vec, doc_categories_mat], axis=0))[0] + linear_kernel(np.concatenate([pipe_topic.embedding_vec, doc_embeddings_mat], axis=0))[0]
+        combined_sim = linear_kernel(np.concatenate([pipe_topic.category_vec, self.data.doc_categories_df.iloc[doc_set].values], axis=0))[0] + \
+                       linear_kernel(np.concatenate([pipe_topic.embedding_vec, self.data.doc_embeddings_df.iloc[doc_set].values], axis=0))[0]
        
         # return top n doc indices by combined similiarity (+ 1 because topic is included in doc_set)
-        result = list(np.argsort(combined_sim)[::-1][:min(len(doc_set) + 1, top_n + 1)])
+        result = list(np.argsort(-combined_sim)[:min(len(doc_set) + 1, top_n + 1)])
 
         # remove topic from result
         result.remove(0)

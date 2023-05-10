@@ -31,11 +31,11 @@ class GenModel:
             # for gpt-3.5-turbo
             response = openai.ChatCompletion.create(
                 model=self.model_config.gen_model_checkpoint,
-                prompt=query_prompt,
-                temperature=0,
+                messages = {'role': 'user', 'content' : query_prompt},
+                temperature=0.4,
                 max_tokens=200,
                 top_p=1,
-                frequency_penalty=0.0,
+                frequency_penalty=0.2,
                 presence_penalty=0.0
             )
             

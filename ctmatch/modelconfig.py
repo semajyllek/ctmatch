@@ -15,7 +15,7 @@ class ModelConfig(NamedTuple):
     warmup_steps: int = 500
     seed: int  = 42
     splits: Dict[str, float] = {"train":0.8, "val":0.1}
-    classifier_data_path: Path = "combined_classifier_data.jsonl"
+    classifier_data_path: Path = Path("combined_classifier_data.jsonl")
     output_dir: Optional[str] = None
     convert_snli: bool = False
     use_trainer: bool = True

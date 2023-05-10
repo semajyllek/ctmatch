@@ -44,15 +44,16 @@ class ClassifierModel:
         self.trainer = None
         self.optimizer = None
         self.lr_scheduler = None
-        self.num_training_steps = self.model_config.train_epochs * len(self.dataset['train'])
         self.device = device
+
+        if not self.model_config.ir_setup:
+            self.train_dataset_df = data.ct_dataset['train'].to_pandas()
+            self.num_training_steps = self.model_config.train_epochs * len(self.dataset['train'])
+
         self.model = self.load_model()
     
         if not self.model_config.use_trainer and not self.model_config.ir_setup:
             self.train_dataloader, self.val_dataloader = self.get_dataloaders()
-
-        if not self.model_config.ir_setup:
-            self.train_dataset_df = data.ct_dataset['train'].to_pandas()
 
                
 

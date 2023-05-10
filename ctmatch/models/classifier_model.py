@@ -39,7 +39,6 @@ class ClassifierModel:
     def __init__(self, model_config: ModelConfig, data: DataPrep, device: str):
         self.model_config = model_config
         self.dataset = data.ct_dataset
-        self.train_dataset_df = data.ct_dataset['train'].to_pandas()
         self.tokenizer = data.classifier_tokenizer
         self.tokenize_func = data.tokenize_function
         self.trainer = None
@@ -49,8 +48,11 @@ class ClassifierModel:
         self.device = device
         self.model = self.load_model()
     
-        if not self.model_config.use_trainer:
+        if not self.model_config.use_trainer and not self.model_config.ir_setup:
             self.train_dataloader, self.val_dataloader = self.get_dataloaders()
+
+        if not self.model_config.ir_setup:
+            self.train_dataset_df = data.ct_dataset['train'].to_pandas()
 
                
 

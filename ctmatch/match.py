@@ -119,7 +119,14 @@ class CTMatch:
         
         
     def gen_filter(self, pipe_topic: PipeTopic, doc_set: List[int], top_n: int) -> List[str]:
-        """gen model supplies a ranking of remaming docs by evaluating the pairs of topic and doc texts"""
+        """
+            gen model supplies a ranking of remaming docs by evaluating the pairs of topic and doc texts
+
+            in order to overcome the context length limitation, we need to do a kind of binary search over multiple 
+            prompts to arrive at a ranking that meets the number of documents requirement (top_n)
+        
+        """
+        assert top_n > 0, "top_n must be greater than 0"
         query_prompt = self.get_gen_query_prompt(pipe_topic, doc_set)
         return self.gen_model.gen_response(query_prompt)[:min(len(doc_set), top_n)]
 

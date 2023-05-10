@@ -58,7 +58,7 @@ class ClassifierModel:
 
         id2label, label2id = self.get_label_mapping()
         model = AutoModelForSequenceClassification.from_pretrained(
-            self.model_config.model_checkpoint,
+            self.model_config.classifier_model_checkpoint,
             num_labels=self.model_config.num_classes,     # makes the last head be replaced with a linear layer with num_labels outputs (fine-tuning)
             id2label=id2label, label2id=label2id
         )

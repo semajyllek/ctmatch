@@ -1,6 +1,6 @@
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 # external imports
 from sentence_transformers import SentenceTransformer
@@ -68,7 +68,7 @@ class CTMatch:
         # third filter, LM
         doc_set = self.gen_filter(pipe_topic, doc_set, top_n=min(top_k, 10))
 
-        return [v[0] for v in self.data.index2docid.iloc[doc_set].values]
+        return self.get_return_data(doc_set)
 
 
     # ------------------------------------------------------------------------------------------ #
@@ -131,7 +131,7 @@ class CTMatch:
             in order to overcome the context length limitation, we need to do a kind of left-binary search over multiple 
             prompts to arrive at a ranking that meets the number of documents requirement (top_n)
 
-            may take a minute to run through all queries and subqueries depending on size of doc_set
+            may take a few minutes to run through all queries and subqueries depending on size of doc_set
         
         """
         logger.info(f"Running gen filter on {len(doc_set)} documents")
@@ -143,21 +143,18 @@ class CTMatch:
         while (len(ranked_docs) > top_n) and (iters < 10) and (len(ranked_docs) // 2 > top_n):
             query_prompts = self.get_subqueries(topic, ranked_docs)
 
-            logger.info(f"Running gen model on {len(query_prompts)} subqueries")
+            logger.info(f"running gen model on {len(query_prompts)} subqueries")
 
             # get gen model response for each query_prompt
             subrankings = []
             for prompt in query_prompts:
                 subrank = self.gen_model.gen_response(prompt)
 
-                logger.info(f"Gen model returned {len(subrank)} subranking documents (taking top half of these)")
-
                 # keep the top half of each subranking
                 subrankings.extend(subrank[:len(subrank) // 2])
 
 
             ranked_docs = subrankings
-            logger.info(f"Gen model returned {len(ranked_docs)} new ranked documents, for next loop, {iters=}")
             iters += 1
         
         return ranked_docs[:min(len(ranked_docs), top_n)]
@@ -210,6 +207,14 @@ class CTMatch:
             i += used_i
 
         return query_prompts
+
+
+    def get_return_set(self, doc_set: List[int]) -> List[Tuple[str, str]]:
+        return_set = []
+        for idx in doc_set:
+            nctid = self.data.index2docid.iloc[doc_set].values[0]
+            return_set.append((nctid, self.data.doc_texts_df.iloc[idx].values[0]))
+        return return_set
 
 
 

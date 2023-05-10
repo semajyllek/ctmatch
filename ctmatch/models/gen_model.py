@@ -17,15 +17,28 @@ class GenModel:
         """
         uses openai model to return a ranking of ids
         """
-        response = openai.Completion.create(
-            model=self.model_config.gen_model_checkpoint,
-            prompt=query_prompt,
-            temperature=0,
-            max_tokens=200,
-            top_p=1,
-            frequency_penalty=0.0,
-            presence_penalty=0.0
-        )
+        if self.model_config.gen_model_checkpoint == 'text-davinci-003':
+            response = openai.Completion.create(
+                model=self.model_config.gen_model_checkpoint,
+                prompt=query_prompt,
+                temperature=0,
+                max_tokens=200,
+                top_p=1,
+                frequency_penalty=0.0,
+                presence_penalty=0.0
+            )
+        else:
+            # for gpt-3.5-turbo
+            response = openai.ChatCompletion.create(
+                model=self.model_config.gen_model_checkpoint,
+                prompt=query_prompt,
+                temperature=0,
+                max_tokens=200,
+                top_p=1,
+                frequency_penalty=0.0,
+                presence_penalty=0.0
+            )
+            
   
         return self.post_process_response(response['choices'][0]['text'])
 

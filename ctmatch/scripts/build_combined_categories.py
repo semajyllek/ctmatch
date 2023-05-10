@@ -4,11 +4,9 @@ import json
 
 
 COMBINED_CAT_PATH = '/Users/jameskelly/Documents/cp/ctmatch/data/combined_categories.jsonl'
-CAT_SAVE_PATH = '/Users/jameskelly/Documents/cp/ctmatch/data/doc_categories.csv'
-INDEX2ID_PATH = '/Users/jameskelly/Documents/cp/ctmatch/data/index2id.csv'
-INDEX2ID_FIX_PATH = '/Users/jameskelly/Documents/cp/ctmatch/data/index2id_fix.csv'
-
-
+CAT_SAVE_PATH = '/Users/jameskelly/Documents/cp/ctmatch/data/doc_categories.txt'
+INDEX2ID_PATH = '/Users/jameskelly/Documents/cp/ctmatch/data/index2id.txt'
+INDEX2ID_FIX_PATH = '/Users/jameskelly/Documents/cp/ctmatch/data/index2id_fix.txt'
 
 
 def load_category_dict(cat_path=COMBINED_CAT_PATH) -> Tuple[List, Dict[str, List[float]]]:
@@ -56,7 +54,7 @@ def build_cat_csv(save_path: str = CAT_SAVE_PATH) -> None:
             VERY important that the indexes (order) match the order of the embeddings (for nctid lookup in idx2id)
     """
     sorted_cat_keys, cat_dict = load_category_dict()
-    idx2id = load_idx2id()
+    idx2id = load_index2id()
     
     with open(save_path, 'w') as f:
         f.write(','.join(sorted_cat_keys))

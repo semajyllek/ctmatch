@@ -14,10 +14,11 @@ from .modelconfig import ModelConfig
 
 # path to ctmatch dataset on HF hub
 CTMATCH_DATASET_ROOT = "semaj83/ctmatch"
-DOC_TEXT_PATH = f"{CTMATCH_DATASET_ROOT}/doc_texts.txt"
-DOC_CATEGORY_VEC_PATH = f"{CTMATCH_DATASET_ROOT}/doc_categories.csv"
-DOC_EMBEDDINGS_VEC_PATH = f"{CTMATCH_DATASET_ROOT}/doc_embeddings.csv"
-INDEX2DOCID_PATH = f"{CTMATCH_DATASET_ROOT}/index2docid.csv"
+CLASSIFIER_DATA_PATH = "combined_classifier_data.jsonl"
+DOC_TEXT_PATH = "doc_texts.txt"
+DOC_CATEGORY_VEC_PATH = "doc_categories.txt"
+DOC_EMBEDDINGS_VEC_PATH = "doc_embeddings.txt"
+INDEX2DOCID_PATH = "index2docid.txt"
 
 
 SUPPORTED_LMS = [
@@ -64,7 +65,7 @@ class DataPrep:
 
     # ------------------ Classifier Data Loading ------------------ #
     def load_classifier_data(self) -> Dataset:
-        self.ct_dataset = load_dataset(CTMATCH_DATASET_ROOT, data_files=self.model_config.classifier_data_path)
+        self.ct_dataset = load_dataset(CTMATCH_DATASET_ROOT, data_files=CLASSIFIER_DATA_PATH)
         self.ct_dataset = train_test_val_split(self.ct_dataset, self.model_config.splits, self.model_config.seed)
         self.add_features()
         self.tokenize_dataset()
@@ -129,11 +130,14 @@ class DataPrep:
 
     
     # ------------------ IR Data Loading ------------------ #
+    def process_data_from_hf(self, ds_path):
+        ds = load_dataset(CTMATCH_DATASET_ROOT, data_files=ds_path)
+        arrays = [np.asarray(a['text'].split(',')) for a in ds['train']]
+        return pd.DataFrame(arrays)
+
+
     def load_ir_data(self) -> None:
         self.index2id = load_dataset(INDEX2DOCID_PATH)
-        self.doc_embeddings_df = pd.DataFrame(load_dataset(DOC_EMBEDDINGS_VEC_PATH))
-        self.doc_categories_df = pd.DataFrame(load_dataset(DOC_CATEGORY_VEC_PATH))
-        self.doc_texts_df = pd.DataFrame(load_dataset(DOC_TEXT_PATH))
-
-
-
+        self.doc_embeddings_df = self.process_data_from_hf(DOC_EMBEDDINGS_VEC_PATH)
+        self.doc_categories_df = self.process_data_from_hf(DOC_CATEGORY_VEC_PATH)
+        self.doc_texts_df = self.process_data_from_hf(DOC_TEXT_PATH)

@@ -47,7 +47,7 @@ class CTMatch:
         
     
     # main api method
-    def match_pipeline(self, topic: str, top_n: int, mode: str ='normal') -> List[str]:
+    def match_pipeline(self, topic: str, top_k: int, mode: str ='normal') -> List[str]:
 
         # start off will all doc indexes
         doc_set = [i for i in range(len(self.data.index2docid))]
@@ -66,7 +66,7 @@ class CTMatch:
         doc_set = self.svm_filter(pipe_topic, doc_set, top_n=100)
 
         # third filter, LM
-        doc_set = self.gen_filter(pipe_topic, doc_set, top_n=min(top_n, 10))
+        doc_set = self.gen_filter(pipe_topic, doc_set, top_n=min(top_k, 10))
 
         return self.data.index2docid.iloc[doc_set].values.tolist()
 
@@ -82,15 +82,9 @@ class CTMatch:
         doc_categories_mat = self.data.doc_categories_df.iloc[doc_set].values
         doc_embeddings_mat = self.data.doc_embeddings_df.iloc[doc_set].values
 
-        # concatenate the topic representation with the matricies for linear kernel calculation
-        cat_comparison_mat = np.concatenate([pipe_topic.category_vec, doc_categories_mat], axis=0)
-        emb_comparison_mat = np.concatenate([pipe_topic.embedding_vec, doc_embeddings_mat], axis=0)
-
         # [0] because we only want the similarity of the first (topic) vector with all the others
-        category_sim = linear_kernel(cat_comparison_mat)[0]
-        embedding_sim = linear_kernel(emb_comparison_mat)[0]
-        combined_sim = category_sim + embedding_sim
-
+        combined_sim = linear_kernel(np.concatenate([pipe_topic.category_vec, doc_categories_mat], axis=0))[0] + linear_kernel(np.concatenate([pipe_topic.embedding_vec, doc_embeddings_mat], axis=0))[0]
+       
         # return top n doc indices by combined similiarity (+ 1 because topic is included in doc_set)
         result = list(np.argsort(combined_sim)[::-1][:min(len(doc_set) + 1, top_n + 1)])
 

@@ -1,5 +1,5 @@
 
-from typing import List
+from typing import List, Optional
 
 from ..modelconfig import ModelConfig
 import openai
@@ -13,7 +13,7 @@ class GenModel:
         self.model_config = model_config
 
 
-    def gen_response(self, query_prompt: str) -> List[int]:
+    def gen_response(self, query_prompt: str, doc_set: Optional[List[int]] = None) -> List[int]:
         """
         uses openai model to return a ranking of ids
         """
@@ -28,6 +28,8 @@ class GenModel:
                 presence_penalty=0.0
             )
         else:
+            assert doc_set is not None, "doc_set must be provided for gpt-3.5-turbo"
+            
             # for gpt-3.5-turbo
             response = openai.ChatCompletion.create(
                 model=self.model_config.gen_model_checkpoint,
@@ -42,7 +44,7 @@ class GenModel:
 
         if self.model_config.gen_model_checkpoint == 'text-davinci-003':
             return self.post_process_chatgpt_response(response)
-        return self.post_process_gptturbo_response(response['choices'][0]['message']['content'])
+        return self.post_process_gptturbo_response(response, doc_set=doc_set)
 
 
     def post_process_chatgpt_response(self, response):
@@ -62,7 +64,7 @@ class GenModel:
         """
         text = response['choices'][0]['message']['content']
         ranking = []
-        for substr in response.split():
+        for substr in text.split():
             if substr.isdigit():
                 ranking.append(int(substr))
 

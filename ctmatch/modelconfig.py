@@ -5,9 +5,6 @@ from pathlib import Path
 class ModelConfig(NamedTuple):
     name: str
     classifier_model_checkpoint: str
-    category_model_checkpoint: str = "facebook/bart-large-mnli"
-    embedding_model_checkpoint: str = "sentence-transformers/all-MiniLM-L6-v2"
-    gen_model_checkpoint: str = 'text-davinci-003'
     max_length: int
     padding: str
     truncation: bool
@@ -31,5 +28,8 @@ class ModelConfig(NamedTuple):
     processed_data_paths: Optional[List[str]] = None
     ir_setup: bool = False
     open_api_key: Optional[str] = None
+    category_model_checkpoint: str = "facebook/bart-large-mnli"
+    embedding_model_checkpoint: str = "sentence-transformers/all-MiniLM-L6-v2"
+    gen_model_checkpoint: str = 'text-davinci-003'
 
 

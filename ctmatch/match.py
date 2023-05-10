@@ -45,7 +45,7 @@ class CTMatch:
     def match_pipeline(self, topic: str, top_n: int, mode: str ='normal') -> List[str]:
 
         # start off will all doc indexes
-        doc_set = self.data.index2id.keys()
+        doc_set = [i for i in range(len(self.data.index2docid))]
         
         # get topic representations for pipeline filters
         pipe_topic = PipeTopic(

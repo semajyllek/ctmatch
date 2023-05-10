@@ -15,8 +15,8 @@ from .modelconfig import ModelConfig
 # path to ctmatch dataset on HF hub
 CTMATCH_DATASET_ROOT = "semaj83/ctmatch"
 CLASSIFIER_DATA_PATH = "combined_classifier_data.jsonl"
-DOC_TEXT_PATH = "doc_texts.txt"
-DOC_CATEGORY_VEC_PATH = "doc_categories.txt"
+DOC_TEXTS_PATH = "doc_texts.txt"
+DOC_CATEGORIES_VEC_PATH = "doc_categories.txt"
 DOC_EMBEDDINGS_VEC_PATH = "doc_embeddings.txt"
 INDEX2DOCID_PATH = "index2docid.txt"
 
@@ -41,7 +41,7 @@ class DataPrep:
         self.classifier_tokenizer = self.get_classifier_tokenizer()
         self.ct_dataset = None
         self.ct_train_dataset_df = None
-        self.index2id = None
+        self.index2docid = None
         self.doc_embeddings_df = None
         self.doc_categories_df = None
 
@@ -130,14 +130,16 @@ class DataPrep:
 
     
     # ------------------ IR Data Loading ------------------ #
-    def process_data_from_hf(self, ds_path):
+    def process_data_from_hf(self, ds_path, is_texts: bool = False):
         ds = load_dataset(CTMATCH_DATASET_ROOT, data_files=ds_path)
+        if is_texts:
+            return pd.DataFrame(ds['train'])
+    
         arrays = [np.asarray(a['text'].split(',')) for a in ds['train']]
         return pd.DataFrame(arrays)
 
-
     def load_ir_data(self) -> None:
-        self.index2id = load_dataset(INDEX2DOCID_PATH)
+        self.index2docid = self.process_data_from_hf(INDEX2DOCID_PATH, is_texts=True)
         self.doc_embeddings_df = self.process_data_from_hf(DOC_EMBEDDINGS_VEC_PATH)
-        self.doc_categories_df = self.process_data_from_hf(DOC_CATEGORY_VEC_PATH)
-        self.doc_texts_df = self.process_data_from_hf(DOC_TEXT_PATH)
+        self.doc_categories_df = self.process_data_from_hf(DOC_CATEGORIES_VEC_PATH)
+        self.doc_texts_df = self.process_data_from_hf(DOC_TEXTS_PATH, is_text=True)

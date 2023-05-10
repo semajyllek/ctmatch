@@ -128,7 +128,7 @@ class CTMatch:
             self.category_model = pipeline(
                 'zero-shot-classification', 
                 model=self.model_config.category_model_checkpoint, 
-                device=self.device
+                device=0
             )
         output = self.category_model(text, candidate_labels=CT_CATEGORIES)
         score_dict = {output['labels'][i]:output['scores'][i] for i in range(len(output['labels']))}

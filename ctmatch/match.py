@@ -130,7 +130,7 @@ class CTMatch:
                 model=self.model_config.category_model_checkpoint, 
                 device=0
             )
-        output = self.category_model(text, candidate_labels=CT_CATEGORIES)[0]
+        output = self.category_model(text, candidate_labels=CT_CATEGORIES)
         score_dict = {output['labels'][i]:output['scores'][i] for i in range(len(output['labels']))}
 
         # to be consistent with doc category vecs 

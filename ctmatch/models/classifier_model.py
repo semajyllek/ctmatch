@@ -115,7 +115,7 @@ class ClassifierModel:
 
 
     def get_training_args_obj(self):
-        output_dir = self.model_config.output_dir if self.model_config.output_dir is not None else self.model_config.classified_data_path.parent.parent.as_posix()
+        output_dir = self.model_config.output_dir if self.model_config.output_dir is not None else self.model_config.classifier_data_path.parent.parent.as_posix()
         
         return TrainingArguments(
             output_dir=output_dir,

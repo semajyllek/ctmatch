@@ -1,5 +1,5 @@
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 # external imports
 from sentence_transformers import SentenceTransformer
@@ -31,8 +31,9 @@ GEN_INIT_PROMPT =  "I will give you a patient description and a set of clinical 
 
 
 class CTMatch:
-    def __init__(self, model_config: ModelConfig) -> None:
-        self.model_config = model_config
+    def __init__(self, model_config: Optional[ModelConfig] = None) -> None:
+        # default to model config with full ir setup
+        self.model_config = model_config if model_config is not None else ModelConfig(ir_setup=True)
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         self.data = DataPrep(self.model_config)
         self.classifier_model = ClassifierModel(self.model_config, self.data, self.device)

@@ -116,32 +116,36 @@ class CTMatch:
         result.remove(0)
 
         return result
-        
-        
-    def gen_filter(self, pipe_topic: PipeTopic, doc_set: List[int], top_n: int) -> List[str]:
+    
+
+
+    def gen_filter(self, topic: PipeTopic, doc_set: List[int], top_n: int = 10) -> List[int]:
         """
             gen model supplies a ranking of remaming docs by evaluating the pairs of topic and doc texts
 
             in order to overcome the context length limitation, we need to do a kind of binary search over multiple 
             prompts to arrive at a ranking that meets the number of documents requirement (top_n)
+
+            may take several minutes to run through all queries and subqueries depending on size of doc_set
         
         """
         assert top_n > 0, "top_n must be greater than 0"
-        query_prompts = []
-        i = 0
-        while i < len(doc_set):
-            query_prompt, i = self.get_gen_query_prompt(pipe_topic, doc_set)
-            query_prompts.append(query_prompt)
 
-        # get gen model response for each query_prompt
-        subrankings = []
-        for prompt in query_prompts:
-            subranking = self.gen_model.gen_response(prompt)[:min(len(doc_set), top_n)]
-            subrankings.append(subranking)
+        ranked_docs = doc_set
+        while len(ranked_docs) > top_n:
+            query_prompts = self.get_subqueries(topic, ranked_docs)
 
+            # get gen model response for each query_prompt
+            subrankings = []
+            for prompt in query_prompts:
+                subranking = self.gen_model.gen_response(prompt)
+
+                # keep the top half of each subranking
+                subrankings.extend(subranking[:len(subranking) // 2])
+
+            ranked_docs = subranking
         
-
-
+        return ranked_docs
 
     # ------------------------------------------------------------------------------------------ #
     # filter helper methods
@@ -164,15 +168,34 @@ class CTMatch:
         return np.array([score_dict[k] for k in sorted_keys])
 
 
+
     def get_gen_query_prompt(self, topic: PipeTopic, doc_set: List[int]) -> str:
         query_prompt = f"{GEN_INIT_PROMPT}Patient description: {topic.topic_text}\n"
-    
+        
         for i, doc_text in enumerate(self.data.doc_texts_df.iloc[doc_set].values):
-            query_prompt += f"ID: {doc_set[i]}, "
-            query_prompt += f"Eligbility Criteria: {doc_text}\n"
+            query_prompt += f"NCTID: {doc_set[i]}, "
+            query_prompt += f"Eligbility Criteria: {doc_text[0]}\n"
 
-        return query_prompt, i
+            # not really token length bc not tokenized yet but close enough if we undershoot
+            prompt_len = len(query_prompt.split()) 
+            if prompt_len > self.model_config.max_query_length:
+                break
     
+        return query_prompt, i       
+
+
+    def get_subqueries(self, topic: PipeTopic, doc_set: List[int]) -> List[str]:
+        query_prompts = []
+        i = 0
+        while i < len(doc_set) - 1:
+
+            # break the querying over remaining doc set into multiple prompts
+            query_prompt, used_i = self.get_gen_query_prompt(topic, doc_set[i:])
+            query_prompts.append(query_prompt)
+            i += used_i
+
+        return query_prompts
+
 
 
     # ------------------------------------------------------------------------------------------ #

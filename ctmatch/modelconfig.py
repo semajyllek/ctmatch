@@ -26,6 +26,7 @@ class ModelConfig(NamedTuple):
     ir_save_path: Optional[str] = None
     category_path: Optional[str] = None
     processed_data_paths: Optional[List[str]] = None
+    max_query_length: int = 1200
     category_model_checkpoint: str = "facebook/bart-large-mnli"
     embedding_model_checkpoint: str = "sentence-transformers/all-MiniLM-L6-v2"
     gen_model_checkpoint: str = 'text-davinci-003'

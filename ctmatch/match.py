@@ -52,7 +52,7 @@ class CTMatch:
         pipe_topic = PipeTopic(
             topic_text=topic, 
             embedding_vec=self.get_embeddings([topic])[0],
-            category_vec=self.get_categories([topic])
+            category_vec=self.get_categories(topic)
         )
 
         # first filter, category + embedding similarity

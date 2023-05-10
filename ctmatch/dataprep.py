@@ -23,7 +23,6 @@ INDEX2DOCID_PATH = "index2docid.txt"
 
 
 #TODO: remove this. for testing ONLY
-CLASSIFIER_DATA_PATH = "combined_classifier_data.jsonl"
 DOC_TEXTS_PATH = "test_doc_texts.txt"
 DOC_CATEGORIES_VEC_PATH = "test_doc_categories.txt"
 DOC_EMBEDDINGS_VEC_PATH = "test_doc_embeddings.txt"

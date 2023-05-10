@@ -7,7 +7,6 @@ from sklearn.metrics.pairwise import linear_kernel
 from transformers import pipeline
 from pathlib import Path
 from sklearn import svm
-import pandas as pd
 import numpy as np
 import torch
 import json
@@ -52,7 +51,7 @@ class CTMatch:
         pipe_topic = PipeTopic(
             topic_text=topic, 
             embedding_vec=self.get_embeddings([topic])[0],
-            category_vec=self.get_categories(topic)
+            category_vec=self.get_categories(topic)[np.newaxis, :]
         )
 
         # first filter, category + embedding similarity
@@ -110,8 +109,13 @@ class CTMatch:
         # infer for similarities
         similarities = clf.decision_function(x)
 
-        # return top n doc indices by similiarity
-        return np.argsort(-similarities)[::-1][:min(len(doc_set), top_n)]
+        # get top n doc indices by similiarity
+        result = np.argsort(similarities)[::-1][:min(len(doc_set), top_n)]
+
+        # remove topic from result
+        result.remove(0)
+
+        return result
         
         
     def gen_filter(self, pipe_topic: PipeTopic, doc_set: List[int], top_n: int) -> List[str]:

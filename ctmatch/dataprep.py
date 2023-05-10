@@ -138,9 +138,9 @@ class DataPrep:
 
     
     # ------------------ IR Data Loading ------------------ #
-    def process_data_from_hf(self, ds_path, is_texts: bool = False):
+    def process_data_from_hf(self, ds_path, is_text: bool = False):
         ds = load_dataset(CTMATCH_DATASET_ROOT, data_files=ds_path)
-        if is_texts:
+        if is_text:
             return pd.DataFrame(ds['train'])
     
         arrays = [np.asarray(a['text'].split(',')) for a in ds['train']]

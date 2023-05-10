@@ -80,6 +80,10 @@ class ClassifierModel:
 
     def load_model(self):
         self.model = self.get_model()
+
+        if self.model_config.ir_setup:
+            return self.model
+        
         self.optimizer = AdamW(self.model.parameters(), lr=self.model_config.learning_rate, weight_decay=self.model_config.weight_decay)
         self.num_training_steps = self.model_config.train_epochs * len(self.dataset['train'])
         self.lr_scheduler = get_scheduler(

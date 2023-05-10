@@ -54,7 +54,7 @@ class ClassifierModel:
     # ------------------ Model Loading ------------------ #
     def get_model(self):
         if self.model_config.num_classes == 0:
-            return AutoModelForSequenceClassification.from_pretrained(self.model_config.model_checkpoint)
+            return AutoModelForSequenceClassification.from_pretrained(self.model_config.classifier_model_checkpoint)
 
         id2label, label2id = self.get_label_mapping()
         model = AutoModelForSequenceClassification.from_pretrained(

@@ -165,6 +165,7 @@ class CTMatch:
     def get_embeddings(self, texts: List[str]) -> List[float]:
         return self.embedding_model.encode(texts)
     
+    @classmethod
     def get_categories(self, text: str) -> str:
         if self.category_model is None:
             self.category_model = pipeline(

@@ -127,7 +127,8 @@ class CTMatch:
         
         """
         assert top_n > 0, "top_n must be greater than 0"
-        query_prompt = self.get_gen_query_prompt(pipe_topic, doc_set)
+
+        query_prompt, i = self.get_gen_query_prompt(pipe_topic, doc_set)
         return self.gen_model.gen_response(query_prompt)[:min(len(doc_set), top_n)]
 
 

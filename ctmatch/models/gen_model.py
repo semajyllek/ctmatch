@@ -39,17 +39,39 @@ class GenModel:
                 presence_penalty=0.0
             )
             
-  
-        return self.post_process_response(response['choices'][0]['text'])
 
-    def post_process_response(self, response):
+        if self.model_config.gen_model_checkpoint == 'text-davinci-003':
+            return self.post_process_chatgpt_response(response)
+        return self.post_process_gptturbo_response(response['choices'][0]['message']['content'])
+
+
+    def post_process_chatgpt_response(self, response):
         """
         could be:
         NCTID 6, NCTID 7, NCTID 5
         NCTID: 6, 7, 5
         6, 7, 5
         """
-        return [int(self.remove_leading_text(substr)) for substr in response.split(',')]
+        text = response['choices'][0]['text']
+        return [int(self.remove_leading_text(substr)) for substr in text.split(',')]
+
+    def post_process_gptturbo_response(self, response, doc_set: List[int]):
+        """
+        could be:
+        'The most relevant clinical trial for this patient is ID 2, followed by ID 3. The remaining trials are not relevant for this patient's condition.'
+        """
+        text = response['choices'][0]['message']['content']
+        ranking = []
+        for substr in response.split():
+            if substr.isdigit():
+                ranking.append(int(substr))
+
+        # the rest are arbitrarily ranked 
+        for ncid in doc_set:
+            if ncid not in ranking:
+                ranking.append(ncid)
+        return ranking
+
 
     def remove_leading_text(self, s: str) -> str:
         i = 0

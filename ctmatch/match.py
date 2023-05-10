@@ -55,7 +55,7 @@ class CTMatch:
         # get topic representations for pipeline filters
         pipe_topic = PipeTopic(
             topic_text=topic, 
-            embedding_vec=self.get_embeddings([topic]),          # 1 x embedding_dim (default=384)
+            embedding_vec=self.get_embeddings([topic]),             # 1 x embedding_dim (default=384)
             category_vec=self.get_categories(topic)[np.newaxis, :]  # 1 x 14
         )
 
@@ -90,13 +90,14 @@ class CTMatch:
         embedding_sim = linear_kernel(emb_comparison_mat)[0]
         combined_sim = category_sim + embedding_sim
 
-        # return top n doc indices by combined similiarity
-        result = list(np.argsort(combined_sim)[::-1][:min(len(doc_set), top_n)])
+        # return top n doc indices by combined similiarity (+ 1 because topic is included in doc_set)
+        result = list(np.argsort(combined_sim)[::-1][:min(len(doc_set) + 1, top_n + 1)])
 
         # remove topic from result
         result.remove(0)
     
-        return result
+        # indexes got shifted by 1 because topic was included in doc_set
+        return [(r - 1) for r in result]
 
 
     def svm_filter(self, topic: PipeTopic, doc_set: List[int], top_n: int = 100) -> List[int]:
@@ -115,12 +116,13 @@ class CTMatch:
         similarities = clf.decision_function(x)
 
         # get top n doc indices by similiarity
-        result = np.argsort(similarities)[::-1][:min(len(doc_set), top_n)]
+        result = np.argsort(similarities)[::-1][:min(len(doc_set) + 1, top_n + 1)]
 
         # remove topic from result
         result.remove(0)
 
-        return result
+        # indexes got shifted by 1 because topic was included in doc_set
+        return [(r - 1) for r in result]
     
 
 

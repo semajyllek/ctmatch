@@ -76,6 +76,7 @@ class CTMatch:
     # ------------------------------------------------------------------------------------------ #
 
     def sim_filter(self, pipe_topic: PipeTopic, doc_set: List[int], top_n: int = 1000) -> List[str]:
+        logger.info(f"Running similarity filter on {len(doc_set)} documents")
 
         # get selected doc category and embedding vectors (matrices)
         doc_categories_mat = self.data.doc_categories_df.iloc[doc_set].values
@@ -101,6 +102,8 @@ class CTMatch:
 
 
     def svm_filter(self, topic: PipeTopic, doc_set: List[int], top_n: int = 100) -> List[int]:
+        logger.info(f"Running svm filter on {len(doc_set)} documents")
+
         doc_embeddings_mat = self.data.doc_embeddings_df.iloc[doc_set].values
 
         # build training data and prediction vector of single positive class for SVM
@@ -136,6 +139,8 @@ class CTMatch:
             may take a minute to run through all queries and subqueries depending on size of doc_set
         
         """
+        logger.info(f"Running gen filter on {len(doc_set)} documents")
+
         assert top_n > 0, "top_n must be greater than 0"
 
         ranked_docs = doc_set

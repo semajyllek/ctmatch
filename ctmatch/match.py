@@ -23,7 +23,6 @@ from .dataprep import DataPrep
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-logger.addHandler(logging.StreamHandler())
 
 
 CT_CATEGORIES = [

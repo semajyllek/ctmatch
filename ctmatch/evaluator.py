@@ -58,7 +58,7 @@ class Evaluator:
         ctm = CTMatch()
         for topicid, topic_text in self.topicid2text.items():
             doc_set = list(self.rel_dict[topicid].keys())
-            ranking = ctm.match_pipeline(topic_text, doc_set)
+            ranking = ctm.match_pipeline(topic_text, doc_set=doc_set)
             mrr = calc_mrr(ranking, self.rel_dict[topicid])
             logger.info(f"topicid: {topicid}, mrr: {mrr}")
             mrrs.append(mrr)

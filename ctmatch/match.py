@@ -105,11 +105,11 @@ class CTMatch:
         """
         logger.info(f"running classifier filter on {len(doc_set)} documents")
 
-        # get inputs
-        inputs = self.classifier_model.construct_inputs(pipe_topic.topic_text, doc_set)
+        # get doc texts
+        doc_texts = [v[0] for v in self.data.doc_texts_df.iloc[doc_set].values]
     
         # sort by reverse irrelevant prediction
-        neg_predictions = [res[0] for res in self.classifier_model.model(**inputs).logits]
+        neg_predictions = np.asarray([self.classifier_model.run_inference_single_example(pipe_topic.topic_text, dtext)[0] for dtext in doc_texts])
        
         # return top n doc indices by classifier, biggest to smallest
         return list(np.argsort(-neg_predictions)[:min(len(doc_set), top_n)])

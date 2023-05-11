@@ -234,26 +234,14 @@ class ClassifierModel:
         preds = preds.argmax(-1)
         f1 = f1_score(labels, preds, average="weighted")
         return {"f1":f1}
-
-
-    def construct_inputs(self, topic: str, doc_texts: List[str]) -> torch.LongTensor:
-        """
-        desc: method to construct inputs for inference
-        """
-        inputs = []
-        for doc in doc_texts:
-            ex = {'doc':doc, 'topic':topic}
-            inputs.append(self.tokenize_func(ex)['input_ids'])
-        return torch.LongTensor(inputs)
-
     
-    def run_inference_single_example(self, topic: str, doc: str, return_logits: bool = False) -> str:
+    def run_inference_single_example(self, topic: str, doc: str, return_preds: bool = False) -> str:
         """
         desc: method to predict relevance label on new topic, doc examples 
         """
         ex = {'doc':doc, 'topic':topic}
         inputs = torch.LongTensor(self.tokenize_func(ex)['input_ids']).unsqueeze(0)
         outputs = self.model(inputs).logits
-        if return_logits:
-            return outputs
+        if return_preds:
+            return torch.nn.functional.softmax(outputs, dim=1).squeeze(0)
         return str(outputs.argmax().item())

@@ -53,7 +53,7 @@ class CTMatch:
 
 
     # main api method
-    def match_pipeline(self, topic: str, top_k: int, doc_set: Optional[List[int]] = None) -> List[str]:
+    def match_pipeline(self, topic: str, top_k: int = 10, doc_set: Optional[List[int]] = None) -> List[str]:
 
         if doc_set is None:
             # start off will all doc indexes

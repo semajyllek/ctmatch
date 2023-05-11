@@ -190,6 +190,16 @@ class CTMatch:
     # ------------------------------------------------------------------------------------------ #
     # filter helper methods
     # ------------------------------------------------------------------------------------------ #
+
+    def get_pipe_topic(self, topic):
+        pipe_topic = PipeTopic(
+            topic_text=topic, 
+            embedding_vec=self.get_embeddings([topic])[0],             # 1 x embedding_dim (default=384)
+            category_vec=self.get_categories(topic)                    # 1 x 14
+        )
+        return pipe_topic
+    
+    
     def get_embeddings(self, texts: List[str]) -> List[float]:
         return self.embedding_model.encode(texts)
     

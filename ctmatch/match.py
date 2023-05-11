@@ -57,7 +57,7 @@ class CTMatch:
 
         if doc_set is None:
             # start off will all doc indexes
-            doc_set = self.data.index2docid.indexes.tolist()
+            doc_set = [i for i in range(len(self.data.index2docid))]
         else:
             self.reset_filter_params(len(doc_set))
  

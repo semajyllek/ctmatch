@@ -1,7 +1,7 @@
 
 from typing import Dict, List
 
-def cal_mrr(ranking: List[str], doc2rel: Dict[str, int], pos_val: int = 2) -> float:
+def calc_mrr(ranking: List[str], doc2rel: Dict[str, int], pos_val: int = 2) -> float:
 	"""
 	desc:       compute the mean reciprocal rank of a ranking
 	returns:    mrr 

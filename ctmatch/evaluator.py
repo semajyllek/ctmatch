@@ -4,7 +4,7 @@ from typing import List, Union
 
 from .utils.ctmatch_utils import get_kz_topic2text, get_trec_topic2text
 from .utils.eval_utils import calc_mrr
-from match import CTMatch
+from .match import CTMatch
 from pathlib import Path
 
 logger = logging.getLogger(__name__)

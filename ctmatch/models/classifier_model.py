@@ -240,8 +240,9 @@ class ClassifierModel:
         desc: method to predict relevance label on new topic, doc examples 
         """
         ex = {'doc':doc, 'topic':topic}
-        inputs = torch.LongTensor(self.tokenize_func(ex)['input_ids']).unsqueeze(0)
-        outputs = self.model(inputs).logits
-        if return_preds:
-            return torch.nn.functional.softmax(outputs, dim=1).squeeze(0)
-        return str(outputs.argmax().item())
+        with torch.no_grad():
+            inputs = torch.LongTensor(self.tokenize_func(ex)['input_ids']).unsqueeze(0)
+            outputs = self.model(inputs).logits
+            if return_preds:
+                return torch.nn.functional.softmax(outputs, dim=1).squeeze(0)
+            return str(outputs.argmax().item())

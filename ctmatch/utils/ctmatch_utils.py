@@ -1,8 +1,10 @@
 
 from typing import Any, Dict, List, Optional, Set
 from sklearn.metrics.pairwise import linear_kernel
+from collections import defaultdict
 from numpy.linalg import norm
 from datasets import Dataset
+from lxml import etree
 import numpy as np
 import json
 import re
@@ -119,3 +121,59 @@ def linear_kernel_sim(query_emb, doc_embs):
     """
     total_mat = np.concatenate((query_emb, doc_embs), axis=0)
     return linear_kernel(total_mat, total_mat)[0]
+
+
+
+#----------------------------------------------------------------#
+# evaluation methods (duplicated from ctproc scripts)
+#----------------------------------------------------------------#
+
+def get_test_rels(rel_path):
+    rel_dict = defaultdict(lambda:defaultdict(int))
+    rel_type_dict = defaultdict(int)
+    for line in open(rel_path, 'r').readlines():
+        topic_id, _, doc_id, rel = re.split(r'\s+', line.strip())
+        rel_dict[topic_id][doc_id] = int(rel)
+        rel_type_dict[rel] += 1
+    return rel_dict, rel_type_dict
+
+
+  
+def get_trec_topic2text(topic_path) -> Dict[str, str]:
+    """
+    desc:       main method for processing a single XML file of TREC21 patient descriptions called "topics" in this sense
+    returns:    dict of topicid: topic text
+    """
+
+    topic2text = {}
+    topic_root = etree.parse(topic_path).getroot()
+    for topic in topic_root:
+        topic2text[topic.attrib['number']] = topic.text
+    
+
+
+def get_kz_topic2text(topic_path) -> Dict[str, str]:
+    """
+    desc:       main method for processing a single XML file of TREC21 patient descriptions called "topics" in this sense
+    returns:    dict of topicid: topic text
+    """
+
+    topic2text = {}
+    with open(topic_path, 'r') as f:
+        for line in f.readlines():
+            line = line.strip()
+            
+            if line.startswith('<TOP>'):
+                topic_id, text = None, None
+                continue
+
+            if line.startswith('<NUM>'):
+                topic_id = line[5:-6]
+
+            elif line.startswith('<TITLE>'):
+                text = line[7:].strip()
+                topic2text[topic_id] = text
+
+    return topic2text
+
+                  

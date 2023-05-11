@@ -6,8 +6,7 @@ import json
 COMBINED_CAT_PATH = '/Users/jameskelly/Documents/cp/ctmatch/data/combined_categories.jsonl'
 CAT_SAVE_PATH = '/Users/jameskelly/Documents/cp/ctmatch/data/doc_categories.txt'
 INDEX2DOCID_PATH = '/Users/jameskelly/Documents/cp/ctmatch/data/index2docid.txt'
-
-
+INDEX2TOPICID_PATH = '/Users/jameskelly/Documents/cp/ctmatch/data/index2topicid.txt'
 
 def load_category_dict(cat_path=COMBINED_CAT_PATH) -> Tuple[List, Dict[str, List[float]]]:
     """
@@ -32,7 +31,7 @@ def load_category_dict(cat_path=COMBINED_CAT_PATH) -> Tuple[List, Dict[str, List
 
 
 
-def load_index2id(index2id_path: str = INDEX2ID_PATH) -> Dict[str, int]:
+def load_index2id(index2id_path: str = INDEX2DOCID_PATH) -> Dict[str, int]:
     """
     desc:   loads id2idx from csv path
     """

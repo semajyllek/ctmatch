@@ -31,6 +31,7 @@ class ModelConfig(NamedTuple):
     embedding_model_checkpoint: str = "sentence-transformers/all-MiniLM-L6-v2"
     gen_model_checkpoint: str = 'text-davinci-003'
     openai_api_key: Optional[str] = None
-    ir_setup: bool = False
+    ir_setup: bool = False                  # if true, use the IR model setup, no classifier training or dataprep
+    mode: str = 'normal'                    # normal or eval
 
 

@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np
 
 # package tools
-from .utils.ctmatch_utils import train_test_val_split, get_processed_data
+from .utils.ctmatch_utils import train_test_val_split, get_processed_data, get_test_rels
 from .modelconfig import ModelConfig
 
 
@@ -20,13 +20,6 @@ DOC_TEXTS_PATH = "doc_texts.txt"
 DOC_CATEGORIES_VEC_PATH = "doc_categories.txt"
 DOC_EMBEDDINGS_VEC_PATH = "doc_embeddings.txt"
 INDEX2DOCID_PATH = "index2docid.txt"
-
-
-#TODO: remove this. for testing ONLY
-DOC_TEXTS_PATH = "test_doc_texts.txt"
-DOC_CATEGORIES_VEC_PATH = "test_doc_categories.txt"
-DOC_EMBEDDINGS_VEC_PATH = "test_doc_embeddings.txt"
-INDEX2DOCID_PATH = "test_index2docid.txt"
 
 
 SUPPORTED_LMS = [
@@ -151,3 +144,21 @@ class DataPrep:
         self.doc_embeddings_df = self.process_ir_data_from_hf(DOC_EMBEDDINGS_VEC_PATH)
         self.doc_categories_df = self.process_ir_data_from_hf(DOC_CATEGORIES_VEC_PATH)
         self.doc_texts_df = self.process_ir_data_from_hf(DOC_TEXTS_PATH, is_text=True)
+
+
+    # ------------------ Evaluation Data Loading ------------------ #
+    def get_docid2index(self):
+        docid2index = dict()
+        for i, docid in enumerate(self.index2docid['text']):
+            docid2index[docid] = i
+        return docid2index
+    
+    def build_topic_texts(self):
+        with open(TOPIC_TEXTS_PATH, 'r') as f:
+            topic_texts = f.readlines()
+            
+    def get_combined_rel_dict(self, ):
+        trec_rel_dict, _ = get_test_rels(TREC_REL_PATH)
+        kz_rel_dict, _ = get_test_rels(KZ_REL_PATH)
+        combined_rel_dict = trec_rel_dict.update(kz_rel_dict) 
+        return combined_rel_dict

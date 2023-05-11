@@ -44,14 +44,23 @@ class CTMatch:
         self.embedding_model = SentenceTransformer(self.model_config.embedding_model_checkpoint) 
         self.gen_model = GenModel(self.model_config)
         self.category_model = None
-        
-    
-    # main api method
-    def match_pipeline(self, topic: str, top_k: int, mode: str ='normal') -> List[str]:
 
-        # start off will all doc indexes
-        doc_set = [i for i in range(len(self.data.index2docid))]
-        
+        # filter params
+        self.sim_top_n = 10000
+        self.svm_top_n = 1000
+        self.classifier_top_n = 100
+        self.gen_top_n = 100
+
+
+    # main api method
+    def match_pipeline(self, topic: str, top_k: int, doc_set: Optional[List[int]] = None) -> List[str]:
+
+        if doc_set is None:
+            # start off will all doc indexes
+            doc_set = self.data.index2docid.indexes.tolist()
+        else:
+            self.reset_filter_params(len(doc_set))
+ 
         # get topic representations for pipeline filters
         pipe_topic = PipeTopic(
             topic_text=topic, 
@@ -60,19 +69,23 @@ class CTMatch:
         )
 
         # first filter, category + embedding similarity
-        doc_set = self.sim_filter(pipe_topic, doc_set, top_n=10000)
+        doc_set = self.sim_filter(pipe_topic, doc_set, top_n=self.sim_top_n)
 
         # second filter, SVM
-        doc_set = self.svm_filter(pipe_topic, doc_set, top_n=100)
+        doc_set = self.svm_filter(pipe_topic, doc_set, top_n=self.svm_top_n)
 
         # third filter, classifier-LM (reranking)
-        doc_set = self.classifier_filter(pipe_topic, doc_set, top_n=100)
+        doc_set = self.classifier_filter(pipe_topic, doc_set, top_n=self.classifier_top_n)
 
         # fourth filter, generative-LM
-        doc_set = self.gen_filter(pipe_topic, doc_set, top_n=min(top_k, 10))
+        doc_set = self.gen_filter(pipe_topic, doc_set, top_n=min(top_k, self.gen_top_n))
 
         return self.get_return_data(doc_set)
 
+
+    def reset_filter_params(self, val: int) -> None:
+        self.sim_top_n = self.svm_top_n = self.classifier_top_n = self.gen_top_n = val
+  
 
     # ------------------------------------------------------------------------------------------ #
     # filtering methods
@@ -168,7 +181,6 @@ class CTMatch:
 
                 # keep the top half of each subranking
                 subrankings.extend(subrank[:len(subrank) // 2])
-
 
             ranked_docs = subrankings
             iters += 1

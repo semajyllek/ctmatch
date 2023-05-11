@@ -22,7 +22,7 @@ Currently 4 filters are applied to the set of documents for ranking and rerankin
    - embeddings (384-dim) are created using the last hidden layer of SentenceTransformers(`sentence-transformers/all-MiniLM-L6-v2`)
    
    - inferred category vectors are arbitrarily selected 14 classes i.e. pulmonary, cardiac, health, other.... with 
-   probabilites as softmax of the output from a zero-shot classification of {large language model} applied to the 
+   probabilites as softmax of the output from a zero-shot classification of `facebook/bart-large-mnli` applied to the 
    'condition' field of the ct documents and the raw text of the topic.
 
    The docs are ranked by this combined distance score and the top {1000} closest documents to the topic are selected (out of ~384k documents), passed to the next filter.

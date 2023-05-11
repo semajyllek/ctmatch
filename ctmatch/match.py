@@ -71,14 +71,14 @@ class CTMatch:
         # first filter, category + embedding similarity
         doc_set = self.sim_filter(pipe_topic, doc_set, top_n=self.sim_top_n)
 
-        # second filter, SVM
-        doc_set = self.svm_filter(pipe_topic, doc_set, top_n=self.svm_top_n)
+        # # second filter, SVM
+        # doc_set = self.svm_filter(pipe_topic, doc_set, top_n=self.svm_top_n)
 
-        # third filter, classifier-LM (reranking)
-        doc_set = self.classifier_filter(pipe_topic, doc_set, top_n=self.classifier_top_n)
+        # # third filter, classifier-LM (reranking)
+        # doc_set = self.classifier_filter(pipe_topic, doc_set, top_n=self.classifier_top_n)
 
-        # fourth filter, generative-LM
-        doc_set = self.gen_filter(pipe_topic, doc_set, top_n=min(top_k, self.gen_top_n))
+        # # fourth filter, generative-LM
+        # doc_set = self.gen_filter(pipe_topic, doc_set, top_n=min(top_k, self.gen_top_n))
 
         return self.get_return_data(doc_set)
 

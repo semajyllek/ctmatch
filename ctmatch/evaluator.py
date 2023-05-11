@@ -5,6 +5,7 @@ from typing import List, NamedTuple, Union
 from .utils.eval_utils import calc_mrr, get_kz_topic2text, get_trec_topic2text
 from .match import CTMatch
 from pathlib import Path
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ class Evaluator:
         self.kz_topic_path: Union[Path, str] = eval_config.kz_topic_path
         self.rel_dict: dict = None
         self.topic2text: dict = None
+        self.ctm = None
    
         assert self.rel_paths is not None, "paths to relevancy judgments must be set in model_config if model_config.evaluate=True"
         assert ((self.trec_topic_path is not None) or (self.kz_topic_path is not None)), "at least one of trec_topic_path or kz_topic_path) must be set in model_config if model_config.evaluate=True"
@@ -48,6 +50,7 @@ class Evaluator:
         if self.trec_topic_path is not None:
             self.topicid2text.update(get_trec_topic2text(self.trec_topic_path))
 
+        self.ctm = CTMatch()
 
     def evaluate(self):
         """
@@ -55,16 +58,22 @@ class Evaluator:
               and compute the mean mrr over all topics (how far down to the first relevant document)
         """
         mrrs = []
-        ctm = CTMatch()
         for topicid, topic_text in self.topicid2text.items():
-            doc_set = list(self.rel_dict[topicid].keys())
-            ranking = ctm.match_pipeline(topic_text, doc_set=doc_set)
+            doc_set = self.get_indexes_from_ids(list(self.rel_dict[topicid].keys()))
+            ranking = self.ctm.match_pipeline(topic_text, doc_set=doc_set)
             mrr = calc_mrr(ranking, self.rel_dict[topicid])
             logger.info(f"topicid: {topicid}, mrr: {mrr}")
             mrrs.append(mrr)
         
         mean_mrr = sum(mrrs)/len(mrrs)
         logger.info(f"mean mrr: {mean_mrr}")
+
+    def get_indexes_from_ids(self, doc_id_set: List[str]) -> List[int]:
+        """
+        desc:       get the indexes of the documents in doc_id_set in the order they appear in the ranking
+        returns:    list of indexes
+        """
+        return [np.where(self.ctm.data.index2docid['text'] == doc_id)[0][0] for doc_id in doc_id_set]
 
 
 

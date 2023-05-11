@@ -44,7 +44,7 @@ class Evaluator:
         self.rel_dict = self.get_combined_rel_dict(self.rel_paths)
         self.topicid2text = dict()
         if self.kz_topic_path is not None:
-            self.topicid2text = get_kz_topic2text(self.trec_topic_path, self.kz_topic_path)
+            self.topicid2text = get_kz_topic2text(self.kz_topic_path)
 
         if self.trec_topic_path is not None:
             self.topicid2text.update(get_trec_topic2text(self.trec_topic_path))

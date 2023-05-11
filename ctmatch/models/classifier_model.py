@@ -1,6 +1,6 @@
 
 import logging
-from typing import Tuple
+from typing import List, Tuple
 
 from transformers import AutoModelForSequenceClassification, Trainer, TrainingArguments, get_scheduler
 from sklearn.metrics import confusion_matrix, classification_report
@@ -235,6 +235,16 @@ class ClassifierModel:
         f1 = f1_score(labels, preds, average="weighted")
         return {"f1":f1}
 
+
+    def construct_inputs(self, topic: str, doc_texts: List[str]) -> torch.LongTensor:
+        """
+        desc: method to construct inputs for inference
+        """
+        inputs = []
+        for doc in doc_texts:
+            ex = {'doc':doc, 'topic':topic}
+            inputs.append(self.tokenize_func(ex)['input_ids'])
+        return torch.LongTensor(inputs)
 
     
     def run_inference_single_example(self, topic: str, doc: str, return_logits: bool = False) -> str:

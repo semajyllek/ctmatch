@@ -65,7 +65,10 @@ class CTMatch:
         # second filter, SVM
         doc_set = self.svm_filter(pipe_topic, doc_set, top_n=100)
 
-        # third filter, LM
+        # third filter, classifier-LM (reranking)
+        doc_set = self.classifier_filter(pipe_topic, doc_set, top_n=100)
+
+        # fourth filter, generative-LM
         doc_set = self.gen_filter(pipe_topic, doc_set, top_n=min(top_k, 10))
 
         return self.get_return_data(doc_set)
@@ -95,6 +98,21 @@ class CTMatch:
         # return top n doc indices by combined similiarity, biggest to smallest
         return list(np.argsort(cosine_dists))[:min(len(doc_set), top_n)]
     
+
+    def classifier_filter(self, pipe_topic: PipeTopic, doc_set: List[int], top_n: int = 1000) -> List[int]:
+        """
+        filter documents by classifier
+        """
+        logger.info(f"running classifier filter on {len(doc_set)} documents")
+
+        # get inputs
+        inputs = self.classifier_model.construct_inputs(pipe_topic.topic_text, doc_set)
+    
+        # sort by reverse irrelevant prediction
+        neg_predictions = [res[0] for res in self.classifier_model.model(**inputs).logits]
+       
+        # return top n doc indices by classifier, biggest to smallest
+        return list(np.argsort(-neg_predictions)[:min(len(doc_set), top_n)])
        
 
 

@@ -1,6 +1,6 @@
 
 import logging
-from typing import List, Union
+from typing import List, NamedTuple, Union
 
 from .utils.ctmatch_utils import get_kz_topic2text, get_trec_topic2text
 from .utils.eval_utils import calc_mrr
@@ -10,7 +10,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
-class EvaluatorConfig:
+class EvaluatorConfig(NamedTuple):
     rel_paths: List[str]
     trec_topic_path: Union[Path, str]  = None
     kz_topic_path: Union[Path, str] = None

@@ -1,4 +1,4 @@
-### ctmatch
+## ctmatch
 
 
 **program for matching clinical trials to patient text descriptions**
@@ -13,7 +13,7 @@ pairs.
 The pipeline currently matches user input topics to the static snapshot of clinical trials data downloaded for the TREC task from december of 2015, now stored on huggingface in the datasets `semaj83/ctmatch_classification` and `semaj83/ctmatch_ir` but can be updated with a current dataset of clinical trials data using ctproc to process.
 
 
-## pipeline filters
+### pipeline filters
 
 Currently 4 filters are applied to the set of documents for ranking and reranking:
 
@@ -39,7 +39,7 @@ Currently 4 filters are applied to the set of documents for ranking and rerankin
 
 
 
-## api
+### api
 
 ```
 topic = "A 46 yo male with gastric cancer. He has recieved 3 rounds of chemotherapy without radiation and recent MRI shows tumor shrinking to < 4 cm. in diameter."
@@ -49,12 +49,12 @@ ranked_pairs = ctm.match_pipeline(topic, top_k=10)
 
 ```
 
-## evaluation:
+### evaluation:
 
 Evaluation is done with MRR (mean reciprocal rank) on the resulting documents from the labelled dataset and the `Evaluator` object in the evaluator.py module. (see paper)
 
 
-## classifier training
+### classifier training
 
 This repo also contains code in the CTMatch object to train a classifier on the `semaj83/ctmatch_classification` dataset (see notebook).
 Several LMs are supported but others may need to code modifications, starting with adding to the list of supported LMs at the top of dataprep.py

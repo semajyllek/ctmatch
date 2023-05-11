@@ -84,7 +84,6 @@ class CTMatch:
         doing this with loop and cosine similarity instead of linear kernel because of memory issues
         """
         logger.info(f"running similarity filter on {len(doc_set)} documents")
-
        
         norm_topic_cat = norm(pipe_topic.category_vec)
         norm_topic_emb = norm(pipe_topic.embedding_vec)
@@ -101,7 +100,7 @@ class CTMatch:
 
     def classifier_filter(self, pipe_topic: PipeTopic, doc_set: List[int], top_n: int = 1000) -> List[int]:
         """
-        filter documents by classifier
+        filter documents by classifier no relevance prediction
         """
         logger.info(f"running classifier filter on {len(doc_set)} documents")
 
@@ -109,12 +108,11 @@ class CTMatch:
         doc_texts = [v[0] for v in self.data.doc_texts_df.iloc[doc_set].values]
     
         # sort by reverse irrelevant prediction
-        neg_predictions = np.asarray([self.classifier_model.run_inference_single_example(pipe_topic.topic_text, dtext)[0] for dtext in doc_texts])
+        neg_predictions = np.asarray([self.classifier_model.run_inference_single_example(pipe_topic.topic_text, dtext, return_preds=True)[0] for dtext in doc_texts])
        
         # return top n doc indices by classifier, biggest to smallest
         return list(np.argsort(-neg_predictions)[:min(len(doc_set), top_n)])
        
-
 
     def svm_filter(self, topic: PipeTopic, doc_set: List[int], top_n: int = 100) -> List[int]:
         logger.info(f"running svm filter on {len(doc_set)} documents")

@@ -215,15 +215,17 @@ class CTMatch:
 
         # to be consistent with doc category vecs 
         sorted_keys = sorted(score_dict.keys())
-        return self.mask_other_category(np.array([score_dict[k] for k in sorted_keys]))
+        return self.redist_other_category(np.array([score_dict[k] for k in sorted_keys]))
 
-    def mask_other_category(self, category_vec: np.ndarray) -> np.ndarray:
+    def redist_other_category(self, category_vec: np.ndarray, other_dim:int = 8) -> np.ndarray:
         """
-            mask out 'other' category, 8th dimension
+            redistribute 'other' category weight to all other categories
         """
-        other_mask = np.ones(len(category_vec))
-        other_mask[8] = 0
-        return category_vec * other_mask
+        other_wt = category_vec[other_dim] 
+        other_wt_dist = other_wt / (len(category_vec) - 1)
+        redist_cat_vec = category_vec + other_wt_dist
+        redist_cat_vec[other_dim] = 0
+        return redist_cat_vec
         
 
     def get_gen_query_prompt(self, topic: PipeTopic, doc_set: List[int]) -> str:

@@ -92,7 +92,8 @@ class CTMatch:
         filter documents by similarity to topic
         doing this with loop and cosine similarity instead of linear kernel because of memory issues
         """
-
+        logger.info(f"running sim filter on {len(doc_set)} docs")
+        
         topic_cat_vec = exclusive_argmax(pipe_topic.category_vec)
         norm_topic_emb = norm(pipe_topic.embedding_vec)
         cosine_dists = []

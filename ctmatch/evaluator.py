@@ -71,9 +71,9 @@ class Evaluator:
             # can't evaluate with no judgments
             continue
             
-          doc_ids = list(ev.rel_dict[topic_id].keys())
+          doc_ids = list(self.rel_dict[topic_id].keys())
           logger.info(f"number of ranked docs: {len(doc_ids)}")
-          doc_set = self.get_indexes_from_ids(ev, doc_ids)
+          doc_set = self.get_indexes_from_ids(doc_ids)
           pipe_topic = self.ctm.get_pipe_topic(topic_text)
           
           ranking = self.ctm.sim_filter(pipe_topic, doc_set)
@@ -91,7 +91,7 @@ class Evaluator:
       mean_frr = sum(frrs)/len(frrs)
       mean_f1 = sum(f1s)/len(f1s)
 
-      return mean_fpr, mean_frr, mean_f1
+      return {"mean_fpr":mean_fpr, "mean_frr":mean_frr, "mean_f1":mean_f1}
 
 
     def get_indexes_from_ids(self, doc_id_set: List[str]) -> List[int]:

@@ -56,7 +56,7 @@ class GenModel:
         6, 7, 5
         '1. 195155\n2. 186848\n3. 194407'
         """
-        response_pattern = r"(?:NCTID\s*:?|\d+\.\s*)((?:\s*\d+\s*(?:,|$))+)"
+        response_pattern = r"(?:NCTID\:?\s*)? ?(\d+)(?!\.)"
         text = response['choices'][0]['text']
         return [int(s) for s in re.findall(response_pattern, text)]
 

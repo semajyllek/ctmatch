@@ -20,6 +20,7 @@ class EvaluatorConfig(NamedTuple):
     kz_topic_path: Union[Path, str] = None
     max_topics: int = 200
     openai_api_key: Optional[str] = None
+    filters: Optional[List[str]] = None
 
 
 class Evaluator:
@@ -32,6 +33,7 @@ class Evaluator:
         self.topic2text: dict = None
         self.ctm = None
         self.openai_api_key = eval_config.openai_api_key
+        self.filters = eval_config.filters
    
         assert self.rel_paths is not None, "paths to relevancy judgments must be set in model_config if model_config.evaluate=True"
         assert ((self.trec_topic_path is not None) or (self.kz_topic_path is not None)), "at least one of trec_topic_path or kz_topic_path) must be set in model_config if model_config.evaluate=True"
@@ -61,7 +63,8 @@ class Evaluator:
         # loads all remaining needed datasets into memory
         model_config = ModelConfig(
             openai_api_key=self.openai_api_key,
-            ir_setup=True
+            ir_setup=True,
+            filters=self.filters
         )
         self.ctm = CTMatch(model_config=model_config)
 
@@ -85,15 +88,14 @@ class Evaluator:
             doc_ids = list(self.rel_dict[topic_id].keys())
             logger.info(f"number of ranked docs: {len(doc_ids)}")
             doc_set = self.get_indexes_from_ids(doc_ids)
-            pipe_topic = self.ctm.get_pipe_topic(topic_text)
-            
-            # ranking = self.ctm.sim_filter(pipe_topic, doc_set)
-            # ranking = self.ctm.svm_filter(pipe_topic, doc_set)
-            # ranking = self.ctm.classifier_filter(pipe_topic, doc_set)
-            ranking = self.ctm.gen_filter(pipe_topic, doc_set)
-            # ranking = self.ctm.match_pipeline(topic_text, doc_set=doc_set)
-    
+
+            # run IR pipeline on set of indexes corresposnding to labelled doc_ids
+            ranking = self.ctm.match_pipeline(topic_text, doc_set=doc_set)
+
+            # get NCTIDs from ranking
             ranked_ids = [self.ctm.data.index2docid.iloc[r].values[0] for r in ranking]
+
+            # calculate metrics
             fpr, frr = calc_first_positive_rank(ranked_ids, self.rel_dict[topic_id])
             f1 = calc_f1(ranked_ids, self.rel_dict[topic_id])
 

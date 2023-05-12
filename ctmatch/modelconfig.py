@@ -32,6 +32,7 @@ class ModelConfig(NamedTuple):
     gen_model_checkpoint: str = 'text-davinci-003'
     openai_api_key: Optional[str] = None
     ir_setup: bool = False                  # if true, use the IR model setup, no classifier training or dataprep
-    mode: str = 'normal'                    # normal or eval
+    filters: Optional[List[str]] = None     # if provided, only use these filters for the IR model, options are {'sim', 'svm', 'classifier', 'gen'}
+
 
 

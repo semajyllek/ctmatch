@@ -46,6 +46,7 @@ class CTMatch:
         self.embedding_model = SentenceTransformer(self.model_config.embedding_model_checkpoint) 
         self.gen_model = GenModel(self.model_config)
         self.category_model = None
+        self.filters: Optional[List[str]] = model_config.filters
 
         # filter params
         self.sim_top_n = 10000
@@ -66,17 +67,21 @@ class CTMatch:
         # get topic representations for pipeline filters
         pipe_topic = self.get_pipe_topic(topic)
 
-        # first filter, category + embedding similarity
-        doc_set = self.sim_filter(pipe_topic, doc_set, top_n=self.sim_top_n)
+        if self.filters is None or ('sim' in self.filters):
+            # first filter, category + embedding similarity
+            doc_set = self.sim_filter(pipe_topic, doc_set, top_n=self.sim_top_n)
 
-        # # second filter, SVM
-        doc_set = self.svm_filter(pipe_topic, doc_set, top_n=self.svm_top_n)
+        if self.filters is None or ('svm' in self.filters):
+            # second filter, SVM
+            doc_set = self.svm_filter(pipe_topic, doc_set, top_n=self.svm_top_n)
 
-        # # third filter, classifier-LM (reranking)
-        doc_set = self.classifier_filter(pipe_topic, doc_set, top_n=self.classifier_top_n)
+        if self.filters is None or ('classifier' in self.filters):
+            # third filter, classifier-LM (reranking)
+            doc_set = self.classifier_filter(pipe_topic, doc_set, top_n=self.classifier_top_n)
 
-        # # fourth filter, generative-LM
-        # doc_set = self.gen_filter(pipe_topic, doc_set, top_n=min(top_k, self.gen_top_n))
+        if self.filters is None or ('gen' in self.filters):
+            # fourth filter, generative-LM
+            doc_set = self.gen_filter(pipe_topic, doc_set, top_n=min(top_k, self.gen_top_n))
 
         return self.get_return_data(doc_set)
 
@@ -99,8 +104,6 @@ class CTMatch:
         topic_cat_vec = exclusive_argmax(pipe_topic.category_vec)
         norm_topic_emb = norm(pipe_topic.embedding_vec)
         cosine_dists = []
-        # cat_dists = []
-        # emb_dists = []
         for doc_idx in doc_set:
             doc_cat_vec = self.redist_other_category(self.data.doc_categories_df.iloc[doc_idx].values)
         
@@ -112,14 +115,8 @@ class CTMatch:
             doc_argmax = np.argmax(doc_cat_vec)
             cat_dist = 0. if (topic_argmax == doc_argmax) else 1.
             emb_dist = np.dot(pipe_topic.embedding_vec, doc_emb_vec) / (norm_topic_emb * norm(doc_emb_vec))
-            # cat_dists.append(cat_dist)
-            # emb_dists.append(emb_dist)
             combined_dist = cat_dist + emb_dist
             cosine_dists.append(combined_dist)
-
-        # norm_cat_dists = np.array(cat_dists) / max(cat_dists)
-        # norm_emb_dists = np.array(emb_dists) / max(emb_dists)
-        # cosine_dists = norm_cat_dists + norm_emb_dists
 
         sorted_indices = list(np.argsort(cosine_dists))[:min(len(doc_set), top_n)]
 
@@ -277,7 +274,7 @@ class CTMatch:
     def get_return_data(self, doc_set: List[int]) -> List[Tuple[str, str]]:
         return_data = []
         for idx in doc_set:
-            nctid = self.data.index2docid.iloc[doc_set].values[0][0]
+            nctid = self.data.index2docid.iloc[idx].values[0][0]
             return_data.append((nctid, self.data.doc_texts_df.iloc[idx].values[0]))
         return return_data
 

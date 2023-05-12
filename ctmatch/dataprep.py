@@ -145,20 +145,3 @@ class DataPrep:
         self.doc_categories_df = self.process_ir_data_from_hf(DOC_CATEGORIES_VEC_PATH)
         self.doc_texts_df = self.process_ir_data_from_hf(DOC_TEXTS_PATH, is_text=True)
 
-
-    # ------------------ Evaluation Data Loading ------------------ #
-    def get_docid2index(self):
-        docid2index = dict()
-        for i, docid in enumerate(self.index2docid['text']):
-            docid2index[docid] = i
-        return docid2index
-    
-    def build_topic_texts(self):
-        with open(TOPIC_TEXTS_PATH, 'r') as f:
-            topic_texts = f.readlines()
-            
-    def get_combined_rel_dict(self, ):
-        trec_rel_dict, _ = get_test_rels(TREC_REL_PATH)
-        kz_rel_dict, _ = get_test_rels(KZ_REL_PATH)
-        combined_rel_dict = trec_rel_dict.update(kz_rel_dict) 
-        return combined_rel_dict

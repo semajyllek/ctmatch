@@ -66,7 +66,7 @@ class Evaluator:
                 and compute the mean mrr over all topics (how far down to the first relevant document)
         """
         frrs, f1s, fprs = [], [], []
-        for i, topic_id, topic_text in enumerate(tqdm(self.topicid2text.items())):
+        for i, (topic_id, topic_text) in enumerate(tqdm(self.topicid2text.items())):
             if i > self.max_topics:
                 logger.info(f"max topics reached: {self.max_topics}, returning early")
                 break

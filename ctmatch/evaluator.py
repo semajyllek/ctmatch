@@ -1,6 +1,6 @@
 
 import logging
-from typing import List, NamedTuple, Union
+from typing import List, NamedTuple, Optional, Union
 
 from .utils.eval_utils import (
     calc_first_positive_rank, calc_f1, get_kz_topic2text, get_trec_topic2text
@@ -19,7 +19,7 @@ class EvaluatorConfig(NamedTuple):
     trec_topic_path: Union[Path, str]  = None
     kz_topic_path: Union[Path, str] = None
     max_topics: int = 200
-    open_ai_api_key: str = None
+    openai_api_key: Optional[str] = None
 
 
 class Evaluator:

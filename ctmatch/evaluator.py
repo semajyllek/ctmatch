@@ -80,8 +80,9 @@ class Evaluator:
             doc_set = self.get_indexes_from_ids(doc_ids)
             pipe_topic = self.ctm.get_pipe_topic(topic_text)
             
-            ranking = self.ctm.sim_filter(pipe_topic, doc_set)
-            #ranking = self.ctm.match_pipeline(topic_text, doc_set=doc_set)
+            # ranking = self.ctm.sim_filter(pipe_topic, doc_set)
+            ranking = self.ctm.svm_filter(pipe_topic, doc_set)
+            # ranking = self.ctm.match_pipeline(topic_text, doc_set=doc_set)
     
             ranked_ids = [self.ctm.data.index2docid.iloc[r].values[0] for r in ranking]
             fpr, frr = calc_first_positive_rank(ranked_ids, self.rel_dict[topic_id])

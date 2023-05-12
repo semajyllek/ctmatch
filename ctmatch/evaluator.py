@@ -90,10 +90,10 @@ class Evaluator:
             doc_set = self.get_indexes_from_ids(doc_ids)
 
             # run IR pipeline on set of indexes corresposnding to labelled doc_ids
-            ranking = self.ctm.match_pipeline(topic_text, doc_set=doc_set)
+            ranked_pairs = self.ctm.match_pipeline(topic_text, doc_set=doc_set)
 
             # get NCTIDs from ranking
-            ranked_ids = [self.ctm.data.index2docid.iloc[r].values[0] for r in ranking]
+            ranked_ids = [self.ctm.data.index2docid.iloc[r[0]].values[0] for r in ranked_pairs]
 
             # calculate metrics
             fpr, frr = calc_first_positive_rank(ranked_ids, self.rel_dict[topic_id])

@@ -199,7 +199,7 @@ class CTMatch:
         )
         return pipe_topic
     
-    
+
     def get_embeddings(self, texts: List[str]) -> List[float]:
         return self.embedding_model.encode(texts)
     
@@ -215,9 +215,16 @@ class CTMatch:
 
         # to be consistent with doc category vecs 
         sorted_keys = sorted(score_dict.keys())
-        return np.array([score_dict[k] for k in sorted_keys])
+        return self.mask_other_category(np.array([score_dict[k] for k in sorted_keys]))
 
-
+    def mask_other_category(self, category_vec: np.ndarray) -> np.ndarray:
+        """
+            mask out 'other' category, 8th dimension
+        """
+        other_mask = np.ones(len(category_vec))
+        other_mask[8] = 0
+        return category_vec * other_mask
+        
 
     def get_gen_query_prompt(self, topic: PipeTopic, doc_set: List[int]) -> str:
         query_prompt = f"{GEN_INIT_PROMPT}Patient description: {topic.topic_text}\n"

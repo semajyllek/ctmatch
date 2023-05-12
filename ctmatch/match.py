@@ -65,13 +65,13 @@ class CTMatch:
         pipe_topic = self.get_pipe_topic(topic)
 
         # first filter, category + embedding similarity
-        doc_set = self.sim_filter(pipe_topic, doc_set, top_n=self.sim_top_n)
+        # doc_set = self.sim_filter(pipe_topic, doc_set, top_n=self.sim_top_n)
 
         # # second filter, SVM
         # doc_set = self.svm_filter(pipe_topic, doc_set, top_n=self.svm_top_n)
 
         # # third filter, classifier-LM (reranking)
-        # doc_set = self.classifier_filter(pipe_topic, doc_set, top_n=self.classifier_top_n)
+        doc_set = self.classifier_filter(pipe_topic, doc_set, top_n=self.classifier_top_n)
 
         # # fourth filter, generative-LM
         # doc_set = self.gen_filter(pipe_topic, doc_set, top_n=min(top_k, self.gen_top_n))
@@ -137,14 +137,16 @@ class CTMatch:
         neg_predictions = np.asarray([self.classifier_model.run_inference_single_example(pipe_topic.topic_text, dtext, return_preds=True)[0] for dtext in doc_texts])
        
         # return top n doc indices by classifier, biggest to smallest
-        return list(np.argsort(-neg_predictions)[:min(len(doc_set), top_n)])
+        sorted_indices = list(np.argsort(-neg_predictions)[:min(len(doc_set), top_n)])
+        return [doc_set[i] for i in sorted_indices]
        
 
     def svm_filter(self, topic: PipeTopic, doc_set: List[int], top_n: int = 100) -> List[int]:
         logger.info(f"running svm filter on {len(doc_set)} documents")
 
         # build training data and prediction vector of single positive class for SVM
-        x = np.concatenate([topic.embedding_vec, self.data.doc_embeddings_df.iloc[doc_set].values], axis=0)
+        topic_embedding_vec = topic.embedding_vec[np.newaxis, :]
+        x = np.concatenate([topic_embedding_vec, self.data.doc_embeddings_df.iloc[doc_set].values], axis=0)
         y = np.zeros(len(doc_set) + 1)
         y[0] = 1
 
@@ -162,7 +164,7 @@ class CTMatch:
         result.remove(0)
 
         # indexes got shifted by 1 because topic was included in doc_set
-        return [(r - 1) for r in result]
+        return [doc_set[(r - 1)] for r in result]
     
 
 

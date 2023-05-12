@@ -31,6 +31,7 @@ class Evaluator:
         self.rel_dict: dict = None
         self.topic2text: dict = None
         self.ctm = None
+        self.openai_api_key = eval_config.open_ai_api_key
    
         assert self.rel_paths is not None, "paths to relevancy judgments must be set in model_config if model_config.evaluate=True"
         assert ((self.trec_topic_path is not None) or (self.kz_topic_path is not None)), "at least one of trec_topic_path or kz_topic_path) must be set in model_config if model_config.evaluate=True"
@@ -59,7 +60,7 @@ class Evaluator:
 
         # loads all remaining needed datasets into memory
         model_config = ModelConfig(
-            opem_ai_api_key=self.eval_config.open_ai_api_key,
+            opem_ai_api_key=self.openai_api_key,
         )
         self.ctm = CTMatch(model_config=model_config)
 

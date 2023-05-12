@@ -60,7 +60,7 @@ class Evaluator:
 
         # loads all remaining needed datasets into memory
         model_config = ModelConfig(
-            opem_ai_api_key=self.openai_api_key,
+            openai_api_key=self.openai_api_key,
         )
         self.ctm = CTMatch(model_config=model_config)
 

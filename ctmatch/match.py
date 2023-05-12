@@ -94,12 +94,11 @@ class CTMatch:
         """
 
         topic_cat_vec = exclusive_argmax(pipe_topic.category_vec)
-        norm_topic_cat = norm(topic_cat_vec)
         norm_topic_emb = norm(pipe_topic.embedding_vec)
         cosine_dists = []
-        cat_dists = []
-        emb_dists = []
-        for i, doc_idx in enumerate(doc_set):
+        # cat_dists = []
+        # emb_dists = []
+        for doc_idx in doc_set:
             doc_cat_vec = self.redist_other_category(self.data.doc_categories_df.iloc[doc_idx].values)
         
             # only consider strongest predicted category
@@ -109,13 +108,10 @@ class CTMatch:
             topic_argmax = np.argmax(topic_cat_vec)
             doc_argmax = np.argmax(doc_cat_vec)
             cat_dist = 0. if (topic_argmax == doc_argmax) else 1.
-
-            #cat_dist = np.dot(topic_cat_vec, doc_cat_vec) / (norm_topic_cat * norm(doc_cat_vec))
             emb_dist = np.dot(pipe_topic.embedding_vec, doc_emb_vec) / (norm_topic_emb * norm(doc_emb_vec))
-            cat_dists.append(cat_dist)
-            emb_dists.append(emb_dist)
+            # cat_dists.append(cat_dist)
+            # emb_dists.append(emb_dist)
             combined_dist = cat_dist + emb_dist
-            #combined_dist = emb_dist
             cosine_dists.append(combined_dist)
 
         # norm_cat_dists = np.array(cat_dists) / max(cat_dists)
@@ -123,7 +119,7 @@ class CTMatch:
         # cosine_dists = norm_cat_dists + norm_emb_dists
 
         sorted_indices = list(np.argsort(cosine_dists))[:min(len(doc_set), top_n)]
-        
+
         # return top n doc indices by combined similiarity, biggest to smallest
         return [doc_set[i] for i in sorted_indices]
     

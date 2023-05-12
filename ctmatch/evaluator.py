@@ -2,9 +2,12 @@
 import logging
 from typing import List, NamedTuple, Union
 
-from .utils.eval_utils import calc_mrr, get_kz_topic2text, get_trec_topic2text
+from .utils.eval_utils import (
+    calc_first_positive_rank, calc_f1, get_kz_topic2text, get_trec_topic2text
+)
 from .match import CTMatch
 from pathlib import Path
+from tqdm import tqdm
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -14,6 +17,7 @@ class EvaluatorConfig(NamedTuple):
     rel_paths: List[str]
     trec_topic_path: Union[Path, str]  = None
     kz_topic_path: Union[Path, str] = None
+    max_topics: int = 200
 
 
 class Evaluator:
@@ -21,6 +25,7 @@ class Evaluator:
         self.rel_paths: List[str] = eval_config.rel_paths
         self.trec_topic_path: Union[Path, str]  = eval_config.trec_topic_path
         self.kz_topic_path: Union[Path, str] = eval_config.kz_topic_path
+        self.max_topics: int = eval_config.max_topics
         self.rel_dict: dict = None
         self.topic2text: dict = None
         self.ctm = None
@@ -50,30 +55,57 @@ class Evaluator:
         if self.trec_topic_path is not None:
             self.topicid2text.update(get_trec_topic2text(self.trec_topic_path))
 
+        # loads all remaining needed datasets into memory
         self.ctm = CTMatch()
 
+
+
     def evaluate(self):
-        """
-        desc: run the pipeline over every topic and associated labelled set of documents,
-              and compute the mean mrr over all topics (how far down to the first relevant document)
-        """
-        mrrs = []
-        for topicid, topic_text in self.topicid2text.items():
-            doc_set = self.get_indexes_from_ids(list(self.rel_dict[topicid].keys()))
-            ranking = self.ctm.match_pipeline(topic_text, doc_set=doc_set)
-            mrr = calc_mrr(ranking, self.rel_dict[topicid])
-            logger.info(f"topicid: {topicid}, mrr: {mrr}")
-            mrrs.append(mrr)
-        
-        mean_mrr = sum(mrrs)/len(mrrs)
-        logger.info(f"mean mrr: {mean_mrr}")
+      """
+      desc: run the pipeline over every topic and associated labelled set of documents,
+            and compute the mean mrr over all topics (how far down to the first relevant document)
+      """
+      frrs, f1s, fprs = [], [], []
+      for topic_id, topic_text in tqdm(self.topicid2text.items()):
+          if topic_id not in self.rel_dict:
+            # can't evaluate with no judgments
+            continue
+            
+          doc_ids = list(ev.rel_dict[topic_id].keys())
+          logger.info(f"number of ranked docs: {len(doc_ids)}")
+          doc_set = self.get_indexes_from_ids(ev, doc_ids)
+          pipe_topic = self.ctm.get_pipe_topic(topic_text)
+          
+          ranking = self.ctm.sim_filter(pipe_topic, doc_set)
+          #ranking = self.ctm.match_pipeline(topic_text, doc_set=doc_set)
+   
+          ranked_ids = [self.ctm.data.index2docid.iloc[r].values[0] for r in ranking]
+          fpr, frr = calc_first_positive_rank(ranked_ids, self.rel_dict[topic_id])
+          f1 = calc_f1(ranked_ids, self.rel_dict[topic_id])
+
+          fprs.append(fpr)
+          frrs.append(frr)
+          f1s.append(f1)
+      
+      mean_fpr = sum(fprs)/len(fprs)
+      mean_frr = sum(frrs)/len(frrs)
+      mean_f1 = sum(f1s)/len(f1s)
+
+      return mean_fpr, mean_frr, mean_f1
+
 
     def get_indexes_from_ids(self, doc_id_set: List[str]) -> List[int]:
         """
         desc:       get the indexes of the documents in doc_id_set in the order they appear in the ranking
         returns:    list of indexes
         """
-        return [np.where(self.ctm.data.index2docid['text'] == doc_id)[0][0] for doc_id in doc_id_set]
+        doc_indices = []
+        for doc_id in doc_id_set:
+            index_row = np.where(self.ctm.data.index2docid['text'] == doc_id)
+            if len(index_row[0]) == 0:
+                continue
+            doc_indices.append(index_row[0][0])
+        return doc_indices
 
 
 

@@ -14,7 +14,7 @@ import json
 
 # package tools
 from .models.classifier_model import ClassifierModel
-from .utils.ctmatch_utils import get_processed_data
+from .utils.ctmatch_utils import get_processed_data, exclusive_argmax
 from .models.gen_model import GenModel
 from .modelconfig import ModelConfig
 from .pipetopic import PipeTopic
@@ -62,11 +62,7 @@ class CTMatch:
             self.reset_filter_params(len(doc_set))
  
         # get topic representations for pipeline filters
-        pipe_topic = PipeTopic(
-            topic_text=topic, 
-            embedding_vec=self.get_embeddings([topic]),             # 1 x embedding_dim (default=384)
-            category_vec=self.get_categories(topic)[np.newaxis, :]  # 1 x 14
-        )
+        pipe_topic = self.get_pipe_topic(topic)
 
         # first filter, category + embedding similarity
         doc_set = self.sim_filter(pipe_topic, doc_set, top_n=self.sim_top_n)
@@ -96,19 +92,40 @@ class CTMatch:
         filter documents by similarity to topic
         doing this with loop and cosine similarity instead of linear kernel because of memory issues
         """
-        logger.info(f"running similarity filter on {len(doc_set)} documents")
-       
-        norm_topic_cat = norm(pipe_topic.category_vec)
+
+        topic_cat_vec = exclusive_argmax(pipe_topic.category_vec)
+        norm_topic_cat = norm(topic_cat_vec)
         norm_topic_emb = norm(pipe_topic.embedding_vec)
         cosine_dists = []
-        for doc_id in doc_set:
-            cat_dist = np.dot(pipe_topic.category_vec, self.data.doc_categories_df.iloc[doc_id].values) / (norm_topic_cat * norm(self.data.doc_categories_df.iloc[doc_id].values))
-            emb_dist = np.dot(pipe_topic.embedding_vec, self.data.doc_embeddings_df.iloc[doc_id].values) / (norm_topic_emb * norm(self.data.doc_embeddings_df.iloc[doc_id].values))
-            combined_dist = cat_dist + emb_dist
-            cosine_dists.append(combined_dist[0])
+        cat_dists = []
+        emb_dists = []
+        for i, doc_idx in enumerate(doc_set):
+            doc_cat_vec = self.redist_other_category(self.data.doc_categories_df.iloc[doc_idx].values)
+        
+            # only consider strongest predicted category
+            doc_cat_vec = exclusive_argmax(doc_cat_vec)
+            doc_emb_vec = self.data.doc_embeddings_df.iloc[doc_idx].values
 
+            topic_argmax = np.argmax(topic_cat_vec)
+            doc_argmax = np.argmax(doc_cat_vec)
+            cat_dist = 0. if (topic_argmax == doc_argmax) else 1.
+
+            #cat_dist = np.dot(topic_cat_vec, doc_cat_vec) / (norm_topic_cat * norm(doc_cat_vec))
+            emb_dist = np.dot(pipe_topic.embedding_vec, doc_emb_vec) / (norm_topic_emb * norm(doc_emb_vec))
+            cat_dists.append(cat_dist)
+            emb_dists.append(emb_dist)
+            combined_dist = cat_dist + emb_dist
+            #combined_dist = emb_dist
+            cosine_dists.append(combined_dist)
+
+        # norm_cat_dists = np.array(cat_dists) / max(cat_dists)
+        # norm_emb_dists = np.array(emb_dists) / max(emb_dists)
+        # cosine_dists = norm_cat_dists + norm_emb_dists
+
+        sorted_indices = list(np.argsort(cosine_dists))[:min(len(doc_set), top_n)]
+        
         # return top n doc indices by combined similiarity, biggest to smallest
-        return list(np.argsort(cosine_dists))[:min(len(doc_set), top_n)]
+        return [doc_set[i] for i in sorted_indices]
     
 
     def classifier_filter(self, pipe_topic: PipeTopic, doc_set: List[int], top_n: int = 1000) -> List[int]:

@@ -108,19 +108,12 @@ def train_test_val_split(dataset, splits: Dict[str, float], seed: int = 37) -> D
 # computation methods
 #----------------------------------------------------------------#
 
-def l2_normalize(x):
-  return x / np.sqrt(np.sum(np.multiply(x, x), keep_dims=True))
-
-def cosine_sim(x_emb, y_emb) -> float:
-    return np.dot(x_emb, y_emb)/(norm(x_emb) * norm(y_emb))
-
-def linear_kernel_sim(query_emb, doc_embs):
-    """
-    desc:    computes the linear kernel similarity between a query embedding x, and a set of document embeddings y
-    """
-    total_mat = np.concatenate((query_emb, doc_embs), axis=0)
-    return linear_kernel(total_mat, total_mat)[0]
-
+def exclusive_argmax(vector: np.ndarray) -> np.ndarray:
+    mask = np.zeros(len(vector))
+    argmax = np.argmax(vector)
+    vector = vector * mask
+    vector[argmax]  = 1
+    return vector    
 
 
 #----------------------------------------------------------------#

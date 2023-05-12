@@ -3,6 +3,7 @@ from typing import List, Optional
 
 from ..modelconfig import ModelConfig
 import openai
+import re
 
 
 
@@ -53,9 +54,11 @@ class GenModel:
         NCTID 6, NCTID 7, NCTID 5
         NCTID: 6, 7, 5
         6, 7, 5
+        '1. 195155\n2. 186848\n3. 194407'
         """
+        response_pattern = r"(?:NCTID\s*:?|\d+\.\s*)((?:\s*\d+\s*(?:,|$))+)"
         text = response['choices'][0]['text']
-        return [int(self.remove_leading_text(substr)) for substr in text.split(',')]
+        return [int(s) for s in re.findall(response_pattern, text)]
 
     def post_process_gptturbo_response(self, response, doc_set: List[int]):
         """
@@ -74,15 +77,6 @@ class GenModel:
                 ranking.append(ncid)
         return ranking
 
-
-    def remove_leading_text(self, s: str) -> str:
-        i = 0
-        ch = s[i]
-        while not ch.isdigit():
-            i += 1
-            ch = s[i]
-        return s[i:]
-    
 
 
 

@@ -5,6 +5,7 @@ from typing import List, NamedTuple, Union
 from .utils.eval_utils import (
     calc_first_positive_rank, calc_f1, get_kz_topic2text, get_trec_topic2text
 )
+from .modelconfig import ModelConfig
 from .match import CTMatch
 from pathlib import Path
 from tqdm import tqdm
@@ -18,6 +19,7 @@ class EvaluatorConfig(NamedTuple):
     trec_topic_path: Union[Path, str]  = None
     kz_topic_path: Union[Path, str] = None
     max_topics: int = 200
+    open_ai_api_key: str = None
 
 
 class Evaluator:
@@ -56,7 +58,10 @@ class Evaluator:
             self.topicid2text.update(get_trec_topic2text(self.trec_topic_path))
 
         # loads all remaining needed datasets into memory
-        self.ctm = CTMatch()
+        model_config = ModelConfig(
+            opem_ai_api_key=self.eval_config.open_ai_api_key,
+        )
+        self.ctm = CTMatch(model_config=model_config)
 
 
 

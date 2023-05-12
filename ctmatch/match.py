@@ -12,6 +12,7 @@ import numpy as np
 import torch
 import json
 
+
 # package tools
 from .models.classifier_model import ClassifierModel
 from .utils.ctmatch_utils import get_processed_data, exclusive_argmax
@@ -35,6 +36,7 @@ GEN_INIT_PROMPT =  "I will give you a patient description and a set of clinical 
 
 
 class CTMatch:
+    
     def __init__(self, model_config: Optional[ModelConfig] = None) -> None:
         # default to model config with full ir setup
         self.model_config = model_config if model_config is not None else ModelConfig(ir_setup=True)

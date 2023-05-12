@@ -65,10 +65,10 @@ class CTMatch:
         pipe_topic = self.get_pipe_topic(topic)
 
         # first filter, category + embedding similarity
-        # doc_set = self.sim_filter(pipe_topic, doc_set, top_n=self.sim_top_n)
+        doc_set = self.sim_filter(pipe_topic, doc_set, top_n=self.sim_top_n)
 
         # # second filter, SVM
-        # doc_set = self.svm_filter(pipe_topic, doc_set, top_n=self.svm_top_n)
+        doc_set = self.svm_filter(pipe_topic, doc_set, top_n=self.svm_top_n)
 
         # # third filter, classifier-LM (reranking)
         doc_set = self.classifier_filter(pipe_topic, doc_set, top_n=self.classifier_top_n)
@@ -93,7 +93,7 @@ class CTMatch:
         doing this with loop and cosine similarity instead of linear kernel because of memory issues
         """
         logger.info(f"running sim filter on {len(doc_set)} docs")
-        
+
         topic_cat_vec = exclusive_argmax(pipe_topic.category_vec)
         norm_topic_emb = norm(pipe_topic.embedding_vec)
         cosine_dists = []

@@ -1,6 +1,6 @@
 
 import logging
-from typing import List, NamedTuple, Optional, Union
+from typing import Dict, List, NamedTuple, Optional, Union
 
 from .utils.eval_utils import (
     calc_first_positive_rank, calc_f1, get_kz_topic2text, get_trec_topic2text
@@ -91,7 +91,7 @@ class Evaluator:
             logger.info(f"number of ranked docs: {len(doc_ids)}")
             doc_set = self.get_indexes_from_ids(doc_ids)
 
-            # run IR pipeline on set of indexes corresposnding to labelled doc_ids
+            # run IR pipeline on set of indexes corresponding to labelled doc_ids
             ranked_pairs = self.ctm.match_pipeline(topic_text, doc_set=doc_set)
 
             # get NCTIDs from ranking
@@ -100,6 +100,9 @@ class Evaluator:
             # calculate metrics
             fpr, frr = calc_first_positive_rank(ranked_ids, self.rel_dict[topic_id])
             f1 = calc_f1(ranked_ids, self.rel_dict[topic_id])
+
+            if self.sanity_check_ids is not None and (topic_id in self.sanity_check_ids):
+                self.sanity_check(topic_id, topic_text, ranked_pairs, self.rel_dict[topic_id])
 
             fprs.append(fpr)
             frrs.append(frr)
@@ -124,6 +127,12 @@ class Evaluator:
                 continue
             doc_indices.append(index_row[0][0])
         return doc_indices
+
+    def sanity_check(self, topic_text, topic_id, ranked_pairs: Dict[int, str], rel_dict) -> None:
+        logger.info(f"{topic_id=}, {topic_text=}")
+        for rank, (nct_id, doc_text) in enumerate(ranked_pairs):
+            rel_score = rel_dict[nct_id]
+        logger.info(rank + 1, nct_id, doc_text, rel_score)
 
 
 

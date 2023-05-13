@@ -21,6 +21,7 @@ class EvaluatorConfig(NamedTuple):
     max_topics: int = 200
     openai_api_key: Optional[str] = None
     filters: Optional[List[str]] = None
+    sanity_check_ids: Optional[List[str]] = None
 
 
 class Evaluator:
@@ -34,6 +35,7 @@ class Evaluator:
         self.ctm = None
         self.openai_api_key = eval_config.openai_api_key
         self.filters = eval_config.filters
+        self.sanity_check_ids = eval_config.sanity_check_ids
    
         assert self.rel_paths is not None, "paths to relevancy judgments must be set in pipe_config if pipe_config.evaluate=True"
         assert ((self.trec_topic_path is not None) or (self.kz_topic_path is not None)), "at least one of trec_topic_path or kz_topic_path) must be set as pipe_config.evaluate=True"

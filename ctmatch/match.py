@@ -52,7 +52,7 @@ class CTMatch:
         self.sim_top_n = 10000
         self.svm_top_n = 1000
         self.classifier_top_n = 100
-        self.gen_top_n = 50
+        self.gen_top_n = 10
         self.max_gen = 100
 
 

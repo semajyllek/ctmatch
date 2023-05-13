@@ -138,7 +138,7 @@ class CTMatch:
         neg_predictions = np.asarray([self.classifier_model.run_inference_single_example(pipe_topic.topic_text, dtext, return_preds=True)[0] for dtext in doc_texts])
        
         # return top n doc indices by classifier, biggest to smallest
-        sorted_indices = list(np.argsort(-neg_predictions)[:min(len(doc_set), top_n)])
+        sorted_indices = list(np.argsort(neg_predictions)[:min(len(doc_set), top_n)])
         return [doc_set[i] for i in sorted_indices]
        
 

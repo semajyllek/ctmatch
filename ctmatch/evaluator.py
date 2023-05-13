@@ -5,7 +5,7 @@ from typing import List, NamedTuple, Optional, Union
 from .utils.eval_utils import (
     calc_first_positive_rank, calc_f1, get_kz_topic2text, get_trec_topic2text
 )
-from .modelconfig import ModelConfig
+from .pipeconfig import PipeConfig
 from .match import CTMatch
 from pathlib import Path
 from tqdm import tqdm
@@ -35,8 +35,8 @@ class Evaluator:
         self.openai_api_key = eval_config.openai_api_key
         self.filters = eval_config.filters
    
-        assert self.rel_paths is not None, "paths to relevancy judgments must be set in model_config if model_config.evaluate=True"
-        assert ((self.trec_topic_path is not None) or (self.kz_topic_path is not None)), "at least one of trec_topic_path or kz_topic_path) must be set in model_config if model_config.evaluate=True"
+        assert self.rel_paths is not None, "paths to relevancy judgments must be set in pipe_config if pipe_config.evaluate=True"
+        assert ((self.trec_topic_path is not None) or (self.kz_topic_path is not None)), "at least one of trec_topic_path or kz_topic_path) must be set as pipe_config.evaluate=True"
     
         self.setup()
 
@@ -61,12 +61,12 @@ class Evaluator:
             self.topicid2text.update(get_trec_topic2text(self.trec_topic_path))
 
         # loads all remaining needed datasets into memory
-        model_config = ModelConfig(
+        pipe_config = PipeConfig(
             openai_api_key=self.openai_api_key,
             ir_setup=True,
             filters=self.filters
         )
-        self.ctm = CTMatch(model_config=model_config)
+        self.ctm = CTMatch(pipe_config=pipe_config)
 
 
 

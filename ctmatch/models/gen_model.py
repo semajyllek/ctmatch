@@ -1,7 +1,7 @@
 
 from typing import List, Optional
 
-from ..modelconfig import ModelConfig
+from ..pipeconfig import PipeConfig
 import openai
 import re
 
@@ -9,18 +9,18 @@ import re
 
 
 class GenModel:
-    def __init__(self, model_config: ModelConfig) -> None:
-        openai.api_key = model_config.openai_api_key
-        self.model_config = model_config
+    def __init__(self, pipe_config: PipeConfig) -> None:
+        openai.api_key = pipe_config.openai_api_key
+        self.pipe_config = pipe_config
 
 
     def gen_response(self, query_prompt: str, doc_set: Optional[List[int]] = None) -> List[int]:
         """
         uses openai model to return a ranking of ids
         """
-        if self.model_config.gen_model_checkpoint == 'text-davinci-003':
+        if self.pipe_config.gen_model_checkpoint == 'text-davinci-003':
             response = openai.Completion.create(
-                model=self.model_config.gen_model_checkpoint,
+                model=self.pipe_config.gen_model_checkpoint,
                 prompt=query_prompt,
                 temperature=0,
                 max_tokens=200,
@@ -33,7 +33,7 @@ class GenModel:
             
             # for gpt-3.5-turbo
             response = openai.ChatCompletion.create(
-                model=self.model_config.gen_model_checkpoint,
+                model=self.pipe_config.gen_model_checkpoint,
                 messages = [{'role': 'user', 'content' : query_prompt}],
                 temperature=0.4,
                 max_tokens=200,
@@ -43,7 +43,7 @@ class GenModel:
             )
             
 
-        if self.model_config.gen_model_checkpoint == 'text-davinci-003':
+        if self.pipe_config.gen_model_checkpoint == 'text-davinci-003':
             return self.post_process_chatgpt_response(response)
         return self.post_process_gptturbo_response(response, doc_set=doc_set)
 

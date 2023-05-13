@@ -17,7 +17,7 @@ import json
 from .models.classifier_model import ClassifierModel
 from .utils.ctmatch_utils import get_processed_data, exclusive_argmax
 from .models.gen_model import GenModel
-from .modelconfig import ModelConfig
+from .pipeconfig import PipeConfig
 from .pipetopic import PipeTopic
 from .dataprep import DataPrep
 
@@ -37,16 +37,16 @@ GEN_INIT_PROMPT =  "I will give you a patient description and a set of clinical 
 
 class CTMatch:
     
-    def __init__(self, model_config: Optional[ModelConfig] = None) -> None:
+    def __init__(self, pipe_config: Optional[PipeConfig] = None) -> None:
         # default to model config with full ir setup
-        self.model_config = model_config if model_config is not None else ModelConfig(ir_setup=True)
+        self.pipe_config = pipe_config if pipe_config is not None else PipeConfig(ir_setup=True)
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-        self.data = DataPrep(self.model_config)
-        self.classifier_model = ClassifierModel(self.model_config, self.data, self.device)
-        self.embedding_model = SentenceTransformer(self.model_config.embedding_model_checkpoint) 
-        self.gen_model = GenModel(self.model_config)
+        self.data = DataPrep(self.pipe_config)
+        self.classifier_model = ClassifierModel(self.pipe_config, self.data, self.device)
+        self.embedding_model = SentenceTransformer(self.pipe_config.embedding_model_checkpoint) 
+        self.gen_model = GenModel(self.pipe_config)
         self.category_model = None
-        self.filters: Optional[List[str]] = model_config.filters
+        self.filters: Optional[List[str]] = pipe_config.filters
 
         # filter params
         self.sim_top_n = 10000
@@ -222,7 +222,7 @@ class CTMatch:
         if self.category_model is None:
             self.category_model = pipeline(
                 'zero-shot-classification', 
-                model=self.model_config.category_model_checkpoint, 
+                model=self.pipe_config.category_model_checkpoint, 
                 device=0
             )
         output = self.category_model(text, candidate_labels=CT_CATEGORIES)
@@ -252,7 +252,7 @@ class CTMatch:
 
             # not really token length bc not tokenized yet but close enough if we undershoot
             prompt_len = len(query_prompt.split()) 
-            if prompt_len > self.model_config.max_query_length:
+            if prompt_len > self.pipe_config.max_query_length:
                 break
     
         return query_prompt, i       
@@ -294,7 +294,7 @@ class CTMatch:
 
     def prep_and_save_ir_dataset(self):
         category_data = self.data.get_category_data()
-        with open(self.model_config.ir_save_path, 'w') as wf:
+        with open(self.pipe_config.ir_save_path, 'w') as wf:
             for ir_data in self.prep_ir_data():
                 ir_data['categories'] = str(category_data[ir_data['id']])
                 wf.write(json.dumps(ir_data))
@@ -302,7 +302,7 @@ class CTMatch:
 
 
     def prep_ir_data(self):
-        for data_path in self.model_config.processed_data_paths:
+        for data_path in self.pipe_config.processed_data_paths:
             for i, doc in enumerate(get_processed_data(data_path)):
                 if i % 10000 == 0:
                     logger.info(f"Prepping doc {i}")
@@ -316,8 +316,8 @@ class CTMatch:
 
     def save_texts(self) -> Dict[int, str]:
         idx2id = dict()
-        with open(Path(self.model_config.ir_save_path).parent / 'texts', 'w', encoding='utf-8') as wf:
-            for i, doc in enumerate(get_processed_data(self.model_config.ir_save_path)):
+        with open(Path(self.pipe_config.ir_save_path).parent / 'texts', 'w', encoding='utf-8') as wf:
+            for i, doc in enumerate(get_processed_data(self.pipe_config.ir_save_path)):
                 idx2id[i] = doc['id']
                 if i % 10000 == 0:
                     logger.info(f"Prepping doc {i}")

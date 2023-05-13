@@ -12,7 +12,7 @@ from torch import nn
 import evaluate
 import torch
 
-from ..modelconfig import ModelConfig
+from ..pipeconfig import PipeConfig
 from ..dataprep import DataPrep
 
 
@@ -36,7 +36,7 @@ class WeightedLossTrainer(Trainer):
 
 class ClassifierModel:
     
-    def __init__(self, model_config: ModelConfig, data: DataPrep, device: str):
+    def __init__(self, model_config: PipeConfig, data: DataPrep, device: str):
         self.model_config = model_config
         self.dataset = data.ct_dataset
         self.tokenizer = data.classifier_tokenizer

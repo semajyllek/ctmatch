@@ -2,7 +2,7 @@
 from typing import Dict, List, NamedTuple, Optional
 from pathlib import Path
 
-class ModelConfig(NamedTuple):
+class PipeConfig(NamedTuple):
     name: str = 'scibert_finetuned_ctmatch'
     classifier_model_checkpoint: str = 'semaj83/scibert_finetuned_ctmatch'
     max_length: int = 512
@@ -24,7 +24,7 @@ class ModelConfig(NamedTuple):
     early_stopping: bool = False
     push_to_hub: bool = False
     ir_save_path: Optional[str] = None
-    category_path: Optional[str] = None
+    category_path: Optional[str] = None       
     processed_data_paths: Optional[List[str]] = None
     max_query_length: int = 1200
     category_model_checkpoint: str = "facebook/bart-large-mnli"

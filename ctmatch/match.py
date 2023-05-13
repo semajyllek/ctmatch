@@ -52,7 +52,8 @@ class CTMatch:
         self.sim_top_n = 10000
         self.svm_top_n = 1000
         self.classifier_top_n = 100
-        self.gen_top_n = 100
+        self.gen_top_n = 50
+        self.max_gen = 100
 
 
     # main api method
@@ -81,7 +82,7 @@ class CTMatch:
 
         if self.filters is None or ('gen' in self.filters):
             # fourth filter, generative-LM
-            doc_set = self.gen_filter(pipe_topic, doc_set, top_n=self.gen_top_n)
+            doc_set = self.gen_filter(pipe_topic, doc_set[:min(self.max_gen, len(doc_set))], top_n=self.gen_top_n)
 
         return self.get_return_data(doc_set[:min(top_k, len(doc_set))])
 

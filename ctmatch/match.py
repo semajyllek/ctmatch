@@ -83,7 +83,7 @@ class CTMatch:
             # fourth filter, generative-LM
             doc_set = self.gen_filter(pipe_topic, doc_set, top_n=self.gen_top_n)
 
-        return self.get_return_data(doc_set[min(top_k, len(doc_set))])
+        return self.get_return_data(doc_set[:min(top_k, len(doc_set))])
 
 
     def reset_filter_params(self, val: int) -> None:

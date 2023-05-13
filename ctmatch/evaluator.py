@@ -128,11 +128,14 @@ class Evaluator:
             doc_indices.append(index_row[0][0])
         return doc_indices
 
-    def sanity_check(self, topic_text, topic_id, ranked_pairs: Dict[int, str], rel_dict) -> None:
-        logger.info(f"{topic_id=}, {topic_text=}")
-        for rank, (nct_id, doc_text) in enumerate(ranked_pairs):
-            rel_score = rel_dict[nct_id]
-        logger.info(rank + 1, nct_id, doc_text, rel_score)
+    def sanity_check(self, topic_id, topic_text, ranked_indices: List[int], rel_dict) -> None:
+        logger.info(f"{topic_id=} {topic_text}")
+        for r in ranked_indices:
+            doc_id = self.ctm.data.index2docid.iloc[r].values[0]
+            doc_text = self.ctm.data.doc_texts_df.iloc[r].values[0]
+            rel_score = rel_dict[doc_id]
+            logger.info(rel_score, doc_id, doc_text)
+
 
 
 

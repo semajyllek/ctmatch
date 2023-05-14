@@ -15,3 +15,5 @@ evaluate
 pandas
 openai
 lxml
+
+gradio

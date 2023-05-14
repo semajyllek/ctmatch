@@ -82,7 +82,7 @@ class CTMatch:
 
         if self.filters is None or ('gen' in self.filters):
             # fourth filter, generative-LM
-            doc_set = self.gen_filter(pipe_topic, doc_set, top_n=self.gen_top_n)
+            doc_set = self.gen_filter(pipe_topic, doc_set, top_n=top_k)
 
         return self.get_return_data(doc_set[:min(top_k, len(doc_set))])
 

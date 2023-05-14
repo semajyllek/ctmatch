@@ -53,7 +53,6 @@ class CTMatch:
         self.svm_top_n = 1000
         self.classifier_top_n = 100
         self.gen_top_n = 10
-        self.max_gen = 100
 
 
     # main api method
@@ -95,7 +94,7 @@ class CTMatch:
     # filtering methods
     # ------------------------------------------------------------------------------------------ #
 
-    def sim_filter(self, pipe_topic: PipeTopic, doc_set: List[int], top_n: int = 1000) -> List[int]:
+    def sim_filter(self, pipe_topic: PipeTopic, doc_set: List[int], top_n: int) -> List[int]:
         """
         filter documents by similarity to topic
         doing this with loop and cosine similarity instead of linear kernel because of memory issues
@@ -125,24 +124,7 @@ class CTMatch:
         return [doc_set[i] for i in sorted_indices]
     
 
-    def classifier_filter(self, pipe_topic: PipeTopic, doc_set: List[int], top_n: int = 1000) -> List[int]:
-        """
-        filter documents by classifier no relevance prediction
-        """
-        logger.info(f"running classifier filter on {len(doc_set)} documents")
-
-        # get doc texts
-        doc_texts = [v[0] for v in self.data.doc_texts_df.iloc[doc_set].values]
-    
-        # sort by reverse irrelevant prediction
-        neg_predictions = np.asarray([self.classifier_model.run_inference_single_example(pipe_topic.topic_text, dtext, return_preds=True)[0] for dtext in doc_texts])
-       
-        # return top n doc indices by classifier, biggest to smallest
-        sorted_indices = list(np.argsort(neg_predictions)[:min(len(doc_set), top_n)])
-        return [doc_set[i] for i in sorted_indices]
-       
-
-    def svm_filter(self, topic: PipeTopic, doc_set: List[int], top_n: int = 100) -> List[int]:
+    def svm_filter(self, topic: PipeTopic, doc_set: List[int], top_n: int) -> List[int]:
         logger.info(f"running svm filter on {len(doc_set)} documents")
 
         # build training data and prediction vector of single positive class for SVM
@@ -166,7 +148,25 @@ class CTMatch:
 
         # indexes got shifted by 1 because topic was included in doc_set
         return [doc_set[(r - 1)] for r in result]
+
+
+
+    def classifier_filter(self, pipe_topic: PipeTopic, doc_set: List[int], top_n: int) -> List[int]:
+        """
+        filter documents by classifier no relevance prediction
+        """
+        logger.info(f"running classifier filter on {len(doc_set)} documents")
+
+        # get doc texts
+        doc_texts = [v[0] for v in self.data.doc_texts_df.iloc[doc_set].values]
     
+        # sort by reverse irrelevant prediction
+        neg_predictions = np.asarray([self.classifier_model.run_inference_single_example(pipe_topic.topic_text, dtext, return_preds=True)[0] for dtext in doc_texts])
+       
+        # return top n doc indices by classifier, biggest to smallest
+        sorted_indices = list(np.argsort(neg_predictions)[:min(len(doc_set), top_n)])
+        return [doc_set[i] for i in sorted_indices]
+       
 
 
     def gen_filter(self, topic: PipeTopic, doc_set: List[int], top_n: int = 10) -> List[int]:

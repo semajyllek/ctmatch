@@ -7,7 +7,7 @@ from ctmatch.match import CTMatch, PipeConfig
 def ctmatch_web_api(topic_query: str) -> str:
     progress=gr.Progress()
     progress(0, desc="loading CTMatch...")
-    
+
     pipe_config = PipeConfig(
         ir_setup=True,
         progress=progress,
@@ -15,7 +15,7 @@ def ctmatch_web_api(topic_query: str) -> str:
     )
     
     ctm = CTMatch(pipe_config)
-    return '\n'.join([f"{nid}: {txt}" for nid, txt in ctm.match_pipeline(topic_query, top_k=5, progress=gr.Progress())])
+    return '\n'.join([f"{nid}: {txt}" for nid, txt in ctm.match_pipeline(topic_query, top_k=5)])
 
 
 with gr.Blocks(css=".gradio-container {background-color: #00CED1}") as demo:

@@ -12,13 +12,13 @@ def ctmatch_web_api(topic_query: str) -> str:
     )
     
     ctm = CTMatch(pipe_config)
-    return '\n'.join([f"{nid}: {txt}" for nid, txt in ctm.match_pipeline(topic_query, top_k=5)])
+    return '\n'.join([f"{nid}: {txt}" for nid, txt in ctm.match_pipeline(topic_query, top_k=5, progress=gr.Progress())])
 
 
-with gr.Blocks() as demo:
+with gr.Blocks(css=".gradio-container {background-color: #00CED1}") as demo:
     name = gr.Textbox(lines=5, label="patient description", placeholder="Patient is a 45-year-old man with a history of anaplastic astrocytoma...")
     output = gr.Textbox(lines=10, label="matching trials")
     greet_btn = gr.Button("match")
     greet_btn.click(fn=ctmatch_web_api, inputs=name, outputs=output, api_name="match")
 
-demo.launch()   
+demo.launch(share=True)   

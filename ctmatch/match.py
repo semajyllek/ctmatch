@@ -1,6 +1,8 @@
 
 import logging
-from typing import Dict, List, Optional, Tuple
+import gradio as gr
+from typing import Any, Dict, List, Optional, Tuple
+
 
 # external imports
 from sentence_transformers import SentenceTransformer
@@ -56,7 +58,10 @@ class CTMatch:
 
 
     # main api method
-    def match_pipeline(self, topic: str, top_k: int = 10, doc_set: Optional[List[int]] = None) -> List[str]:
+    def match_pipeline(self, topic: str, top_k: int = 10, doc_set: Optional[List[int]] = None, progress: Optional[Any] = None) -> List[str]:
+
+        if progress:
+            progress(0, desc="starting ir pipeline...")
 
         if doc_set is None:
             # start off will all doc indexes
@@ -77,7 +82,7 @@ class CTMatch:
 
         if self.filters is None or ('classifier' in self.filters):
             # third filter, classifier-LM (reranking)
-            doc_set = self.classifier_filter(pipe_topic, doc_set, top_n=self.classifier_top_n)
+            doc_set = self.classifier_filter(pipe_topic, doc_set, top_n=self.classifier_top_n, progress=progress)
 
         if self.filters is None or ('gen' in self.filters):
             # fourth filter, generative-LM
@@ -151,7 +156,7 @@ class CTMatch:
 
 
 
-    def classifier_filter(self, pipe_topic: PipeTopic, doc_set: List[int], top_n: int) -> List[int]:
+    def classifier_filter(self, pipe_topic: PipeTopic, doc_set: List[int], top_n: int, progress: Optional[Any] = None) -> List[int]:
         """
         filter documents by classifier no relevance prediction
         """
@@ -160,7 +165,10 @@ class CTMatch:
         # get doc texts
         doc_texts = [v[0] for v in self.data.doc_texts_df.iloc[doc_set].values]
     
-        # sort by reverse irrelevant prediction
+        # sort by reverse irrelevant prediction, use progress bar if available (for gradio app)
+        if progress is not None:
+            neg_predictions = self.classifier_filter_progress_bar(pipe_topic.topic_text, doc_texts, progress)
+
         neg_predictions = np.asarray([self.classifier_model.run_inference_single_example(pipe_topic.topic_text, dtext, return_preds=True)[0] for dtext in doc_texts])
        
         # return top n doc indices by classifier, biggest to smallest
@@ -326,4 +334,18 @@ class CTMatch:
                 wf.write(doc['doc_text'])
                 wf.write('\n')
         return idx2id
+    
 
+
+
+    
+    # ------------------------------------------------------------------------------------------ #
+    # app helper methods
+    # ------------------------------------------------------------------------------------------ #
+
+    def classifier_filter_progress_bar(self, topic_text: str, doc_texts: List[str], progress):
+        preds = []
+        for dtext in progress.tqdm(doc_texts):
+            pred = self.classifier_model.run_inference_single_example(topic_text, dtext, return_preds=True)[0]
+            preds.append(pred)
+        return np.asarray(preds)

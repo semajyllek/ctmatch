@@ -13,7 +13,7 @@ def ctmatch_web_api(topic_query: str, top_k: int = 10, openai_api_key: Optional[
     )
     
     ctm = CTMatch(pipe_config)
-    return ctm.match_pipeline(topic_query, top_k=top_k)
+    return '\n'.join([f"{nid}: {txt}" for nid, txt in ctm.match_pipeline(topic_query, top_k=top_k)])
 
 
 demo = gr.Interface(fn=ctmatch_web_api, inputs="text", outputs="text")

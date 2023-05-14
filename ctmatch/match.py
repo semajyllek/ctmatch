@@ -65,7 +65,7 @@ class CTMatch:
     # main api method
     def match_pipeline(self, topic: str, top_k: int = 10, doc_set: Optional[List[int]] = None) -> List[str]:
 
-        if self.progress:
+        if self.progress is not None:
             self.progress(0.2, desc="starting ir pipeline...")
 
         if doc_set is None:

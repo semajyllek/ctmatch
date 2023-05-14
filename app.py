@@ -5,9 +5,12 @@ from ctmatch.match import CTMatch, PipeConfig
 
 
 def ctmatch_web_api(topic_query: str) -> str:
+    progress=gr.Progress()
+    progress(0, desc="loading CTMatch...")
+    
     pipe_config = PipeConfig(
         ir_setup=True,
-
+        progress=progress,
         filters=['svm', "classifier"]
     )
     
@@ -21,4 +24,4 @@ with gr.Blocks(css=".gradio-container {background-color: #00CED1}") as demo:
     greet_btn = gr.Button("match")
     greet_btn.click(fn=ctmatch_web_api, inputs=name, outputs=output, api_name="match")
 
-demo.launch(share=True)   
+demo.queue().launch(share=True)

@@ -43,6 +43,11 @@ class CTMatch:
         # default to model config with full ir setup
         self.pipe_config = pipe_config if pipe_config is not None else PipeConfig(ir_setup=True)
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+
+        if self.pipe_config.progress:
+            self.progress = self.pipe_config.progress
+            self.progress(0.05, desc="loading data...")
+
         self.data = DataPrep(self.pipe_config)
         self.classifier_model = ClassifierModel(self.pipe_config, self.data, self.device)
         self.embedding_model = SentenceTransformer(self.pipe_config.embedding_model_checkpoint) 
@@ -58,10 +63,10 @@ class CTMatch:
 
 
     # main api method
-    def match_pipeline(self, topic: str, top_k: int = 10, doc_set: Optional[List[int]] = None, progress: Optional[Any] = None) -> List[str]:
+    def match_pipeline(self, topic: str, top_k: int = 10, doc_set: Optional[List[int]] = None) -> List[str]:
 
-        if progress:
-            progress(0, desc="starting ir pipeline...")
+        if self.progress:
+            self.progress(0.2, desc="starting ir pipeline...")
 
         if doc_set is None:
             # start off will all doc indexes
@@ -82,7 +87,7 @@ class CTMatch:
 
         if self.filters is None or ('classifier' in self.filters):
             # third filter, classifier-LM (reranking)
-            doc_set = self.classifier_filter(pipe_topic, doc_set, top_n=self.classifier_top_n, progress=progress)
+            doc_set = self.classifier_filter(pipe_topic, doc_set, top_n=self.classifier_top_n)
 
         if self.filters is None or ('gen' in self.filters):
             # fourth filter, generative-LM
@@ -156,7 +161,7 @@ class CTMatch:
 
 
 
-    def classifier_filter(self, pipe_topic: PipeTopic, doc_set: List[int], top_n: int, progress: Optional[Any] = None) -> List[int]:
+    def classifier_filter(self, pipe_topic: PipeTopic, doc_set: List[int], top_n: int) -> List[int]:
         """
         filter documents by classifier no relevance prediction
         """
@@ -166,8 +171,8 @@ class CTMatch:
         doc_texts = [v[0] for v in self.data.doc_texts_df.iloc[doc_set].values]
     
         # sort by reverse irrelevant prediction, use progress bar if available (for gradio app)
-        if progress is not None:
-            neg_predictions = self.classifier_filter_progress_bar(pipe_topic.topic_text, doc_texts, progress)
+        if self.progress is not None:
+            neg_predictions = self.classifier_filter_progress_bar(pipe_topic.topic_text, doc_texts)
 
         neg_predictions = np.asarray([self.classifier_model.run_inference_single_example(pipe_topic.topic_text, dtext, return_preds=True)[0] for dtext in doc_texts])
        
@@ -343,9 +348,9 @@ class CTMatch:
     # app helper methods
     # ------------------------------------------------------------------------------------------ #
 
-    def classifier_filter_progress_bar(self, topic_text: str, doc_texts: List[str], progress):
+    def classifier_filter_progress_bar(self, topic_text: str, doc_texts: List[str]):
         preds = []
-        for dtext in progress.tqdm(doc_texts):
+        for dtext in self.progress.tqdm(doc_texts):
             pred = self.classifier_model.run_inference_single_example(topic_text, dtext, return_preds=True)[0]
             preds.append(pred)
         return np.asarray(preds)

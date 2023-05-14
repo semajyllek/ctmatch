@@ -1,6 +1,6 @@
 
 import logging
-from typing import Dict, List, NamedTuple, Optional, Union
+from typing import List, NamedTuple, Optional, Tuple, Union
 
 from .utils.eval_utils import (
     calc_first_positive_rank, calc_f1, get_kz_topic2text, get_trec_topic2text
@@ -128,11 +128,9 @@ class Evaluator:
             doc_indices.append(index_row[0][0])
         return doc_indices
 
-    def sanity_check(self, topic_id, topic_text, ranked_indices: List[int], rel_dict) -> None:
+    def sanity_check(self, topic_id, topic_text, ranked_pairs: List[Tuple[str, str]], rel_dict) -> None:
         logger.info(f"{topic_id=} {topic_text}")
-        for r in ranked_indices:
-            doc_id = self.ctm.data.index2docid.iloc[r].values[0]
-            doc_text = self.ctm.data.doc_texts_df.iloc[r].values[0]
+        for doc_id, doc_text in ranked_pairs:
             rel_score = rel_dict[doc_id]
             logger.info(rel_score, doc_id, doc_text)
 

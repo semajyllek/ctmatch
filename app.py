@@ -21,5 +21,4 @@ with gr.Blocks() as demo:
     greet_btn = gr.Button("match")
     greet_btn.click(fn=ctmatch_web_api, inputs=name, outputs=output, api_name="match")
 
-demo = gr.Interface(fn=ctmatch_web_api, inputs="text", outputs="text")
 demo.launch()   

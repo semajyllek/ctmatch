@@ -185,6 +185,7 @@ class CTMatch:
 
         ranked_docs = doc_set
         iters = 0
+        print(f"num ranked docs: {len(ranked_docs)}, top_n: {top_n}")
         while (len(ranked_docs) > top_n) and (iters < 10) and (len(ranked_docs) // 2 > top_n):
             query_prompts = self.get_subqueries(topic, ranked_docs)
 

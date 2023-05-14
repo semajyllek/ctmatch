@@ -1,7 +1,7 @@
 
 from typing import Dict, List, NamedTuple, Optional
 from pathlib import Path
-import gradio as gr
+
 
 class PipeConfig(NamedTuple):
     name: str = 'scibert_finetuned_ctmatch'
@@ -35,7 +35,6 @@ class PipeConfig(NamedTuple):
     openai_api_key: Optional[str] = None
     ir_setup: bool = False                  # if true, use the IR model setup, no classifier training or dataprep
     filters: Optional[List[str]] = None     # if provided, only use these filters for the IR model, options are {'sim', 'svm', 'classifier', 'gen'}
-    app_progress: bool = False              # if provided, creates progress bar for the IR model
 
 
 

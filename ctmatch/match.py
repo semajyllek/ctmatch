@@ -1,6 +1,5 @@
 
 import logging
-import gradio as gr
 from typing import Any, Dict, List, Optional, Tuple
 
 
@@ -43,11 +42,6 @@ class CTMatch:
         # default to model config with full ir setup
         self.pipe_config = pipe_config if pipe_config is not None else PipeConfig(ir_setup=True)
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-
-        if self.pipe_config.app_progress:
-            self.progress = gr.Progress()
-            self.progress(0, desc="loading data for ir pipeline...")
-
         self.data = DataPrep(self.pipe_config)
         self.classifier_model = ClassifierModel(self.pipe_config, self.data, self.device)
         self.embedding_model = SentenceTransformer(self.pipe_config.embedding_model_checkpoint) 
@@ -167,10 +161,7 @@ class CTMatch:
         # get doc texts
         doc_texts = [v[0] for v in self.data.doc_texts_df.iloc[doc_set].values]
     
-        # sort by reverse irrelevant prediction, use progress bar if available (for gradio app)
-        if self.pipe_config.app_progress:
-            neg_predictions = self.classifier_filter_progress_bar(pipe_topic.topic_text, doc_texts)
-
+        # sort by reverse irrelevant prediction
         neg_predictions = np.asarray([self.classifier_model.run_inference_single_example(pipe_topic.topic_text, dtext, return_preds=True)[0] for dtext in doc_texts])
        
         # return top n doc indices by classifier, biggest to smallest
@@ -337,17 +328,3 @@ class CTMatch:
                 wf.write('\n')
         return idx2id
     
-
-
-
-    
-    # ------------------------------------------------------------------------------------------ #
-    # app helper methods
-    # ------------------------------------------------------------------------------------------ #
-
-    def classifier_filter_progress_bar(self, topic_text: str, doc_texts: List[str]) -> np.ndarray:
-        preds = []
-        for dtext in self.progress.tqdm(doc_texts, desc='running classification inference on topic,doc pairs'):
-            pred = self.classifier_model.run_inference_single_example(topic_text, dtext, return_preds=True)[0]
-            preds.append(pred)
-        return np.asarray(preds)

@@ -8,8 +8,7 @@ def ctmatch_web_api(topic_query: str) -> str:
    
     pipe_config = PipeConfig(
         ir_setup=True,
-        filters=['svm', "classifier"],
-        app_progress=True
+        filters=['svm', "classifier"]
     )
     
     ctm = CTMatch(pipe_config)

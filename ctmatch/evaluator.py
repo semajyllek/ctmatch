@@ -31,7 +31,7 @@ class Evaluator:
         self.kz_topic_path: Union[Path, str] = eval_config.kz_topic_path
        
         self.rel_dict: dict = None
-        self.topic2text: dict = None
+        self.topicid2text: dict = None
         self.ctm = None
         self.openai_api_key = eval_config.openai_api_key
         self.filters = eval_config.filters
@@ -42,7 +42,7 @@ class Evaluator:
     
         self.setup()
 
-        self.max_topics: int = len(self.topicid2text) if eval_config.max_topics is None else eval_config.max_topics
+        self.max_topics: int = len(self.topicid2text) if eval_config.max_topics is None else min(self.topicid2text, eval_config.max_topics)
 
 
 
@@ -82,7 +82,6 @@ class Evaluator:
                 and compute the mean mrr over all topics (how far down to the first relevant document)
         """
         frrs, f1s, fprs = [], [], []
-        print(f"{self.max_topics=}")
         for topic_id, topic_text in enumerate(tqdm(list(self.topicid2text.items())[:self.max_topics])):
        
             if topic_id not in self.rel_dict:

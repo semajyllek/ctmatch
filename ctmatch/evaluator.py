@@ -110,10 +110,17 @@ class Evaluator:
             f1s.append(f1)
         
         mean_fpr = sum(fprs)/len(fprs)
+        std_fpr = np.std(fprs)
         mean_frr = sum(frrs)/len(frrs)
+        std_frr = np.std(frrs)
         mean_f1 = sum(f1s)/len(f1s)
+        std_f1 = np.std(f1s)
 
-        return {"mean_fpr":mean_fpr, "mean_frr":mean_frr, "mean_f1":mean_f1}
+        return {
+            "mean_fpr":mean_fpr, "std_fpr":std_fpr,
+            "mean_frr":mean_frr, "std_frr":std_frr,
+            "mean_f1":mean_f1, "std_f1":std_f1
+        }
 
 
     def get_indexes_from_ids(self, doc_id_set: List[str]) -> List[int]:

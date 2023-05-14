@@ -82,8 +82,7 @@ class Evaluator:
                 and compute the mean mrr over all topics (how far down to the first relevant document)
         """
         frrs, f1s, fprs = [], [], []
-        for topic_id, topic_text in enumerate(tqdm(list(self.topicid2text.items())[:self.max_topics])):
-            print(topic_id, topic_text, self.max_topics)
+        for topic_id, topic_text in tqdm(list(self.topicid2text.items())[:self.max_topics]):
        
             if topic_id not in self.rel_dict:
                 # can't evaluate with no judgments
@@ -95,12 +94,9 @@ class Evaluator:
 
             # run IR pipeline on set of indexes corresponding to labelled doc_ids
             ranked_pairs = self.ctm.match_pipeline(topic_text, doc_set=doc_set)
-            print("first 10 ranked pairs: ", ranked_pairs[:10])
 
             # get NCTIDs from ranking
             ranked_ids = [nct_id for nct_id, doc_text in ranked_pairs]
-
-            print("first 10 ranked ids: ", ranked_ids[:10])
 
             # calculate metrics
             fpr, frr = calc_first_positive_rank(ranked_ids, self.rel_dict[topic_id])

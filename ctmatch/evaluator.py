@@ -42,7 +42,7 @@ class Evaluator:
     
         self.setup()
 
-        self.max_topics: int = len(self.topicid2text) if eval_config.max_topics is None else min(self.topicid2text, eval_config.max_topics)
+        self.max_topics: int = len(self.topicid2text) if eval_config.max_topics is None else min(len(self.topicid2text), eval_config.max_topics)
 
 
 

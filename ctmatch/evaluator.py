@@ -82,6 +82,7 @@ class Evaluator:
                 and compute the mean mrr over all topics (how far down to the first relevant document)
         """
         frrs, f1s, fprs = [], [], []
+        print(f"{self.max_topics=}")
         for topic_id, topic_text in enumerate(tqdm(list(self.topicid2text.items())[:self.max_topics])):
        
             if topic_id not in self.rel_dict:

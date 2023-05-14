@@ -44,9 +44,9 @@ class CTMatch:
         self.pipe_config = pipe_config if pipe_config is not None else PipeConfig(ir_setup=True)
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-        if self.pipe_config.progress:
-            self.progress = self.pipe_config.progress
-            self.progress(0.05, desc="loading data...")
+        if self.pipe_config.app_progress:
+            self.progress = gr.Progress()
+            self.progress(0, desc="loading data for ir pipeline...")
 
         self.data = DataPrep(self.pipe_config)
         self.classifier_model = ClassifierModel(self.pipe_config, self.data, self.device)
@@ -64,9 +64,6 @@ class CTMatch:
 
     # main api method
     def match_pipeline(self, topic: str, top_k: int = 10, doc_set: Optional[List[int]] = None) -> List[str]:
-
-        if self.progress is not None:
-            self.progress(0.2, desc="starting ir pipeline...")
 
         if doc_set is None:
             # start off will all doc indexes
@@ -171,7 +168,7 @@ class CTMatch:
         doc_texts = [v[0] for v in self.data.doc_texts_df.iloc[doc_set].values]
     
         # sort by reverse irrelevant prediction, use progress bar if available (for gradio app)
-        if self.progress is not None:
+        if self.pipe_config.app_progress:
             neg_predictions = self.classifier_filter_progress_bar(pipe_topic.topic_text, doc_texts)
 
         neg_predictions = np.asarray([self.classifier_model.run_inference_single_example(pipe_topic.topic_text, dtext, return_preds=True)[0] for dtext in doc_texts])

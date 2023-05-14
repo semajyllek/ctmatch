@@ -5,13 +5,11 @@ from ctmatch.match import CTMatch, PipeConfig
 
 
 def ctmatch_web_api(topic_query: str) -> str:
-    progress=gr.Progress()
-    progress(0, desc="loading CTMatch...")
-
+   
     pipe_config = PipeConfig(
         ir_setup=True,
-        progress=progress,
-        filters=['svm', "classifier"]
+        filters=['svm', "classifier"],
+        app_progress=True
     )
     
     ctm = CTMatch(pipe_config)

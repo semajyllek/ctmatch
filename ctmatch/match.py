@@ -347,8 +347,7 @@ class CTMatch:
 
     def classifier_filter_progress_bar(self, topic_text: str, doc_texts: List[str]) -> np.ndarray:
         preds = []
-        for dtext in self.progress.tqdm(doc_texts):
-            print(dtext)
+        for dtext in self.progress.tqdm(doc_texts, desc='running classification inference on topic,doc pairs'):
             pred = self.classifier_model.run_inference_single_example(topic_text, dtext, return_preds=True)[0]
             preds.append(pred)
         return np.asarray(preds)

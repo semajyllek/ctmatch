@@ -29,7 +29,7 @@ class Evaluator:
         self.rel_paths: List[str] = eval_config.rel_paths
         self.trec_topic_path: Union[Path, str]  = eval_config.trec_topic_path
         self.kz_topic_path: Union[Path, str] = eval_config.kz_topic_path
-        self.max_topics: int = eval_config.max_topics
+       
         self.rel_dict: dict = None
         self.topic2text: dict = None
         self.ctm = None
@@ -41,6 +41,10 @@ class Evaluator:
         assert ((self.trec_topic_path is not None) or (self.kz_topic_path is not None)), "at least one of trec_topic_path or kz_topic_path) must be set as pipe_config.evaluate=True"
     
         self.setup()
+
+        self.max_topics: int = self.topicid2text.items() if eval_config.max_topics is None else eval_config.max_topics
+
+
 
     def get_combined_rel_dict(self, rel_paths: List[str]) -> dict:
         combined_rel_dict = dict()

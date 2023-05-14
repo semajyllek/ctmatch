@@ -95,7 +95,7 @@ class Evaluator:
             ranked_pairs = self.ctm.match_pipeline(topic_text, doc_set=doc_set)
 
             # get NCTIDs from ranking
-            ranked_ids = [self.ctm.data.index2docid.iloc[r[0]].values[0] for r in ranked_pairs]
+            ranked_ids = [nct_id for nct_id, doc_text in ranked_pairs]
 
             # calculate metrics
             fpr, frr = calc_first_positive_rank(ranked_ids, self.rel_dict[topic_id])

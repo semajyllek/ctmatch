@@ -47,6 +47,10 @@ topic = "A 46 yo male with gastric cancer. He has recieved 3 rounds of chemother
 ctm = CTMatch()
 ranked_pairs = ctm.match_pipeline(topic, top_k=10)
 
+"""
+[('NCT00003788', 'Inclusion Criteria: Histologically confirmed newly diagnosed or recurrent supratentorial glioblastoma or malignant astrocytoma Grade 3 or 4 astrocytoma as defined by the Daumas-Duport classification Suitable for radical resection on the basis of imaging studies Patients with recurrent disease must have failed surgery and radiotherapy Age and over Performance status Karnofsky 60-100% for newly diagnosed tumor Karnofsky 70-100% for recurrent tumor Life expectancy At least 3 months Hematopoietic Recurrent tumor WBC at least 2,000/mm^3 Platelet count at least 80,000/mm^3 Hepatic Recurrent tumor PT/PTT no greater than 1.5 times upper limit of normal (ULN) Bilirubin and LFTs less than 2 times ULN Alkaline phosphatase no greater than 3 times ULN GGT no greater than 3 times ULN Renal Creatinine no greater than 2 mg/dL Other Not pregnant or nursing PRIOR Biologic therapy Not specified Chemotherapy Not specified Endocrine therapy Not specified Radiotherapy See Disease Characteristics No prior cranial radiotherapy for newly diagnosed tumor Surgery See Disease Characteristics, Exclusion Criteria:')]
+"""
+
 ```
 
 ### evaluation:

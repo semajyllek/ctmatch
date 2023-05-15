@@ -126,6 +126,9 @@ class CTMatch:
     
 
     def svm_filter(self, topic: PipeTopic, doc_set: List[int], top_n: int) -> List[int]:
+        """
+           filter documents by training an SVM on topic and doc embeddings
+        """
         logger.info(f"running svm filter on {len(doc_set)} documents")
 
         # build training data and prediction vector of single positive class for SVM

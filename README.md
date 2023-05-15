@@ -51,11 +51,13 @@ ranked_pairs = ctm.match_pipeline(topic, top_k=10)
 
 ### evaluation:
 
-Evaluation is done with MRR (mean reciprocal rank) on the resulting documents from the labelled dataset and the `Evaluator` object in the evaluator.py module. (see paper)
+Evaluation is done with MRR (mean reciprocal rank) on the resulting documents from the labelled dataset and the `Evaluator` object in the evaluator.py module. (see evaluation notebook)
+
+![Screenshot](ctmatch_results.png)
 
 
 ### classifier training
 
-This repo also contains code in the CTMatch object to train a classifier on the `semaj83/ctmatch_classification` dataset (see notebook).
+This repo also contains code in the CTMatch object to train a classifier on the `semaj83/ctmatch_classification` dataset (see finetuning notebook).
 Several LMs are supported but others may need to code modifications, starting with adding to the list of supported LMs at the top of dataprep.py
 

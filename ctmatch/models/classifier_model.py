@@ -291,7 +291,7 @@ class ClassifierModel:
     def prune_model(self):
         self.mpc.patch_model(self.model)
         self.model.save_pretrained("models/patched")
-        self.prune_trainer = self.getPruningTrainer()
+        self.prune_trainer = self.get_pruning_trainer()
         self.prune_trainer.set_patch_coordinator(self.mpc)
         self.prune_trainer.train()
 

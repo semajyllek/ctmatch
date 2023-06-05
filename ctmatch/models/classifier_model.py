@@ -13,13 +13,17 @@ import evaluate
 import torch
 
 from nn_pruning.patch_coordinator import ModelPatchingCoordinator, SparseTrainingArguments
+from nn_pruning.inference_model_patcher import optimize_model
 from nn_pruning.sparse_trainer import SparseTrainer
+
 
 from ..pipeconfig import PipeConfig
 from ..dataprep import DataPrep
 
 
 logger = logging.getLogger(__name__)
+
+PRUNED_HUB_MODEL_NAME = 'semaj83/scibert_finetuned_pruned_ctmatch'
 
 
 class WeightedLossTrainer(Trainer):
@@ -61,6 +65,7 @@ class ClassifierModel:
             self.num_training_steps = self.model_config.train_epochs * len(self.dataset['train'])
 
         self.model = self.load_model()
+        self.pruned_model = None
     
         if not self.model_config.use_trainer and not self.model_config.ir_setup:
             self.train_dataloader, self.val_dataloader = self.get_dataloaders()
@@ -224,6 +229,7 @@ class ClassifierModel:
         with torch.no_grad():
             if self.model_config.use_trainer:
                 if self.model_config.prune:
+                    logger.info("using pruned model")
                     preds = self.prune_trainer.predict(self.dataset['test']).predictions
                 else:    
                     preds = self.trainer.predict(self.dataset['test']).predictions
@@ -294,6 +300,10 @@ class ClassifierModel:
         self.prune_trainer = self.get_pruning_trainer()
         self.prune_trainer.set_patch_coordinator(self.mpc)
         self.prune_trainer.train()
+        self.mpc.compile_model(self.prune_trainer.model)
+        self.pruned_model = optimize_model(self.prune_trainer.model, "dense")
+        if self.model_config.push_to_hub:
+            self.pruned_model.push_to_hub(PRUNED_HUB_MODEL_NAME)
 
 
     def get_sparse_args(self):

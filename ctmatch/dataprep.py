@@ -60,7 +60,10 @@ class DataPrep:
         model_checkpoint = self.pipe_config.classifier_model_checkpoint
         if model_checkpoint not in SUPPORTED_LMS:
             raise ValueError(f"Model checkpoint {model_checkpoint} not supported. Please use one of {SUPPORTED_LMS}")
-        tokenizer = AutoTokenizer.from_pretrained(self.pipe_config.classifier_model_checkpoint)
+        if 'scibert' in model_checkpoint:
+            tokenizer = AutoTokenizer.from_pretrained('allenai/scibert_scivocab_uncased', use_fast=True)
+        else:
+            tokenizer = AutoTokenizer.from_pretrained(self.pipe_config.classifier_model_checkpoint)
         if self.pipe_config.classifier_model_checkpoint == 'gpt2':
             tokenizer.pad_token = tokenizer.eos_token
         return tokenizer

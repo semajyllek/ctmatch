@@ -165,7 +165,7 @@ class CTMatch:
         doc_texts = [v[0] for v in self.data.doc_texts_df.iloc[doc_set].values]
     
         # sort by reverse irrelevant prediction
-        neg_predictions = np.asarray([self.classifier_model.run_inference_single_example(pipe_topic.topic_text, dtext, return_preds=True)[0] for dtext in doc_texts])
+        neg_predictions = np.asarray([p[0] for p in self.classifier_model.batch_inference(pipe_topic.topic_text, doc_texts, return_preds=True)])
        
         # return top n doc indices by classifier, biggest to smallest
         sorted_indices = list(np.argsort(neg_predictions)[:min(len(doc_set), top_n)])

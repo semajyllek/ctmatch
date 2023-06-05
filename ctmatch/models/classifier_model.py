@@ -235,7 +235,7 @@ class ClassifierModel:
         f1 = f1_score(labels, preds, average="weighted")
         return {"f1":f1}
     
-    def run_inference_single_example(self, topic: str, doc: str, return_preds: bool = False) -> str:
+    def inference_single_example(self, topic: str, doc: str, return_preds: bool = False) -> str:
         """
         desc: method to predict relevance label on new topic, doc examples 
         """
@@ -246,3 +246,23 @@ class ClassifierModel:
             if return_preds:
                 return torch.nn.functional.softmax(outputs, dim=1).squeeze(0)
             return str(outputs.argmax().item())
+
+
+    def batch_inference(self, topic: str, docs: List[str], return_preds: bool = False) -> List[str]:
+        topic_repeats = [topic for _ in range(len(docs))]
+        inputs = self.tokenizer(
+            topic_repeats, docs, return_tensors='pt', 
+            truncation=self.model_config.truncation, 
+            padding=self.model_config.padding, 
+            max_length=self.model_config.max_length
+        )
+
+        with torch.no_grad():
+            outputs = torch.nn.functional.softmax(self.model(**inputs).logits, dim=1)
+        
+        if return_preds:
+            return outputs
+        
+        return outputs.argmax(dim=1).tolist()
+  
+        

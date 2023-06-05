@@ -66,7 +66,7 @@ class ClassifierModel:
             self.train_dataloader, self.val_dataloader = self.get_dataloaders()
 
         
-        if self.model_config.pruning:
+        if self.model_config.prune:
              self.prune_trainer = None
              self.sparse_args = SparseTrainingArguments()
              self.mpc = self.getModelPatchingCoordinator()

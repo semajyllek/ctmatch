@@ -25,7 +25,9 @@ INDEX2DOCID_PATH = "index2docid.txt"
 SUPPORTED_LMS = [
     'roberta-large', 'cross-encoder/nli-roberta-base',
     'microsoft/biogpt', 'allenai/scibert_scivocab_uncased', 
-    'facebook/bart-large', 'gpt2', 'semaj83/scibert_finetuned_ctmatch'
+    'facebook/bart-large', 'gpt2', 
+    'semaj83/scibert_finetuned_ctmatch', 'semaj83/scibert_finetuned_pruned_ctmatch'
+
 ]
 
 

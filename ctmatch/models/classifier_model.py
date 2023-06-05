@@ -12,6 +12,9 @@ from torch import nn
 import evaluate
 import torch
 
+from nn_pruning.patch_coordinator import ModelPatchingCoordinator, SparseTrainingArguments
+from nn_pruning.sparse_trainer import SparseTrainer
+
 from ..pipeconfig import PipeConfig
 from ..dataprep import DataPrep
 
@@ -32,6 +35,13 @@ class WeightedLossTrainer(Trainer):
         loss = loss_func(logits, labels)
         return (loss, outputs) if return_outputs else loss
 
+
+
+
+class PruningTrainer(SparseTrainer, WeightedLossTrainer):
+    def __init__(self, sparse_args, *args, **kwargs):
+        WeightedLossTrainer.__init__(self, *args, **kwargs)
+        SparseTrainer.__init__(self, sparse_args)
 
 
 class ClassifierModel:
@@ -55,6 +65,11 @@ class ClassifierModel:
         if not self.model_config.use_trainer and not self.model_config.ir_setup:
             self.train_dataloader, self.val_dataloader = self.get_dataloaders()
 
+        
+        if self.model_config.pruning:
+             self.prune_trainer = None
+             self.sparse_args = SparseTrainingArguments()
+             self.mpc = self.getModelPatchingCoordinator()
                
 
     # ------------------ Model Loading ------------------ #
@@ -93,7 +108,7 @@ class ClassifierModel:
             num_training_steps=self.num_training_steps
         )
 
-        if self.model_config.use_trainer:
+        if self.model_config.use_trainer and not self.model_config.prune:
             self.trainer = self.get_trainer()
         else:
             self.model = self.model.to(self.device)
@@ -208,7 +223,11 @@ class ClassifierModel:
     def get_sklearn_metrics(self):
         with torch.no_grad():
             if self.model_config.use_trainer:
-                preds = self.trainer.predict(self.dataset['test']).predictions
+                if self.model_config.prune:
+                    preds = self.prune_trainer.predict(self.dataset['test']).predictions
+                else:    
+                    preds = self.trainer.predict(self.dataset['test']).predictions
+
                 if "bart" in self.model_config.name:
                     preds = preds[0]
 
@@ -264,5 +283,42 @@ class ClassifierModel:
             return outputs
         
         return outputs.argmax(dim=1).tolist()
-  
+
+
+
+    # ------------------ pruning  ------------------ #
+
+    def prune_model(self):
+        self.mpc.patch_model(self.model)
+        self.model.save_pretrained("models/patched")
+        self.prune_trainer = self.getPruningTrainer()
+        self.prune_trainer.set_patch_coordinator(self.mpc)
+        self.prune_trainer.train()
+
+
+
+    
+    def getPruningTrainer(self):
+        return PruningTrainer(
+            sparse_args=self.sparse_args,
+            args=self.get_training_args_obj(),
+            model=self.model,
+            train_dataset=self.dataset["train"],
+            eval_dataset=self.dataset["validation"],
+            tokenizer=self.tokenizer,
+            compute_metrics=self.compute_metrics,
+            load_best_model_at_end=True,
+            metric_for_best_model="f1"
+        )
+
+
+
+    def getModelPatchingCoordinator(self):
+        return ModelPatchingCoordinator(
+            sparse_args=self.sparse_args, 
+            device=self.device, 
+            cache_dir="checkpoints", 
+            logit_names="logits", 
+            teacher_constructor=None
+        )
         

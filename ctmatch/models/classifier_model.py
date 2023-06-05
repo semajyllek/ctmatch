@@ -68,8 +68,8 @@ class ClassifierModel:
         
         if self.model_config.prune:
              self.prune_trainer = None
-             self.sparse_args = SparseTrainingArguments()
-             self.mpc = self.getModelPatchingCoordinator()
+             self.sparse_args = self.get_sparse_args()
+             self.mpc = self.get_model_patching_coordinator()
                
 
     # ------------------ Model Loading ------------------ #
@@ -296,9 +296,31 @@ class ClassifierModel:
         self.prune_trainer.train()
 
 
+    def get_sparse_args(self):
+        sparse_args = SparseTrainingArguments()
+
+        hyperparams = {
+            "dense_pruning_method": "topK:1d_alt", 
+            "attention_pruning_method": "topK", 
+            "initial_threshold": 1.0, 
+            "final_threshold": 0.5, 
+            "initial_warmup": 1,
+            "final_warmup": 3,
+            "attention_block_rows":32,
+            "attention_block_cols":32,
+            "attention_output_with_dense": 0
+        }
+
+        for k,v in hyperparams.items():
+            if hasattr(sparse_args, k):
+                setattr(sparse_args, k, v)
+            else:
+                print(f"sparse_args does not have argument {k}")
+
+        return sparse_args
 
     
-    def getPruningTrainer(self):
+    def get_pruning_trainer(self):
         return PruningTrainer(
             sparse_args=self.sparse_args,
             args=self.get_training_args_obj(),
@@ -312,7 +334,7 @@ class ClassifierModel:
 
 
 
-    def getModelPatchingCoordinator(self):
+    def get_model_patching_coordinator(self):
         return ModelPatchingCoordinator(
             sparse_args=self.sparse_args, 
             device=self.device, 

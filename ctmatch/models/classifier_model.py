@@ -301,6 +301,7 @@ class ClassifierModel:
     def getPruningTrainer(self):
         return PruningTrainer(
             sparse_args=self.sparse_args,
+            optimizers=(self.optimizer, self.lr_scheduler),
             args=self.get_training_args_obj(),
             model=self.model,
             train_dataset=self.dataset["train"],
@@ -308,7 +309,8 @@ class ClassifierModel:
             tokenizer=self.tokenizer,
             compute_metrics=self.compute_metrics,
             load_best_model_at_end=True,
-            metric_for_best_model="f1"
+            metric_for_best_model="f1",
+            label_weights=self.get_label_weights()
         )
 
 

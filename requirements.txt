@@ -7,6 +7,7 @@ sentence-transformers
 huggingface_hub
 scikit-learn
 transformers
+onnxruntime
 nn_pruning
 optimum
 

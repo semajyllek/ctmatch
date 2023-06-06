@@ -10,6 +10,7 @@ transformers
 onnxruntime
 nn_pruning
 optimum
+onnx
 
 matplotlib
 accelerate

@@ -232,8 +232,13 @@ class ClassifierModel:
 
     def get_sklearn_metrics(self):
         with torch.no_grad():
-            if self.model_config.use_trainer:   
-                preds = self.trainer.predict(self.dataset['test']).predictions
+            if self.model_config.use_trainer:
+                if self.model_config.prune:
+                    self.prune_trainer.model.to(self.device)
+                    logger.info("using pruned model")
+                    preds = self.prune_trainer.predict(self.dataset['test']).predictions
+                else:    
+                    preds = self.trainer.predict(self.dataset['test']).predictions
 
                 if "bart" in self.model_config.name:
                     preds = preds[0]

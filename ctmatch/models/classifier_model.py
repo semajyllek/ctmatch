@@ -1,15 +1,20 @@
 
 import logging
+from pathlib import Path
+from tqdm.auto import tqdm
 from typing import List, Tuple
 
 from transformers import AutoModelForSequenceClassification, Trainer, TrainingArguments, get_scheduler
-from sklearn.metrics import confusion_matrix, classification_report
-from torch.utils.data import DataLoader
-from sklearn.metrics import f1_score
-from torch.optim import AdamW
-from tqdm.auto import tqdm
-from torch import nn
+from optimum.onnxruntime import ORTModelForSequenceClassification
+from optimum.onnxruntime.configuration import OptimizationConfig
+from optimum.onnxruntime import ORTOptimizer
 import evaluate
+
+from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.metrics import f1_score
+from torch.utils.data import DataLoader
+from torch.optim import AdamW
+from torch import nn
 import torch
 
 from nn_pruning.patch_coordinator import ModelPatchingCoordinator, SparseTrainingArguments
@@ -158,8 +163,7 @@ class ClassifierModel:
             weight_decay=self.model_config.weight_decay,
             evaluation_strategy="epoch",
             logging_steps=len(self.dataset["train"]) // self.model_config.batch_size,
-            fp16=self.model_config.fp16,
-            push_to_hub=self.model_config.push_to_hub
+            fp16=self.model_config.fp16
         )
         
     
@@ -230,6 +234,7 @@ class ClassifierModel:
         with torch.no_grad():
             if self.model_config.use_trainer:
                 if self.model_config.prune:
+                    self.prune_trainer.model.to(self.device)
                     logger.info("using pruned model")
                     preds = self.prune_trainer.predict(self.dataset['test']).predictions
                 else:    
@@ -353,4 +358,25 @@ class ClassifierModel:
             logit_names="logits", 
             teacher_constructor=None
         )
+    
+    
+    # onyx optimization
+    def optimize_model(self):  
+        onnx_path = Path("onnx")
+        model_id = self.model_config.classifier_model_checkpoint
+        #assert self.pruned_model is not None, "pruned model must be loaded before optimizing"
+        pre_opt_model = ORTModelForSequenceClassification.from_pretrained(model_id, from_transformers=True)
+        optimizer = ORTOptimizer.from_pretrained(pre_opt_model)
+        optimization_config = OptimizationConfig(optimization_level=99) # enable all optimizations
+        optimizer.optimize(
+            save_dir=onnx_path,
+            optimization_config=optimization_config,
+        )
+        pre_opt_model.save_pretrained(onnx_path)
+        self.tokenizer.save_pretrained(onnx_path)  
+
+        optimizedmodel = ORTModelForSequenceClassification.from_pretrained(onnx_path, file_name="model_optimized.onnx")  
+
+
+
         

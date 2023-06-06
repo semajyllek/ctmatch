@@ -35,7 +35,8 @@ class PipeConfig(NamedTuple):
     openai_api_key: Optional[str] = None
     ir_setup: bool = False                  # if true, use the IR model setup, no classifier training or dataprep
     filters: Optional[List[str]] = None     # if provided, only use these filters for the IR model, options are {'sim', 'svm', 'classifier', 'gen'}
-    prune: bool = False                   # if true, use the pruning/pruned classifier model
+    prune: bool = False                     # if true, creates a pruned classifier model
+    optimize: bool = False                  # if true, creates an optimized classifier model
 
 
 

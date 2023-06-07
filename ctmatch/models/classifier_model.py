@@ -247,7 +247,7 @@ class ClassifierModel:
             else:
 
                 if self.model_config.prune:
-                    model = self.pruned_model
+                    model = self.pruned_model.to(self.device)
                 else:
                     model = self.model.to(self.device)
                 y_preds = []

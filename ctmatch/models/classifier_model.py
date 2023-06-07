@@ -95,6 +95,9 @@ class ClassifierModel:
             ignore_mismatched_sizes=True                  # because of pruned model changes
         )
 
+        if 'pruned' in self.model_config.classifier_model_checkpoint:
+            model = optimize_model(model, "dense")
+
         return self.add_pad_token(model)
 
 

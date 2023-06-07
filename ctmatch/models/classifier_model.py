@@ -232,7 +232,7 @@ class ClassifierModel:
 
     def get_sklearn_metrics(self):
         with torch.no_grad():
-            if self.model_config.use_trainer:
+            if self.model_config.use_trainer or self.model_config.prune:
                 if self.model_config.prune:
                     self.prune_trainer.model.to(self.device)
                     logger.info("using pruned model")

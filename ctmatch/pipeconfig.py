@@ -19,7 +19,7 @@ class PipeConfig(NamedTuple):
     classifier_data_path: Path = Path("combined_classifier_data.jsonl")
     output_dir: Optional[str] = None
     convert_snli: bool = False
-    use_trainer: bool = True
+    use_trainer: bool = False
     num_classes: int = 3
     fp16: bool = False
     early_stopping: bool = False

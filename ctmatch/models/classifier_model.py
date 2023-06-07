@@ -232,10 +232,10 @@ class ClassifierModel:
 
     def get_sklearn_metrics(self):
         with torch.no_grad():
-            if self.model_config.use_trainer or self.model_config.prune:
+            if self.model_config.use_trainer:
                 if self.model_config.prune:
                     self.prune_trainer.model.to(self.device)
-                    logger.info("using pruned model")
+                    logger.info("using pruned trainer model")
                     preds = self.prune_trainer.predict(self.dataset['test']).predictions
                 else:    
                     preds = self.trainer.predict(self.dataset['test']).predictions
@@ -245,11 +245,15 @@ class ClassifierModel:
 
                 y_preds = list(preds.argmax(axis=1))
             else:
-                self.model.to(self.device)
+
+                if self.model_config.prune:
+                    model = self.pruned_model
+                else:
+                    model = self.model.to(self.device)
                 y_preds = []
                 for input_ids in self.dataset['test']['input_ids']:
                     input_ids = torch.tensor(input_ids).unsqueeze(0).to(self.device)
-                    y_pred = self.model(input_ids).logits.argmax().item()
+                    y_pred = model(input_ids).logits.argmax().item()
                     y_preds.append(y_pred)
          
         y_trues = list(self.dataset['test']['labels'])

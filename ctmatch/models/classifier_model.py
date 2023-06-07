@@ -314,9 +314,12 @@ class ClassifierModel:
         self.prune_trainer.set_patch_coordinator(self.mpc)
         self.prune_trainer.train()
         self.mpc.compile_model(self.prune_trainer.model)
-        self.pruned_model = optimize_model(self.prune_trainer.model, "dense")
         if self.model_config.push_to_hub:
+            # can't save the optimized model to hub
             self.pruned_model.push_to_hub(PRUNED_HUB_MODEL_NAME)
+
+        self.pruned_model = optimize_model(self.prune_trainer.model, "dense")
+      
 
 
     def get_sparse_args(self):

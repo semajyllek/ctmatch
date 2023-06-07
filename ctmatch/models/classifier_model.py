@@ -365,17 +365,21 @@ class ClassifierModel:
         onnx_path = Path("onnx")
         model_id = self.model_config.classifier_model_checkpoint
         #assert self.pruned_model is not None, "pruned model must be loaded before optimizing"
-        pre_opt_model = ORTModelForSequenceClassification.from_pretrained(model_id, from_transformers=True)
-        optimizer = ORTOptimizer.from_pretrained(pre_opt_model)
+        opt_model = ORTModelForSequenceClassification.from_pretrained(model_id, from_transformers=True)
+        optimizer = ORTOptimizer.from_pretrained(opt_model)
         optimization_config = OptimizationConfig(optimization_level=99) # enable all optimizations
         optimizer.optimize(
             save_dir=onnx_path,
             optimization_config=optimization_config,
         )
-        pre_opt_model.save_pretrained(onnx_path)
+        opt_model.save_pretrained(onnx_path)
         self.tokenizer.save_pretrained(onnx_path)  
 
-        optimizedmodel = ORTModelForSequenceClassification.from_pretrained(onnx_path, file_name="model_optimized.onnx")  
+        #optimized_model = ORTModelForSequenceClassification.from_pretrained(onnx_path, file_name="model_optimized.onnx")  
+
+        return opt_model
+
+       
 
 
 

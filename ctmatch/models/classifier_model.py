@@ -316,7 +316,7 @@ class ClassifierModel:
         self.mpc.compile_model(self.prune_trainer.model)
         if self.model_config.push_to_hub:
             # can't save the optimized model to hub
-            self.pruned_model.push_to_hub(PRUNED_HUB_MODEL_NAME)
+            self.prune_trainer.model.push_to_hub(PRUNED_HUB_MODEL_NAME)
 
         self.pruned_model = optimize_model(self.prune_trainer.model, "dense")
       

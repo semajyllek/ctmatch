@@ -50,8 +50,8 @@ class CTMatch:
         self.filters: Optional[List[str]] = pipe_config.filters
 
         # filter params
-        self.sim_top_n = 1000
-        self.svm_top_n = 100
+        self.svm_top_n = 1000
+        self.sim_top_n = 100
         self.classifier_top_n = 50
         self.gen_top_n = 10
 
@@ -68,14 +68,16 @@ class CTMatch:
         # get topic representations for pipeline filters
         pipe_topic = self.get_pipe_topic(topic)
 
-        if self.filters is None or ('sim' in self.filters):
-            # first filter, category + embedding similarity
-            doc_set = self.sim_filter(pipe_topic, doc_set, top_n=self.sim_top_n)
-
         if self.filters is None or ('svm' in self.filters):
             # second filter, SVM
             doc_set = self.svm_filter(pipe_topic, doc_set, top_n=self.svm_top_n)
 
+
+        if self.filters is None or ('sim' in self.filters):
+            # first filter, category + embedding similarity
+            doc_set = self.sim_filter(pipe_topic, doc_set, top_n=self.sim_top_n)
+
+      
         if self.filters is None or ('classifier' in self.filters):
             # third filter, classifier-LM (reranking)
             doc_set = self.classifier_filter(pipe_topic, doc_set, top_n=self.classifier_top_n)

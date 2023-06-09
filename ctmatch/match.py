@@ -50,9 +50,9 @@ class CTMatch:
         self.filters: Optional[List[str]] = pipe_config.filters
 
         # filter params
-        self.sim_top_n = 10000
-        self.svm_top_n = 1000
-        self.classifier_top_n = 100
+        self.sim_top_n = 1000
+        self.svm_top_n = 100
+        self.classifier_top_n = 50
         self.gen_top_n = 10
 
 

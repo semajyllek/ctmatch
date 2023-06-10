@@ -12,6 +12,7 @@ pairs.
 
 The pipeline currently matches user input topics to the static snapshot of clinical trials data downloaded for the TREC task from december of 2015, now stored on huggingface in the datasets `semaj83/ctmatch_classification` and `semaj83/ctmatch_ir` but can be updated with a current dataset of clinical trials data using ctproc to process.
 
+web app (while I can afford it): https://huggingface.co/spaces/semaj83/ctmatch
 
 ### pipeline filters
 

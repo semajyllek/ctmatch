@@ -1,2 +1,15 @@
-.venv
-*pyc
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+
+# Large data files — these live on HuggingFace Hub (semaj83/ctmatch_ir, semaj83/ctmatch_classification)
+data/combined_classifier_data.jsonl
+data/trec_data/trec_docs_21/*.zip
+data/kz_data/clinicaltrials.gov-16_dec_2015.zip
+*.npy
+
+# Evaluation output
+eval_predictions.jsonl

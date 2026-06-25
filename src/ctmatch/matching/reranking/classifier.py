@@ -5,9 +5,6 @@ from tqdm.auto import tqdm
 from typing import List, Tuple
 
 from transformers import AutoModelForSequenceClassification, Trainer, TrainingArguments, get_scheduler
-from optimum.onnxruntime import ORTModelForSequenceClassification
-from optimum.onnxruntime.configuration import OptimizationConfig
-from optimum.onnxruntime import ORTOptimizer
 import evaluate
 
 from sklearn.metrics import confusion_matrix, classification_report
@@ -16,10 +13,6 @@ from torch.utils.data import DataLoader
 from torch.optim import AdamW
 from torch import nn
 import torch
-
-from nn_pruning.patch_coordinator import ModelPatchingCoordinator, SparseTrainingArguments
-from nn_pruning.inference_model_patcher import optimize_model
-from nn_pruning.sparse_trainer import SparseTrainer
 
 
 from ...config import PipeConfig
@@ -47,8 +40,9 @@ class WeightedLossTrainer(Trainer):
 
 
 
-class PruningTrainer(SparseTrainer, WeightedLossTrainer):
+class PruningTrainer(WeightedLossTrainer):
     def __init__(self, sparse_args, *args, **kwargs):
+        from nn_pruning.sparse_trainer import SparseTrainer
         WeightedLossTrainer.__init__(self, *args, **kwargs)
         SparseTrainer.__init__(self, sparse_args)
 
@@ -96,6 +90,7 @@ class ClassifierModel:
         )
 
         if 'pruned' in self.model_config.classifier_model_checkpoint:
+            from nn_pruning.inference_model_patcher import optimize_model
             model = optimize_model(model, "dense")
 
         return self.add_pad_token(model)
@@ -308,6 +303,7 @@ class ClassifierModel:
     # ------------------ pruning  ------------------ #
 
     def prune_model(self):
+        from nn_pruning.inference_model_patcher import optimize_model
         self.mpc.patch_model(self.model)
         self.model.save_pretrained("models/patched")
         self.prune_trainer = self.get_pruning_trainer()
@@ -315,7 +311,6 @@ class ClassifierModel:
         self.prune_trainer.train()
         self.mpc.compile_model(self.prune_trainer.model)
         if self.model_config.push_to_hub:
-            # can't save the optimized model to hub
             self.prune_trainer.model.push_to_hub(PRUNED_HUB_MODEL_NAME)
 
         self.pruned_model = optimize_model(self.prune_trainer.model, "dense")
@@ -323,6 +318,7 @@ class ClassifierModel:
 
 
     def get_sparse_args(self):
+        from nn_pruning.patch_coordinator import SparseTrainingArguments
         sparse_args = SparseTrainingArguments()
 
         hyperparams = {
@@ -361,6 +357,7 @@ class ClassifierModel:
 
 
     def get_model_patching_coordinator(self):
+        from nn_pruning.patch_coordinator import ModelPatchingCoordinator
         return ModelPatchingCoordinator(
             sparse_args=self.sparse_args, 
             device=self.device, 
@@ -371,10 +368,11 @@ class ClassifierModel:
     
     
     # onyx optimization
-    def optimize_model(self):  
+    def optimize_model(self):
+        from optimum.onnxruntime import ORTModelForSequenceClassification, ORTOptimizer
+        from optimum.onnxruntime.configuration import OptimizationConfig
         onnx_path = Path("onnx")
         model_id = self.model_config.classifier_model_checkpoint
-        #assert self.pruned_model is not None, "pruned model must be loaded before optimizing"
         opt_model = ORTModelForSequenceClassification.from_pretrained(model_id, from_transformers=True)
         optimizer = ORTOptimizer.from_pretrained(opt_model)
         optimization_config = OptimizationConfig(optimization_level=99) # enable all optimizations

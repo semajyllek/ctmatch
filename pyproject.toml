@@ -22,7 +22,7 @@ dependencies = [
     "pandas>=2.0",
     "tqdm",
     "evaluate",
-    "ctproc>=0.3.0",
+    "ctproc>=0.2.0",
 ]
 
 [project.optional-dependencies]

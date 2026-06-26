@@ -48,6 +48,20 @@ def get_kz_topic2text(topic_path) -> Dict[str, str]:
           
 
 
+def calc_ndcg(ranked_ids: List[str], doc2rel: Dict[str, int], k: int = 10) -> float:
+    """
+    NDCG@k with graded relevance (0=not relevant, 1=partial, 2=relevant).
+    Unjudged docs are treated as 0. IDCG computed from the full judged set.
+    """
+    dcg = sum(
+        (2 ** doc2rel.get(doc_id, 0) - 1) / np.log2(i + 2)
+        for i, doc_id in enumerate(ranked_ids[:k])
+    )
+    ideal_rels = sorted(doc2rel.values(), reverse=True)[:k]
+    idcg = sum((2 ** rel - 1) / np.log2(i + 2) for i, rel in enumerate(ideal_rels))
+    return dcg / idcg if idcg > 0 else 0.0
+
+
 def calc_first_positive_rank(ranked_ids: List[str], doc2rel: Dict[str, int], pos_val: int = 2) -> Tuple[int, float]:
     """
     desc:       compute the mean reciprocal rank of a ranking

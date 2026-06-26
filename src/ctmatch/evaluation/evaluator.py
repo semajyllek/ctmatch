@@ -3,7 +3,7 @@ import logging
 from typing import List, NamedTuple, Optional, Tuple, Union
 
 from .eval_utils import (
-    calc_first_positive_rank, calc_f1, get_kz_topic2text, get_trec_topic2text
+    calc_first_positive_rank, calc_f1, calc_ndcg, get_kz_topic2text, get_trec_topic2text
 )
 from ..config import PipeConfig
 from ..matching.pipeline import CTMatch
@@ -79,26 +79,22 @@ class Evaluator:
         desc: run the pipeline over every topic and associated labelled set of documents,
                 and compute the mean mrr over all topics (how far down to the first relevant document)
         """
-        frrs, f1s, fprs = [], [], []
+        frrs, f1s, fprs, ndcgs = [], [], [], []
         for topic_id, topic_text in tqdm(list(self.topicid2text.items())[:self.max_topics]):
-       
+
             if topic_id not in self.rel_dict:
-                # can't evaluate with no judgments
                 continue
-                
+
             doc_ids = list(self.rel_dict[topic_id].keys())
             logger.info(f"number of ranked docs: {len(doc_ids)}")
             doc_set = self.get_indexes_from_ids(doc_ids)
 
-            # run IR pipeline on set of indexes corresponding to labelled doc_ids
             ranked_pairs = self.ctm.match_pipeline(topic_text, doc_set=doc_set)
-
-            # get NCTIDs from ranking
             ranked_ids = [nct_id for nct_id, doc_text in ranked_pairs]
 
-            # calculate metrics
             fpr, frr = calc_first_positive_rank(ranked_ids, self.rel_dict[topic_id])
             f1 = calc_f1(ranked_ids, self.rel_dict[topic_id])
+            ndcg = calc_ndcg(ranked_ids, self.rel_dict[topic_id], k=10)
 
             if self.sanity_check_ids is not None and (topic_id in self.sanity_check_ids):
                 self.sanity_check(topic_id, topic_text, ranked_pairs, self.rel_dict[topic_id])
@@ -106,18 +102,13 @@ class Evaluator:
             fprs.append(fpr)
             frrs.append(frr)
             f1s.append(f1)
-        
-        mean_fpr = sum(fprs)/len(fprs)
-        std_fpr = np.std(fprs)
-        mean_frr = sum(frrs)/len(frrs)
-        std_frr = np.std(frrs)
-        mean_f1 = sum(f1s)/len(f1s)
-        std_f1 = np.std(f1s)
+            ndcgs.append(ndcg)
 
         return {
-            "mean_fpr":mean_fpr, "std_fpr":std_fpr,
-            "mean_frr":mean_frr, "std_frr":std_frr,
-            "mean_f1":mean_f1, "std_f1":std_f1
+            "ndcg@10": np.mean(ndcgs), "std_ndcg": np.std(ndcgs),
+            "mean_mrr": np.mean(frrs),  "std_mrr":  np.std(frrs),
+            "mean_f1":  np.mean(f1s),   "std_f1":   np.std(f1s),
+            "mean_fpr": np.mean(fprs),  "std_fpr":  np.std(fprs),
         }
 
 
@@ -135,7 +126,7 @@ class Evaluator:
         """
         LABEL_NAMES = {0: "not_relevant", 1: "partially_relevant", 2: "relevant"}
         all_examples = []
-        frrs, f1s, fprs = [], [], []
+        frrs, f1s, fprs, ndcgs = [], [], [], []
 
         for topic_id, topic_text in tqdm(list(self.topicid2text.items())[:self.max_topics]):
             if topic_id not in self.rel_dict:
@@ -149,9 +140,11 @@ class Evaluator:
 
             fpr, frr = calc_first_positive_rank(ranked_ids, self.rel_dict[topic_id])
             f1 = calc_f1(ranked_ids, self.rel_dict[topic_id])
+            ndcg = calc_ndcg(ranked_ids, self.rel_dict[topic_id], k=10)
             fprs.append(fpr)
             frrs.append(frr)
             f1s.append(f1)
+            ndcgs.append(ndcg)
 
             # build per-example records
             # assign predicted labels: top positions get "relevant", then "partial", rest "not"
@@ -181,9 +174,10 @@ class Evaluator:
 
         n_errors = sum(1 for ex in all_examples if ex["is_error"])
         summary = {
-            "mean_fpr": sum(fprs) / len(fprs), "std_fpr": np.std(fprs),
-            "mean_frr": sum(frrs) / len(frrs), "std_frr": np.std(frrs),
-            "mean_f1": sum(f1s) / len(f1s), "std_f1": np.std(f1s),
+            "ndcg@10":  np.mean(ndcgs), "std_ndcg": np.std(ndcgs),
+            "mean_mrr": np.mean(frrs),  "std_mrr":  np.std(frrs),
+            "mean_f1":  np.mean(f1s),   "std_f1":   np.std(f1s),
+            "mean_fpr": np.mean(fprs),  "std_fpr":  np.std(fprs),
             "total_examples": len(all_examples),
             "total_errors": n_errors,
             "output_path": output_path,

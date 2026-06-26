@@ -14,7 +14,7 @@ import torch
 
 # package tools
 from .reranking.classifier import ClassifierModel
-from ..utils.ctmatch_utils import get_processed_data, exclusive_argmax
+from ..utils.ctmatch_utils import get_processed_data
 from ..config import PipeConfig
 from .topic import PipeTopic
 from ..data.dataprep import DataPrep
@@ -94,22 +94,17 @@ class CTMatch:
     def sim_filter(self, pipe_topic: PipeTopic, doc_set: List[int], top_n: int) -> List[int]:
         logger.info(f"running sim filter on {len(doc_set)} docs")
 
-        topic_cat_vec = exclusive_argmax(pipe_topic.category_vec)
         norm_topic_emb = norm(pipe_topic.embedding_vec)
-        cosine_dists = []
+        scores = []
         for doc_idx in doc_set:
             doc_cat_vec = self.redist_other_category(self.data.doc_categories_df.iloc[doc_idx].values)
-            doc_cat_vec = exclusive_argmax(doc_cat_vec)
             doc_emb_vec = self.data.doc_embeddings_df.iloc[doc_idx].values
 
-            topic_argmax = np.argmax(topic_cat_vec)
-            doc_argmax = np.argmax(doc_cat_vec)
-            cat_dist = 0. if (topic_argmax == doc_argmax) else 1.
-            emb_dist = np.dot(pipe_topic.embedding_vec, doc_emb_vec) / (norm_topic_emb * norm(doc_emb_vec))
-            combined_dist = cat_dist + emb_dist
-            cosine_dists.append(combined_dist)
+            cat_sim = np.dot(pipe_topic.category_vec, doc_cat_vec)
+            emb_sim = np.dot(pipe_topic.embedding_vec, doc_emb_vec) / (norm_topic_emb * norm(doc_emb_vec))
+            scores.append(cat_sim + emb_sim)
 
-        sorted_indices = list(np.argsort(cosine_dists))[:min(len(doc_set), top_n)]
+        sorted_indices = list(np.argsort(-np.array(scores)))[:min(len(doc_set), top_n)]
         return [doc_set[i] for i in sorted_indices]
 
 

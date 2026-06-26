@@ -15,6 +15,7 @@
    2b. TREC 2021 / 2022 datasets
    2c. KZ (Koopman-Zuccon) dataset
    2d. Structural differences: judged pool, topic format, relevance scale
+2e. Evaluation methodology: pooling, judged sets, and what we actually measure
 3. Text Processing: ctproc
    3a. Raw XML → structured fields
    3b. Eligibility criteria parsing: the regex cascade
@@ -162,6 +163,97 @@ Key differences that affect system design:
 2. **Judged pool depth**: KZ ~1,200, TREC 2022 ~700, TREC 2021 ~80. Eval time scales linearly with pool depth × pipeline cost.
 3. **Corpus vintage**: KZ uses 2015 dump. ~15–20% of KZ judged trial IDs may be absent from the 2021 corpus.
 4. **Annotation provenance**: TREC judgments made by NIST assessors; KZ by the paper authors. Different inter-annotator agreement, different thresholds for partial relevance.
+
+### 2e. Evaluation methodology: pooling, judged sets, and what we actually measure
+
+This section is essential for understanding what the metrics in §6 actually mean — and equally important for understanding what they *don't* measure.
+
+#### The scale problem
+
+There are 374,000 clinical trials in the corpus. Each TREC topic is a patient description. A correct evaluation would require a human assessor to judge every (topic, trial) pair — that is 75 topics × 374,000 trials = **28 million judgments**. At 2 minutes per judgment, that is 107 person-years of annotation work. This is not feasible.
+
+TREC solves this with **pooling**.
+
+#### What pooling means
+
+Pooling is a strategy for selecting a tractable subset of (topic, document) pairs to judge while ensuring the subset covers most of what a good system would return.
+
+The procedure:
+1. Each participating system (team) submits a ranked list of their top-$k$ documents for each topic (typically $k = 1000$).
+2. The **pool** for each topic is the **union** of all submitted top-$k$ lists across all systems.
+3. Human assessors (NIST for TREC) judge every document in the pool for each topic, assigning relevance labels.
+4. Documents **not in the pool** receive **no label** — they are treated as not relevant by default.
+
+```
+System A top-1000: [NCT001, NCT003, NCT007, NCT011, ...]
+System B top-1000: [NCT002, NCT003, NCT009, NCT011, ...]
+System C top-1000: [NCT001, NCT004, NCT006, NCT011, ...]
+
+Pool = union = {NCT001, NCT002, NCT003, NCT004, NCT006, NCT007, NCT009, NCT011, ...}
+                ↑ this set gets human judgments
+```
+
+For TREC 2021 Clinical Trials, roughly 40–120 documents per topic were pooled and judged. For TREC 2022, the pool was deeper (~500–900 per topic) because more systems participated and deeper cutoffs were used.
+
+#### What the judged set actually contains
+
+The judged documents are **not a random sample** of the corpus. They are exactly those documents that at least one participating system ranked in its top-1000. This has important implications:
+
+- The pool is biased toward documents that look relevant to *the systems that participated in 2021*. Systems using similar architectures (TF-IDF, BM25, dense retrieval) will have overlapping pools.
+- A trial that every 2021 system missed — perhaps because it uses unusual terminology — will not be in the pool and will not be judged. If our system correctly retrieves it, we get **no credit** for it.
+- This is called **pool bias** or the **unjudged document problem**. It is an inherent limitation of TREC-style evaluation.
+
+#### The "unjudged = not relevant" assumption
+
+When computing NDCG and MRR, documents not in the qrels file are treated as relevance 0. This is the standard TREC assumption. It is approximately correct for two reasons:
+1. The pool covers most truly relevant documents (systems generally agree on the obviously relevant ones).
+2. Relevant documents outside the pool are rare — if they were easy to retrieve, at least one 2021 system would have found them.
+
+It is approximately *wrong* in two ways:
+1. New systems using new architectures (e.g., dense retrieval when 2021 systems were mostly sparse) may retrieve genuinely relevant documents that were never pooled.
+2. For KZ, the 2021 corpus contains trials that didn't exist in 2015 — some may be highly relevant but were never in any pool.
+
+**Practical consequence for this project:** our NDCG@10 scores are conservative lower bounds. We can confidently say our system achieves at least X, but the true NDCG (if all 374k docs were judged) could be higher.
+
+#### Evaluating on the judged pool only
+
+Because we do not have relevance labels for all 374k documents, our evaluation uses only the judged subset. For each topic:
+
+```python
+doc_ids = list(rel_dict[topic_id].keys())   # only the judged docs
+doc_set = get_indexes_from_ids(doc_ids)      # find them in our index
+ranked_pairs = ctm.match_pipeline(topic_text, doc_set=doc_set)
+# pipeline ranks only the judged docs, not the full corpus
+```
+
+This means the pipeline is **not** doing full retrieval — it is doing **reranking within the judged pool**. The practical effect:
+- Precision is measured against a finite, partially-complete set
+- Documents outside the pool that our pipeline would rank highly are invisible to the metric
+- The eval is asking: "given the documents humans looked at, does our system rank the good ones higher?"
+
+This is the standard and correct way to evaluate against TREC qrels. It is meaningfully different from TrialGPT's evaluation, which ran their system on the full corpus top-500 — a procedure that requires running the full pipeline on 374k documents per topic.
+
+#### Relevance labels: what 0, 1, 2 mean
+
+TREC Clinical Trials 2021/2022 uses a 3-point scale:
+
+| Label | Meaning | Clinical interpretation |
+|---|---|---|
+| 2 | Eligible | Patient meets all inclusion criteria; no exclusion criteria triggered |
+| 1 | Partially eligible | Meets inclusion criteria but has at least one relevant exclusion criterion; or meets most but not all inclusion criteria — assessor judgment call |
+| 0 | Not eligible | Clear mismatch: wrong condition, age, gender, or disease stage |
+
+The **partially eligible** label (rel=1) is where most inter-annotator disagreement lives. It requires the assessor to read the eligibility text carefully and make a clinical judgment about whether the patient's specific comorbidities or history constitute an exclusion. This is where 20 years of ICU clinical experience provides a real evaluation advantage — the primary author can audit individual rel=1 labels and identify where the assessors made defensible but incorrect calls.
+
+#### KZ relevance labels
+
+The KZ dataset uses the same 0/1/2 scale but the judgments come from the paper's authors (Koopman and Zuccon), not NIST assessors. The deeper pool (~1,000–1,400 judged docs per topic) suggests a more systematic pooling strategy — possibly manual search rather than system pooling — but the annotation procedure is not fully described in the paper.
+
+**Implication:** KZ labels may have different inter-annotator agreement characteristics than TREC labels. Comparing NDCG across the two datasets is not apples-to-apples even when using the same metric formula.
+
+#### What pooling means for system comparisons
+
+If system A outperforms system B on the judged pool, we conclude A is better — but with a caveat: if A uses a very different retrieval strategy from the 2021 TREC systems (different enough that its relevant retrievals fall outside the pool), the comparison underestimates A's true performance. New dense retrieval systems in 2022 faced exactly this issue when evaluated against 2021 pools built primarily by BM25-based systems.
 
 ---
 
@@ -580,6 +672,114 @@ Key findings:
 2. For each criterion, score: patient description → criterion via NLI model (entails / neutral / contradicts)
 3. Aggregate: eligible iff (all inclusion entailed) AND (no exclusion entailed)
 4. Use TrialGPT criterion annotations (`ncbi/TrialGPT-Criterion-Annotations`) as training signal
+
+#### Why you cannot simply do binary entailment per criterion and AND the results
+
+The natural instinct is: parse each criterion into a sentence, run NLI (entails / neutral / contradicts) between patient and criterion, then apply logical AND across all inclusion criteria and NOT-AND across exclusion criteria. Eligible = all inclusions entailed AND no exclusions entailed.
+
+This is clean, interpretable, and wrong in practice. Here is why, with real examples from the TREC corpus.
+
+---
+
+**Problem 1: Missing information — you cannot entail OR contradict**
+
+Criterion (inclusion): *"ECOG performance status 0 or 1"*
+
+Patient: *"74-year-old male with hypertension, hyperlipidemia, and type 2 diabetes presenting with chest pain on exertion. Currently ambulates independently."*
+
+ECOG is a formal 5-point scale (0=fully active, 1=restricted in strenuous activity, 2=ambulatory but unable to work, 3=limited self-care, 4=fully disabled). The patient "ambulates independently" — is that ECOG 0 or 1? We don't know. Is the chest pain on exertion restricting him from strenuous activity (ECOG 1) or is he still fully active (ECOG 0)? A clinician would need to examine him. An NLI model can only output **neutral** — it cannot entail that he meets this criterion, nor can it contradict it.
+
+If your pipeline requires ALL inclusion criteria to be entailed, a single unknown criterion kills the entire trial — the patient is falsely classified as not eligible. TREC assessors marked many such patients as rel=1 or rel=2 using clinical judgment about the *likely* ECOG status given the narrative.
+
+---
+
+**Problem 2: Vague criteria with trial-specific definitions**
+
+Criterion (inclusion): *"Adequate hepatic function"*
+
+Patient: *"ALT 52 U/L, bilirubin 1.1 mg/dL"*
+
+"Adequate hepatic function" is defined differently in every trial's protocol. One trial might define it as ALT < 3× ULN (~117 U/L); another as ALT < 2× ULN (~78 U/L); another as ALT < 5× ULN in the setting of liver metastases. The eligibility textblock often states the criterion without the numerical definition because the protocol document has the definitions and the CTG textblock is a summary.
+
+A patient with ALT=52 might satisfy one trial's definition and fail another's. NLI on the textblock alone cannot resolve this — the information required for entailment is not present.
+
+---
+
+**Problem 3: Temporal and historical requirements**
+
+Criterion (exclusion): *"Prior anthracycline therapy with cumulative dose > 450 mg/m²"*
+
+Patient: *"s/p AC chemotherapy × 4 cycles for breast cancer 3 years prior"*
+
+AC is doxorubicin (60 mg/m² per cycle) + cyclophosphamide. Four cycles = 240 mg/m² cumulative doxorubicin, which is under 450. So the patient *does not* trigger this exclusion criterion and is potentially eligible. But:
+- "AC" requires domain knowledge to expand to doxorubicin
+- The cumulative dose requires knowing the standard dosing regimen and multiplying
+- The patient description says "4 cycles" but standard regimens vary; some use 75 mg/m²/cycle, which would put her at 300 mg/m² — still under 450
+- If she received dose-dense AC, the calculation changes again
+
+NLI would almost certainly return **neutral** (the patient text does not explicitly state a dose above 450), which is technically correct but for the wrong reason. The real answer requires arithmetic over implicit information. An experienced oncology nurse would compute this immediately; an NLI model cannot.
+
+---
+
+**Problem 4: Partial eligibility is not a logical artifact — it is a clinical judgment**
+
+Criterion (inclusion): *"Diagnosis of heart failure with reduced ejection fraction (HFrEF), defined as LVEF ≤ 40%"*
+
+Criterion (exclusion): *"Estimated GFR < 30 mL/min/1.73m²"*
+
+Patient: *"74M with history of ischemic cardiomyopathy, EF 35%, CKD stage 3b with GFR 28."*
+
+Binary entailment outcome:
+- Inclusion: patient has EF 35% ≤ 40% → **entails** ✓
+- Exclusion: GFR 28 < 30 → **entails** → patient is EXCLUDED ✗
+
+The model outputs: not eligible (0).
+
+But a TREC assessor — and clinician — might label this **rel=1 (partially eligible)** because:
+1. The patient is close to the threshold (GFR 28 vs. 30)
+2. CKD stage 3b GFR fluctuates; a repeat measurement might be ≥ 30
+3. The investigator might grant an exception for a GFR of 28 in a patient who otherwise perfectly fits the trial
+4. Some trials use eGFR with different equations (MDRD vs. CKD-EPI) that might yield slightly different values
+
+The rel=1 label is a clinical judgment about *likelihood of enrollment* given the full picture, not a binary logic gate. This is the fundamental reason the 3-point relevance scale exists — real-world eligibility is not a boolean.
+
+If you binary-AND all inclusion criteria and binary-OR-NOT all exclusion criteria, you collapse rel=1 into rel=0. You lose the middle tier that NDCG@10 uses most discriminatively (the difference between placing a rel=2 at rank 1 vs. a rel=1 vs. a rel=0 is large).
+
+---
+
+**Problem 5: Negation compounding and double negatives**
+
+Criterion (exclusion): *"Patients with no prior exposure to checkpoint inhibitors are ineligible for the dose-escalation cohort but may enroll in the dose-expansion cohort"*
+
+This sentence contains: a negative ("no prior exposure"), a conditional eligibility structure (two cohorts), and is itself an exclusion criterion. The correct clinical parsing is: checkpoint inhibitor-naive patients CAN enroll (in one cohort), checkpoint inhibitor-experienced patients cannot enroll in that cohort but can in another. An NLI model reading this as "does the patient's description entail this criterion?" will almost certainly produce an incorrect or highly uncertain output.
+
+NegEx (the tool used in ctproc's NLP layer) handles single-sentence negation well. It cannot handle compound conditionals embedded in regulatory language.
+
+---
+
+**Problem 6: Cross-criterion dependencies**
+
+Criterion (inclusion): *"Stage III or IV non-small cell lung cancer (NSCLC)"*
+Criterion (inclusion): *"At least one prior platinum-based chemotherapy regimen for stage IV disease"*
+
+The second criterion only applies if the patient has stage IV (not stage III). These criteria cannot be evaluated independently — the second is conditional on a value extracted from the first. Logical AND-ing them treats them as independent when they are not.
+
+In practice, eligibility criteria are a **decision tree**, not a flat list of independent constraints. Some criteria branch on prior criteria. Some have OR-logic within a single criterion ("LVEF ≤ 40% OR prior hospitalization for HF within 12 months"). The flat-list parsing in ctproc necessarily loses this structure.
+
+---
+
+**What this means for criterion-level systems**
+
+The above examples explain why TrialGPT uses GPT-4 with chain-of-thought reasoning rather than a classification head over an NLI model. GPT-4 can:
+- Expand medical abbreviations ("AC" → doxorubicin)
+- Perform arithmetic ("4 cycles × 60 mg/m² = 240 mg/m²")
+- Apply clinical context ("ECOG 0-1 is consistent with an ambulatory patient with exertional symptoms")
+- Handle conditional structure ("this criterion applies only to stage IV patients")
+- Produce a graded score (0–2) rather than a binary output
+
+Even so, TrialGPT's criterion annotations are imperfect — the `ncbi/TrialGPT-Criterion-Annotations` dataset contains 1,020 rows with per-criterion GPT-4 labels and explanation chains. The errors in those annotations are instructive: they cluster exactly in the problem categories above (missing information, temporal reasoning, vague thresholds).
+
+**The right framing for criterion-level work:** NLI per criterion is not a solution; it is a feature extraction step that produces a structured, uncertain signal to be aggregated by a model that understands clinical context. The aggregation function — how uncertain criterion-level signals combine into a trial-level relevance score — is where the modeling challenge actually lives.
 
 ### 9b. RLHF / DPO on clinical judgments
 

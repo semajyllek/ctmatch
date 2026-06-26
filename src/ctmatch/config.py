@@ -27,5 +27,6 @@ class PipeConfig(NamedTuple):
     category_model_checkpoint: str = "facebook/bart-large-mnli"
     embedding_model_checkpoint: str = "sentence-transformers/all-MiniLM-L6-v2"
     gen_model_checkpoint: str = 'claude-opus-4-8'
+    embedding_file: str = 'doc_embeddings.txt'  # filename on HF Hub; .npy files loaded as binary, .txt as legacy CSV
     ir_setup: bool = False                  # if true, use the IR model setup, no classifier training or dataprep
     filters: Optional[List[str]] = None     # if provided, only use these filters; options: {'sim', 'svm', 'classifier', 'gen'}

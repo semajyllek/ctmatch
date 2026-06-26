@@ -116,13 +116,24 @@ class DataPrep:
         ds = load_dataset(CTMATCH_IR_DATASET_ROOT, data_files=ds_path)
         if is_text:
             return pd.DataFrame(ds['train'])
-    
-        arrays = [np.asarray(a['text'].split(','), dtype=float) for a in ds['train']]
+        arrays = [np.asarray(a['text'].split(','), dtype=np.float32) for a in ds['train']]
         return pd.DataFrame(arrays)
+
+    def load_embeddings_from_hf(self) -> pd.DataFrame:
+        emb_file = self.pipe_config.embedding_file
+        if emb_file.endswith('.npy'):
+            from huggingface_hub import hf_hub_download
+            local_path = hf_hub_download(
+                repo_id=CTMATCH_IR_DATASET_ROOT,
+                filename=emb_file,
+                repo_type='dataset',
+            )
+            return pd.DataFrame(np.load(local_path))
+        return self.process_ir_data_from_hf(emb_file)
 
     def load_ir_data(self) -> None:
         self.index2docid = self.process_ir_data_from_hf(INDEX2DOCID_PATH, is_text=True)
-        self.doc_embeddings_df = self.process_ir_data_from_hf(DOC_EMBEDDINGS_VEC_PATH)
+        self.doc_embeddings_df = self.load_embeddings_from_hf()
         self.doc_categories_df = self.process_ir_data_from_hf(DOC_CATEGORIES_VEC_PATH)
         self.doc_texts_df = self.process_ir_data_from_hf(DOC_TEXTS_PATH, is_text=True)
 

@@ -22,6 +22,7 @@ class EvaluatorConfig(NamedTuple):
     max_topics: int = 200
     filters: Optional[List[str]] = None
     sanity_check_ids: Optional[List[str]] = None
+    ctm: Optional[object] = None
 
 
 class Evaluator:
@@ -29,16 +30,16 @@ class Evaluator:
         self.rel_paths: List[str] = eval_config.rel_paths
         self.trec_topic_path: Union[Path, str]  = eval_config.trec_topic_path
         self.kz_topic_path: Union[Path, str] = eval_config.kz_topic_path
-       
+
         self.rel_dict: dict = None
         self.topicid2text: dict = None
-        self.ctm = None
+        self.ctm = eval_config.ctm
         self.filters = eval_config.filters
         self.sanity_check_ids = eval_config.sanity_check_ids
-   
+
         assert self.rel_paths is not None, "paths to relevancy judgments must be set in pipe_config if pipe_config.evaluate=True"
         assert ((self.trec_topic_path is not None) or (self.kz_topic_path is not None)), "at least one of trec_topic_path or kz_topic_path) must be set as pipe_config.evaluate=True"
-    
+
         self.setup()
 
         self.max_topics: int = len(self.topicid2text) if eval_config.max_topics is None else min(len(self.topicid2text), eval_config.max_topics)
@@ -67,12 +68,8 @@ class Evaluator:
             for p in paths:
                 self.topicid2text.update(get_trec_topic2text(p))
 
-        # loads all remaining needed datasets into memory
-        pipe_config = PipeConfig(
-            ir_setup=True,
-            filters=self.filters
-        )
-        self.ctm = CTMatch(pipe_config=pipe_config)
+        if self.ctm is None:
+            self.ctm = CTMatch(pipe_config=PipeConfig(ir_setup=True, filters=self.filters))
 
 
 

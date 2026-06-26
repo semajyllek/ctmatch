@@ -1,4 +1,5 @@
-from ctmatch.match import CTMatch, PipeConfig
+from ctmatch.matching.pipeline import CTMatch
+from ctmatch.config import PipeConfig
 import gradio as gr
 
 
@@ -16,8 +17,6 @@ def ctmatch_web_api(topic_query: str, topK: int = 5) -> str:
 
 
 if __name__ == "__main__":
-  
-
     with gr.Blocks(css=".gradio-container {background-color: #00CED1}") as demo:
         name = gr.Textbox(lines=5, label="patient description", placeholder="Patient is a 45-year-old man with a history of anaplastic astrocytoma...")
         topK = gr.Number(label='topK', info='number of documents to return, <= 50', value=5)

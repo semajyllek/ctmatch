@@ -20,7 +20,6 @@ class EvaluatorConfig(NamedTuple):
     trec_topic_path: Union[Path, str]  = None
     kz_topic_path: Union[Path, str] = None
     max_topics: int = 200
-    openai_api_key: Optional[str] = None
     filters: Optional[List[str]] = None
     sanity_check_ids: Optional[List[str]] = None
 
@@ -34,7 +33,6 @@ class Evaluator:
         self.rel_dict: dict = None
         self.topicid2text: dict = None
         self.ctm = None
-        self.openai_api_key = eval_config.openai_api_key
         self.filters = eval_config.filters
         self.sanity_check_ids = eval_config.sanity_check_ids
    
@@ -69,7 +67,6 @@ class Evaluator:
 
         # loads all remaining needed datasets into memory
         pipe_config = PipeConfig(
-            openai_api_key=self.openai_api_key,
             ir_setup=True,
             filters=self.filters
         )

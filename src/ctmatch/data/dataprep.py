@@ -88,11 +88,7 @@ class DataPrep:
 
     
     def add_features(self) -> None:
-        if self.pipe_config.convert_snli:
-            names = ['contradiction', 'entailment', 'neutral']
-        else:
-            names = ["not_relevant", "partially_relevant", "relevant"]
-
+        names = ["not_relevant", "partially_relevant", "relevant"]
         features = Features({
             'doc': Value(dtype='string', id=None),
             'label': ClassLabel(names=names),
@@ -115,26 +111,6 @@ class DataPrep:
         self.ct_dataset = self.ct_dataset.map(self.tokenize_function, batched=True)
 
 
-    def get_category_data(self, vectorize=True):
-        category_data = dict()
-        sorted_cat_keys = None
-        for cdata in get_processed_data(self.pipe_config.category_path):
-
-            # cdata = {<nct_id>: {cat1: float1, cat2: float2...}}
-            cdata_id, cdata_dict = list(cdata.items())[0]
-            if sorted_cat_keys is None:
-                sorted_cat_keys = sorted(cdata_dict.keys())
-
-            if vectorize:
-                cat_vec = np.asarray([cdata_dict[k] for k in sorted_cat_keys])
-            else:
-                cat_vec = cdata_dict
-
-            category_data[cdata_id] = cat_vec
-        return category_data
-    
-
-    
     # ------------------ IR Data Loading ------------------ #
     def process_ir_data_from_hf(self, ds_path, is_text: bool = False):
         ds = load_dataset(CTMATCH_IR_DATASET_ROOT, data_files=ds_path)

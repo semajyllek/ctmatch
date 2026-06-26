@@ -63,7 +63,9 @@ class Evaluator:
             self.topicid2text = get_kz_topic2text(self.kz_topic_path)
 
         if self.trec_topic_path is not None:
-            self.topicid2text.update(get_trec_topic2text(self.trec_topic_path))
+            paths = self.trec_topic_path if isinstance(self.trec_topic_path, list) else [self.trec_topic_path]
+            for p in paths:
+                self.topicid2text.update(get_trec_topic2text(p))
 
         # loads all remaining needed datasets into memory
         pipe_config = PipeConfig(

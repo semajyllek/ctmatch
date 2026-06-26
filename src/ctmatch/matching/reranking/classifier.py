@@ -86,7 +86,7 @@ class ClassifierModel:
         self.model = self.get_model()
 
         if self.model_config.ir_setup:
-            return self.model
+            return self.model.to(self.device)
 
         self.optimizer = AdamW(self.model.parameters(), lr=self.model_config.learning_rate, weight_decay=self.model_config.weight_decay)
         self.num_training_steps = self.model_config.train_epochs * len(self.dataset['train'])
@@ -221,16 +221,22 @@ class ClassifierModel:
                 return torch.nn.functional.softmax(outputs, dim=1).squeeze(0)
             return str(outputs.argmax().item())
 
-    def batch_inference(self, topic: str, docs: List[str], return_preds: bool = False) -> List[str]:
-        topic_repeats = [topic for _ in range(len(docs))]
-        inputs = self.tokenizer(
-            topic_repeats, docs, return_tensors='pt',
-            truncation=self.model_config.truncation,
-            padding=self.model_config.padding,
-            max_length=self.model_config.max_length
-        )
-        with torch.no_grad():
-            outputs = torch.nn.functional.softmax(self.model(**inputs).logits, dim=1)
+    def batch_inference(self, topic: str, docs: List[str], return_preds: bool = False, batch_size: int = 32) -> List[str]:
+        topic_repeats = [topic] * len(docs)
+        all_outputs = []
+        for i in range(0, len(docs), batch_size):
+            inputs = self.tokenizer(
+                topic_repeats[i:i+batch_size], docs[i:i+batch_size],
+                return_tensors='pt',
+                truncation=self.model_config.truncation,
+                padding=self.model_config.padding,
+                max_length=self.model_config.max_length
+            )
+            inputs = {k: v.to(self.device) for k, v in inputs.items()}
+            with torch.no_grad():
+                chunk_out = torch.nn.functional.softmax(self.model(**inputs).logits, dim=1)
+            all_outputs.append(chunk_out.cpu())
+        outputs = torch.cat(all_outputs, dim=0)
         if return_preds:
             return outputs
         return outputs.argmax(dim=1).tolist()

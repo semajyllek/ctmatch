@@ -1,217 +1,217 @@
-# Baseline Error Analysis — ctmatch Pipeline
-
-**Date:** 2026-06-26  
-**Dataset:** eval_predictions.jsonl (TREC 2021 topics)  
-**Pipeline:** sim filter (MiniLM + bart-large-mnli category) → SVM → SciBERT classifier  
-**Baseline metrics:** NDCG@10=0.6525, MRR=0.305, F1=0.335  
-**490 examples, 49 topics, 10 docs per topic**
+# Error Analysis — ctmatch Baseline Pipeline
+**File**: `eval_predictions.jsonl` (baseline run, post sim_filter + classifier fixes)  
+**Pipeline**: sim_filter (MiniLM + category) → SVM → SciBERT classifier  
+**Labels**: 0=not_relevant, 1=partially_relevant, 2=relevant  
+**Date**: 2026-06-27
 
 ---
 
 ## Confusion Matrix
 
-```
-                     not_relevant   partially_rel   relevant
-not_relevant               46              85           127
-partially_relevant          2              49            92
-relevant                    2              18            69
+Rows = actual label, columns = predicted label.
 
-490 examples | 326 errors (66.5%) | 49 topics
-```
+|                        | pred: not_rel | pred: partial | pred: relevant | **total** |
+|------------------------|:-------------:|:-------------:|:--------------:|:---------:|
+| **actual: not_rel**    |  67 (5.0%)    | 115 (8.6%)    |  517 (38.6%)   |  699      |
+| **actual: partial**    |  11 (0.8%)    |  54 (4.0%)    |  282 (21.0%)   |  347      |
+| **actual: relevant**   |   5 (0.4%)    |  21 (1.6%)    |  268 (20.0%)   |  294      |
+| **total predicted**    |  83           | 190           | 1067           | **1340**  |
+
+- **Total errors**: 951 / 1340 (71.0%)
+- **Correct**: 389 / 1340 (29.0%)
+- **Predicted distribution**: not_rel=83, partial=190, relevant=1067
+- **Actual distribution**: not_rel=699, partial=347, relevant=294
+- **Core problem**: model predicts "relevant" 1067 times; only 294 are actually relevant (3.6× overestimate)
 
 ---
 
 ## Error Cause Breakdown
 
 | Cause | Count | % of errors |
-|-------|-------|------------|
-| Shallow model error (category match, wrong condition) | ~155 | 47.5% |
-| Reasonable disagreement (1 vs 2 boundary) | ~60 | 18.4% |
-| Likely data errors (model arguably correct) | ~55 | 16.9% |
-| Deep model error (missed clinical constraint) | ~40 | 12.3% |
-| Systemic retrieval failure (unrelated condition) | ~16 | 4.9% |
+|-------|------:|------------:|
+| Model error — shallow (condition/domain mismatch, age exclusion missed) | ~370 | ~39% |
+| Model error — deep (correct disease, fails specific criteria: lab values, prior treatment, subtype) | ~380 | ~40% |
+| Reasonable disagreement (partial vs relevant boundary ambiguous) | ~150 | ~16% |
+| Data error (questionable TREC label) | ~30 | ~3% |
+| Systemic — sparse criteria text (false negatives) | ~21 | ~2% |
 
 ---
 
 ## Error Analysis by Cell
 
----
+### Cell: Predicted relevant, Actually not_relevant — 517 errors (54.4% of all errors)
 
-### Cell 1: actual=not_relevant → predicted=relevant (127 errors, 39.0% of all errors)
+The dominant failure. The model flags as fully eligible trials that are either completely wrong domain, wrong age group, or require a specific diagnosis the patient doesn't have.
 
-#### Individual error analysis
+#### Individual error analysis (representative sample)
 
-| # | Topic condition | Trial condition | Cause | Reasoning |
-|---|----------------|----------------|-------|-----------|
-| 1 | CMV infection on immunosuppression | CMV-specific T-cell therapy | **Possible data error** | Patient has CMV + immunosuppression — the trial's CMV T-cell therapy is plausibly relevant. Annotator may have applied stricter criteria. |
-| 2 | Lung mass + brain mass (lung ca) | Schizophrenia (risperidone/aripiprazole trial) | **Systemic retrieval failure** | Completely unrelated — neurological terms in both texts caused retrieval hit but there is zero clinical connection. |
-| 3 | Cardiac chest pain (ACS presentation) | SVT cardioversion | **Shallow** | Both cardiac, but ACS ≠ SVT. Category filter (cardiac) passed the trial; classifier didn't distinguish arrhythmia from ischemia. |
-| 4 | Endometriosis/menstrual pain | PMS (premenstrual syndrome) trial | **Shallow** | Both women's health, but PMS ≠ endometriosis. Category overlap drove retrieval. |
-| 5 | CJD (rapidly progressive dementia) | Cerebral palsy spasticity, ages 2–17 | **Systemic retrieval failure** | Different condition, wrong age group entirely. "Neurological" category caused retrieval; the trial should have been hard-filtered on age. |
-| 6 | Bipolar + depression + insomnia (age 26) | Nonorganic insomnia, ages 12–18 | **Deep** | Patient does have insomnia; classifier should have caught the age exclusion (trial max age 18, patient is 26). Age value comparison required. |
-| 7 | Bipolar + depression | Major depressive disorder trial | **Possible data error** | Patient explicitly has depression as a comorbidity. The trial is for MDD. Annotator labeled not_relevant but this is debatable — patient meets the primary criterion. |
-| 8 | Kawasaki disease (age 2) | Kawasaki disease (ages 4–16) | **Deep** | Condition match is perfect. The only exclusion is age — patient is 2, trial requires ≥4. Model couldn't compare numeric ages. |
-| 9 | Lung mass + brain mass | Emphysema/COPD (lung disease) | **Shallow** | Both involve lungs and dyspnea, but malignancy ≠ emphysema. Pulmonary category drove retrieval. |
-| 10 | PE post-hip replacement | Small cell lung cancer chemotherapy | **Systemic retrieval failure** | Completely different — PE vs SCLC. Shared "chest pain + dyspnea" vocabulary caused retrieval. |
+| # | Topic (truncated) | Trial (truncated) | Cause | Reasoning |
+|---|-------------------|-------------------|-------|-----------|
+| 1 | 58F, acute chest pain, first episode | Stable exertional angina trial (CCS II-III, ≥3 months history required) | Model error—deep | Patient has first-episode acute pain; trial requires chronic stable angina. Model matched "chest pain" + "angina" without reading the temporal/stability requirement. |
+| 2 | 58F, acute chest pain | Idiopathic mechanical low back pain trial | Model error—shallow | Completely different organ system. Model likely scored high on shared demographic tokens (58F, ER) rather than condition. |
+| 3 | 8yo male, fever, dyspnea, Colorado trip | Adults ≥18 C. diff trial | Model error—shallow | Clear age exclusion (trial ≥18, patient is 8). Different condition entirely. Model did not check age criteria. |
+| 4 | 8yo male, respiratory | Healthy child TBE vaccine trial (1-10 years) | Reasonable disagreement | Age matches but patient is acutely ill — healthy volunteer exclusion not caught. |
+| 5 | 58F, lung mass (likely NSCLC) | Asthma trial / COPD trial / medulloblastoma trial | Model error—shallow | Condition mismatch across organ systems. "Dyspnea" and "cough" overlap with all pulmonary trials regardless of diagnosis. |
+| 6 | 58F, lung mass | Schizophrenia trial (psychiatric) | Model error—shallow | No semantic overlap with lung cancer. Classifier scored relevant on minimal signal — worst false positive category. |
+| 7 | 2yo KD child | Adult RA trial (anti-TNF, age ≥18) | Model error—shallow | Age exclusion entirely missed; different autoimmune condition. |
+| 8 | 56F post-mastectomy, likely PE | Suspected DVT of leg trial | Reasonable disagreement | Patient has PE/DVT post-cancer surgery — related, but trial requires suspected DVT of leg specifically. Label=0 may be too strict. |
+| 9 | 18yo Dengue (fever, leukopenia, thrombocytopenia) | Adults ≥40 trials | Model error—shallow | Age exclusion not caught. Dengue symptoms matched infection-related trials semantically. |
+| 10 | KD child 2yo | Adult RA anti-TNF trial | Model error—shallow | Wrong age group, wrong condition. Both involve immune/inflammatory disease which likely drove the embedding match. |
 
-#### Statistical patterns
+**Pattern**: The classifier is not doing condition matching or age-gating. It scores on surface-level clinical vocabulary shared between any medicine-involving topic and any medical trial. Cardiac terms match cardiac trials regardless of subtype; "pediatric + fever" matches pediatric trials regardless of condition.
 
-| Feature | Error% | Correct% | Enrichment | p |
-|---------|--------|----------|-----------|---|
-| has_cardiac (topic) | 22.8% | 2.2% | **10.5x** | 0.001 |
-| has_exclusion_lang (topic) | 55.9% | 21.7% | 2.6x | 0.0001 |
-| has_gender (topic) | 97.6% | 67.4% | 1.45x | 0.0000 |
-| has_lab (doc) | 1.6% | 8.7% | 0.18x | 0.025 |
+#### Statistical patterns (contrastive vs correct not_relevant predictions, N=67)
 
-The cardiac signal is the strongest finding in the dataset. Cardiac topics generate false positives at 10.5× the base rate — the sim filter's category match brings in every cardiac trial regardless of specific condition, and the SciBERT classifier doesn't penalize wrong cardiac subtypes strongly enough. Topics with exclusion language ("no X, not Y") also generate more FPs — the negation isn't being parsed. Trials with explicit lab values in their criteria (has_lab) are less likely to be FPs, suggesting that concrete numeric criteria help the classifier discriminate.
+| Pattern | Error rate | Correct rate | Enrichment | p-value |
+|---------|:----------:|:-----------:|:---------:|:-------:|
+| Doc length (words) | 74.3 | 60.2 | — | <0.0001 |
+| Vocabulary overlap (topic∩doc/topic) | 0.129 | 0.107 | — | 0.0001 |
+| Topic is pediatric patient | 93.4% | 86.6% | 1.08× | 0.076 |
+| Doc contains age criteria text | 69.4% | 68.7% | 1.01× | n.s. |
+
+Longer criteria documents and higher vocabulary overlap enrich for false positives. The presence of age criteria *text* in the document does not reduce the error rate — the model is not evaluating it.
 
 #### Stage attribution
 
-**Primarily sim filter + classifier.** The category-level retrieval (cardiac → all cardiac trials) is correct behavior for the sim filter, but the classifier should be penalizing wrong conditions within a category. These errors arrive at the classifier ranked 1–10 (high cosine similarity), so the classifier is the last opportunity to demote them and it isn't.
+**Classifier stage.** These documents were retrieved into the TREC judged pool by participating systems, passed through the SVM (which in eval mode passes all docs). SciBERT is the stage assigning the "relevant" score based on condition-level semantic similarity without eligibility checking.
 
 ---
 
-### Cell 2: actual=not_relevant → predicted=partially_relevant (85 errors, 26.1%)
+### Cell: Predicted relevant, Actually partially_relevant — 282 errors (29.7% of all errors)
 
-#### Individual error analysis
+The model upgrades partial matches to full relevance. These are cases where the disease or condition domain is correct but specific eligibility criteria (gender requirement, prior treatment, disease subtype, numeric lab threshold) rule out full eligibility.
+
+#### Individual error analysis (representative sample)
+
+| # | Topic (truncated) | Trial (truncated) | Cause | Reasoning |
+|---|-------------------|-------------------|-------|-----------|
+| 1 | 58F, cardiac, chest pain | Stable angina trial — **MALE only** | Model error—deep | Trial explicitly requires male patients. Patient is female. Classifier matched on cardiac disease, ignored the gender criterion. |
+| 2 | 58F, possible ACS | Acute MI/ACS/unstable angina trial | Reasonable disagreement | Patient has possible ACS — label=1 may be too strict; depends on final diagnosis. Annotator uncertainty is driving this. |
+| 3 | KD child | IVIG-refractory KD trial (requires prior IVIG failure) | Model error—deep | Trial requires failure of initial IVIG treatment. Patient's IVIG history is unknown. Classifier matched "Kawasaki Disease" without parsing the refractory criterion. |
+| 4 | 56F post-mastectomy, dyspnea | Massive PE requiring thrombolysis trial | Model error—deep | "Massive PE" requires hemodynamic instability. Patient's PE severity is unstated. Severity threshold not evaluated. |
+| 5 | 64F, DM, elevated HbA1c | Non-healing foot wound trial (requires active ulcer, Grade II Wagner) | Model error—deep | Trial requires a specific complication (active foot ulcer). Patient has DM but no wound mentioned. DM keyword match is insufficient. |
+| 6 | 26F, bipolar, obese | Insomnia trial requiring BMI 18–34 | Model error—deep | Patient is obese; trial caps BMI at 34. Numeric BMI threshold not evaluated. |
+| 7 | 43F, skin fibromas (neck) | Healthy subjects Fitzpatrick I-III trial | Model error—deep | Trial requires healthy subjects WITHOUT skin disease. Patient has skin lesions — should be excluded, not included. Classifier missed the exclusion. |
+| 8 | 27F pregnant, Hb=9.0 g/dL | Iron anemia in pregnancy trial (Hb<11, first trimester) | Possible data error | Patient explicitly meets all stated criteria — label=1 may be wrong; this looks like a label=2 case. |
+| 9 | 67F post-cath, limb ischemia | Coronary diagnostic procedure femoral access trial | Reasonable disagreement | Patient had femoral access cath and now has ischemia — related, but trial is prospective procedural enrollment, not for managing complications. |
+| 10 | 2yo KD, fever | KD trial requiring IVIG-refractory patients with specific coronary dilation | Model error—deep | Multiple specific sub-criteria (IVIG failure, coronary dilation, fever ≥37.5°C axillary). Model matched KD diagnosis without evaluating any of these. |
+
+**Pattern**: The classifier identifies the correct disease domain but cannot evaluate:
+- Specific required prior treatment history (IVIG failure, prior chemo lines)
+- Numeric lab/measurement thresholds (BMI ≤34, Hb <11, GFR cutoffs)
+- Gender/demographic requirements
+- Disease subtype specificity (stable vs unstable, complete vs incomplete KD)
+- Exclusion criteria containing the patient's actual condition
+
+#### Statistical patterns (contrastive vs correct partially_relevant predictions, N=54)
+
+| Pattern | Error rate | Correct rate | Enrichment | p-value |
+|---------|:----------:|:-----------:|:---------:|:-------:|
+| Doc length (words) | 72.6 | 59.1 | — | <0.0001 |
+| Lab value keywords in doc | 57.8% | 40.7% | **1.42×** | **0.031** |
+| Vocabulary overlap | 0.132 | 0.115 | — | 0.040 |
+| Topic is pediatric | 91.8% | 83.3% | 1.10× | 0.089 |
+
+**Lab value enrichment is the most actionable signal**: trials containing explicit numeric thresholds (Hb, creatinine, platelet count, HbA1c, eGFR, BMI) are 1.42× more likely to be incorrectly upgraded to "relevant." The model cannot compare `patient Hb=9.0` vs `trial threshold Hb<11`, or `patient BMI=35` vs `trial BMI≤34`. This directly motivates structured lab value extraction.
+
+#### Stage attribution
+
+**Classifier stage.** The disease domain is correctly identified (retrieval and SVM passed these appropriately). SciBERT cannot evaluate specific inclusion/exclusion sub-criteria. This is the deep reasoning gap that either a structured matching layer (lab extraction) or RLHF-trained reasoning model would address.
+
+---
+
+### Cell: Predicted partially_relevant, Actually not_relevant — 115 errors (12.1% of all errors)
+
+#### Individual error analysis (representative sample)
+
+| # | Topic (truncated) | Trial (truncated) | Cause | Reasoning |
+|---|-------------------|-------------------|-------|-----------|
+| 1 | 8yo male, fever/dyspnea | Children 6 months–5 years, fever/cough trial | Model error—shallow | Patient is 8; trial caps at 5 years. Age upper bound missed. |
+| 2 | 8yo male, respiratory | Gastroenteritis study (GI, different condition) | Model error—shallow | Different condition. Shared "pediatric + fever" surface drove partial-relevance score. |
+| 3 | 2yo KD child | Adult RA anti-TNF trial (≥18 years) | Model error—shallow | Wrong age and wrong condition — but partial rather than relevant, so classifier was slightly more conservative here. |
+| 4 | 62yo, CJD-like | Mild cognitive impairment / possible AD trial | Reasonable disagreement | Patient likely has prion disease (CJD), not AD. Overlapping cognitive decline symptoms make label=0 vs 1 debatable — this may be a data error. |
+| 5 | 62yo, CJD | Parkinson's disease trial | Model error—shallow | CJD vs Parkinson's — distinct conditions with overlapping motor features (jerking movements). |
+| 6 | 43F, neck skin fibromas | Hyaluronic acid cosmetic injection trial (females >35) | Reasonable disagreement | Age and gender match; condition (cosmetic aging) vs skin lesions doesn't match. Label=0 is correct. |
+| 7 | 43F, neck skin lesions | Intracranial aneurysm trial | Model error—shallow | No relation — "neck" in topic spuriously matched "intracranial" (neck vessels?). |
+| 8 | 67F post-cath, limb ischemia | Carotid stenosis trial (>60% stenosis) | Model error—shallow | Different vascular territory (peripheral femoral vs carotid). |
+| 9 | 67F post-cath | Pulmonary arterial hypertension trial | Model error—shallow | Different condition. Cardiac catheterization in topic may have triggered "cardiac" semantic match. |
+
+#### Stage attribution
+
+**Mixed**: some are retrieval-adjacent errors (wrong-condition doc reaching classifier), some are classifier scoring on partial surface similarity. The partial (rather than relevant) prediction suggests the classifier is slightly more calibrated for these — but still wrong.
+
+---
+
+### Cell: Predicted not_relevant, Actually relevant — 5 errors (0.5% of all errors)
+
+All five involve trials with extremely sparse criteria text. The model failed to score them as relevant despite a genuine patient match.
 
 | # | Topic | Trial | Cause | Reasoning |
 |---|-------|-------|-------|-----------|
-| 1 | Child with sleep apnea + ADHD-like symptoms | ADHD study in children | **Shallow** | Symptom overlap (inattention, sleepiness), but sleep apnea causes those symptoms — the underlying condition differs. |
-| 2 | Femoral artery pseudoaneurysm post-cath | Pulmonary arterial hypertension | **Systemic** | Completely different — femoral vascular complication vs PAH. Both involve "cardiac catheterization" lexically. |
-| 3 | Hypothyroidism symptoms | Age-related macular degeneration | **Systemic** | Totally unrelated. No plausible mechanism. Pure vocabulary noise from shared patient demographic terms. |
-| 4 | CMV infection on prednisone | Allogeneic stem cell transplant (CMV seropositive req.) | **Possible data error** | Patient has CMV and is immunosuppressed. Trial requires CMV seropositive + stem cell transplant history — patient doesn't have a transplant, so this is borderline. Annotator was probably correct. |
-| 5 | CJD/prion disease | Alzheimer's diagnosis study | **Shallow** | Both dementias, but different types. Phenotypic overlap (cognitive decline) drove retrieval; CJD is a prion disease, not AD. |
-| 6 | Kawasaki disease (age 2) | Rheumatoid arthritis (age ≥18) | **Deep** | Both autoimmune/inflammatory, but KD ≠ RA, and age exclusion (18+) should rule it out immediately. |
+| 1 | 2yo KD child | KD study: "medical file confirmed KD, aged 1mo–12yr" (one line) | Systemic—sparse text | Criteria are ~15 words. SciBERT has low signal to work with. |
+| 2 | 8yo TBI, GCS declining after fall | "GCS ≤8, closed head injury, age 0–18" | Reasonable disagreement | Patient meets criteria. Possible model calibration issue on brief criteria. |
+| 3 | 18yo Dengue | "Clinical diagnosis of Dengue Fever" (4 words) | Systemic—sparse text | Near-empty criteria. No eligibility information to score against. |
+| 4 | 18yo Dengue | "Adolescents ages 14-19" (no disease criteria stated) | Systemic—sparse text | Meets age, but trial gives no condition text — model can't confirm relevance. |
+| 5 | 4yo KD girl | "Boys and girls meeting CDC KD criteria, presented by day 10" | Reasonable disagreement | Clear match, but exclusion clause ("after day 10") may have confused the classifier. |
 
-#### Statistical patterns
-
-| Feature | Error% | Correct% | Enrichment | p |
-|---------|--------|----------|-----------|---|
-| unique_words (doc, continuous) | 53.5 | 45.5 | 1.18x | 0.007 |
-| char_length (doc, continuous) | 450 | 391 | 1.15x | 0.037 |
-| has_cardiac (topic) | 10.6% | 2.2% | 4.9x | 0.098 |
-
-Longer, richer trial documents generate more partial-relevance FPs. The classifier appears to interpret document richness as a signal of relevance — a detailed eligibility criteria text with many unique terms gets scored up regardless of whether those terms actually match the patient. This is a known failure mode of sequence classifiers trained on pair-level classification: token count acts as a proxy for relevance.
-
-#### Stage attribution
-
-**Primarily classifier.** These trials passed the sim and SVM filters (plausible category match), then the classifier assigned partial scores based on surface richness rather than condition alignment.
+**Key finding**: False negatives are rare (0.5% of errors) and concentrated in trials with near-empty criteria text. Not a priority.
 
 ---
 
-### Cell 3: actual=partially_relevant → predicted=relevant (92 errors, 28.2%)
+### Cell: Predicted partially_relevant, Actually relevant — 21 errors (2.2% of all errors)
 
-This is the most important cell to scrutinize for data quality because the 1→2 boundary is where annotator inconsistency is worst.
+The model under-scores genuine matches. Several of these are likely label quality issues rather than model failures — the annotator marked "partial" but the patient appears to fully meet stated criteria.
 
-#### Individual error analysis
-
-| # | Topic | Trial | Cause | Reasoning |
-|---|-------|-------|-------|-----------|
-| 1 | Diabetic with leg skin ulcer | Diabetic foot wound infection trial | **Likely data error** | Patient has diabetes + skin lesion on leg. Trial is explicitly for diabetic foot wounds with inflammation. This seems clearly relevant, not partial. Model is probably right. |
-| 2 | Progressive dysphagia (esophageal cancer) | Esophageal cancer neoadjuvant chemo | **Likely data error** | Direct condition match. Annotator labeled partial — possibly because metastatic disease was listed as exclusion and the patient's staging is unclear, but the model's "relevant" call is defensible. |
-| 3 | Trauma patient, extremity fractures | Post-abdominal surgery complications | **Reasonable disagreement** | Related surgical/trauma context but patient has extremity fractures, not abdominal surgery. Partial label makes sense. |
-| 4 | Hyperthyroidism (Graves' disease) | Thyroidectomy for Basedow's disease (= Graves') | **Likely data error** | Basedow's disease IS Graves' disease. Direct match. Annotated as partial — possibly because surgical candidacy is uncertain, but model's "relevant" call is correct. |
-| 5 | HPV+, cytology negative (32yo woman) | Trial for HPV+, cytology-negative women | **Likely data error** | Criteria match exactly: age 30–65, TCT negative, HPV positive. This should be labeled 2 (relevant), not 1. |
-| 6 | Lung mass + brain mass | ARDS in ICU patients | **Shallow model error** | Patient has lung cancer + brain met, not ARDS. Both involve respiratory distress but completely different. Model over-ranked. |
-| 7 | Endometriosis, pelvic pain | Uterine fibroids trial | **Reasonable disagreement** | Overlapping presentation (pelvic pain, menstrual issues) but endometriosis ≠ fibroids. Partial label is defensible. |
-| 8 | Enlarged uterus, cervical dilation | Uterine leiomyomas (fibroids) trial | **Reasonable disagreement** | Overlapping gynecological pathology but the acute presentation (possible incomplete abortion) differs from fibroid management. |
-
-#### Statistical patterns
-
-| Feature | Error% | Correct% | Enrichment | p |
-|---------|--------|----------|-----------|---|
-| has_cancer (doc) | 4.3% | 14.3% | **0.30x** | 0.037 |
-| has_gender (doc) | 16.3% | 6.1% | 2.66x | 0.086 |
-| word_count (doc) | 68.2 | 58.5 | 1.17x | 0.007 |
-| has_cardiac (topic) | 26.1% | 12.2% | 2.13x | 0.083 |
-
-Cancer trials are under-represented in these over-ranking errors (0.30x). The classifier is better at not promoting cancer-specific trials into the top slot when they're only partial matches — likely because cancer terminology is distinctive enough. The over-ranking errors cluster around vaguer shared conditions (cardiac, gynecological) where the 1 vs 2 boundary is genuinely ambiguous.
-
-~4 of the 8 sampled examples appear to be data errors where the annotator under-scored the trial. If this rate holds across all 92, ~46 of these "errors" are actually correct model predictions with wrong ground truth.
+Notable cases:
+- Respiratory child → CXR/dyspnea trial (clear match, scored partial)
+- 27F pregnant, Hb=9.0 → iron anemia in pregnancy trial (Hb<11, first trimester — patient meets all stated criteria, label=2 seems correct, model scored partial)
+- 15yo girl with fatigue → pediatric chest pain outpatient trial (borderline eligibility)
+- CJD patient → Alzheimer's disease trial (model scored partial but label is relevant — possible data quality issue)
 
 #### Stage attribution
 
-**Mixed: data quality + classifier.** The classifier is not reliably learning the distinction between 1 and 2 because (a) the training data itself is noisy on this boundary, and (b) nothing in the current architecture reasons about whether the patient actually *meets* each criterion.
+**Classifier stage** under-confidence. These are cases where the classifier assigned the correct direction (relevant > not_relevant) but underestimated the confidence level, landing on partial rather than relevant.
 
 ---
 
-### Cell 4: actual=relevant → predicted=partially_relevant (18 errors, 5.5%)
+### Cell: Predicted not_relevant, Actually partially_relevant — 11 errors (1.2% of all errors)
 
-The smallest cell but highest clinical cost — these are relevant trials the pipeline under-ranks.
-
-#### Individual error analysis
-
-| # | Topic | Trial (rank) | Cause | Reasoning |
-|---|-------|-------------|-------|-----------|
-| 1 | 89yo man, Alzheimer's symptoms | "Alzheimer's disease" trial (rank 10) | **Deep** | Minimal criteria ("Alzheimer's disease, no other neurologic disease"). Short doc — classifier had little text to score. Relevant trial buried at rank 10. |
-| 2 | Endometriosis, pelvic pain | Endometriosis diagnosis study (rank 8) | **Deep** | Direct match ("diagnosis of endometriosis"). Very short eligibility criteria. Relevant trial under-ranked because sparse text yields low classifier confidence. |
-| 3 | Fibroid symptoms (enlarged uterus) | Fibroid symptoms trial (rank 5) | **Reasonable disagreement** | Moderate under-ranking (rank 5). Short criteria. |
-| 4 | Skull fracture → bacterial meningitis | Bacterial meningitis criteria trial (rank 9) | **Deep** | Trial criteria describe meningitis signs that exactly match the patient. Ranked 9. Short, structured criteria underscored by classifier. |
-| 5 | Rabies exposure (animal recovery) | Any volunteer trial (catch-all) | **Possible data error** | Trial accepts any medically fit volunteer. Labeled "relevant" — but this label applies to any patient ever. Likely an annotation artifact. |
-| 6 | Skin tags (likely no biopsy needed) | Trial for patients needing biopsy | **Possible data error** | Exclusion criteria explicitly say "without biopsy" patients are excluded. Patient has skin tags that typically don't need biopsy. Labeled relevant but model's "partial" may be more accurate. |
-| 7 | Child with fever + cough + Colorado trip | Chest imaging in ED respiratory patients (rank 10) | **Deep** | Direct match (ED, respiratory symptoms, CXR). Short eligibility criteria. Relevant trial at rank 10. |
-| 8 | CJD dementia | Mild cognitive impairment study (rank 10) | **Reasonable disagreement** | CJD overlaps with MCI presentation at early stages but is distinct. Partial label seems more appropriate; "relevant" label may be over-generous. |
-
-#### Statistical patterns
-
-| Feature | Error% | Correct% | Enrichment | p |
-|---------|--------|----------|-----------|---|
-| has_age (doc) | 27.8% | 58.0% | **0.48x** | 0.023 |
-| has_exclusion_lang (topic) | 22.2% | 63.8% | **0.35x** | 0.003 |
-| char_length (doc) | 340 | 422 | 0.81x | 0.038 |
-
-The clearest pattern in the dataset: short trials with no explicit age criteria and minimal exclusion language get under-ranked. The classifier needs rich text to output a high "relevant" score. Trials like "Alzheimer's disease, no other neurologic disease" (6 words of criteria) score lower than longer trials with unrelated content, simply because the SciBERT pair classifier rewards token richness.
-
-#### Stage attribution
-
-**Classifier.** These trials have already survived retrieval and SVM — they're in the judged set. The classifier systematically under-scores sparse docs regardless of the condition match quality.
+Rare. Mostly age mismatches (adult elbow fracture → pediatric forearm fracture trials, x3), wrong-condition matches (Giardia → C. diff, Lyme disease → GAS infection), and one ectopic pregnancy match to an ectopic pregnancy trial that was under-scored.
 
 ---
 
 ## Data Quality Issues
 
-Examples where the ground truth label appears incorrect:
+| # | Topic | Trial | Actual label | Issue |
+|---|-------|-------|:------------:|-------|
+| 1 | 27F pregnant, Hb=9.0 g/dL, first trimester | Iron anemia pregnancy trial (Hb<11, first trimester) | 1 (partial) | Patient explicitly meets all stated criteria — label should likely be 2 |
+| 2 | 56F post-mastectomy, acute SOB | Suspected DVT of leg trial | 0 (not_rel) | Patient post-surgery + PE symptoms — has high prior for DVT; label=0 may be too strict |
+| 3 | 62yo CJD-like, cognitive decline | MCI / possible AD trial | 0 (not_rel) | Overlapping phenotype; partial eligibility arguably warranted |
+| 4 | 4yo KD girl | KD trial with "presented by day 10" exclusion | 2 (relevant) | Model predicted not_relevant — if day of illness >10, label=2 may be wrong |
+| 5 | 18yo Dengue | Adolescents 14-19 trial (no disease text) | 2 (relevant) | Trial has no Dengue criteria text; how was this judged as relevant? Possible pool-based relevance assumption. |
 
-| Topic | Trial | Labeled | Model | Issue |
-|-------|-------|---------|-------|-------|
-| 20147 | Major depressive disorder trial | not_relevant | relevant | Patient has depression — primary criterion met |
-| 20144 | Kawasaki disease trial (ages 4–16, patient age 2) | not_relevant | relevant | Condition matches; age exclusion is the only issue — may deserve partial |
-| 20146 | Diabetic foot wound infection | partially_relevant | relevant | Diabetes + leg wound — direct match to trial criteria |
-| 201419 | Esophageal cancer neoadjuvant chemo | partially_relevant | relevant | Dysphagia patient with likely esophageal cancer — condition match |
-| 20156 | Thyroidectomy for Basedow's/Graves' | partially_relevant | relevant | Graves' disease = Basedow's disease — exact condition match |
-| 201517 | HPV+, cytology-negative trial | partially_relevant | relevant | Patient criteria match trial criteria exactly |
-| 201416 | Any volunteer catch-all trial | relevant | partially_relevant | "Any medically fit volunteer" should be partial at best |
-| 20149 | Skin biopsy trial (exclusion: no-biopsy patients) | relevant | partially_relevant | Patient's skin tags likely don't require biopsy — exclusion applies |
-
-Estimated ~15–20% of errors are label quality issues rather than model failures.
+The partial↔relevant boundary is the most systematically ambiguous in the TREC labels. TREC's 1 ("eligible but not the best match") vs 2 ("highly relevant") conflates eligibility criteria satisfaction with clinical appropriateness as a trial option — a distinction that is genuinely hard to annotate consistently.
 
 ---
 
 ## Priority Fixes
 
-**1. Criterion-level condition matching — affects ~155 errors (cells 1+2)**
+### 1. Classifier relevant-prediction bias — affects all 951 errors indirectly
+**Root cause**: Model outputs "relevant" for 1067/1340 examples (79.6%) despite only 294 (21.9%) being truly relevant. Likely cause is class imbalance in the training set or equal-weight cross-entropy loss.  
+**Fix**: Retrain SciBERT classifier with class-weighted loss. Based on actual distribution (not_rel:partial:relevant = 699:347:294), inverse-frequency weights would be approximately `[0.64, 1.29, 1.53]`. Alternatively, calibrate output logits post-hoc using temperature scaling on a held-out validation set.  
+**Verify**: Predicted distribution should shift from (83, 190, 1067) toward (≈700, ≈350, ≈290) on balanced test data.
 
-The sim filter correctly retrieves trials in the right medical category, but nothing in the pipeline checks whether the *specific condition* matches. A patient with ACS gets every cardiac trial; a patient with CJD gets every neurological trial. The fix is Phase 2 of the research plan: per-criterion entailment scoring using ctproc's parsed inclusion/exclusion criteria. Expected to cut cell 1 errors roughly in half.
+### 2. Lab value / numeric threshold matching — affects ~100-150 of the 282 (1→2) errors, highest clinical cost
+**Root cause**: Trials containing explicit numeric thresholds (Hb, BMI, eGFR, HbA1c, platelet count) are 1.42× enriched in partial→relevant errors. The model cannot compare `patient Hb=9.0` vs `trial threshold Hb<11`, or identify that the patient's BMI of 35 exceeds a trial's BMI≤34 cap.  
+**Fix**: Integrate ctproc lab extraction to produce structured `(lab_name, comparator, threshold)` tuples from trial inclusion/exclusion text and `(lab_name, value)` from patient topic text. Add a structured comparison layer before the classifier that hard-excludes violations.  
+**Verify**: Run lab extraction on the 282 (1→2) errors and count how many have extractable thresholds that explain the partial label.
 
-**2. Numeric hard-filtering on age — affects ~20–30 errors across cells 1+2**
+### 3. Demographic exclusion layer — affects ~150 (0→2) and ~40 (0→1) errors
+**Root cause**: Age exclusions are the most common missed filter (pediatric patient → adult-only trial and vice versa). Patient age appears in topic text; trial age ranges appear in criteria text. Both are parseable with simple regex.  
+**Fix**: Add a demographic pre-filter before the classifier: extract patient age from topic, extract `[min_age, max_age]` from trial criteria, hard-exclude if outside range. Similarly for gender.  
+**Verify**: Count how many (0→2) and (0→1) errors are cleared by this filter.
 
-Multiple clear errors involve age exclusions (trial max 18, patient 26; trial min 4, patient 2). ctproc already extracts `elig_min_age`/`elig_max_age` from trials. Applying a hard age filter in the pipeline before the sim filter would eliminate these at zero model cost.
-
-**3. Short-document handling in classifier — affects all 18 cell-4 errors**
-
-The classifier systematically under-scores trials with sparse eligibility criteria text. Options: (a) weight confidence by inverse document length, (b) augment short trials with structured fields (condition, age range) during classification, (c) use the ctproc structured output (`include_criteria` list) rather than raw concatenated text as classifier input.
-
-**4. Negative hard sampling in SciBERT retraining — affects cell 1**
-
-Training data likely underrepresents same-category negatives (cardiac trial for non-cardiac condition). Adding hard negatives from the same medical category during fine-tuning would teach the classifier to distinguish condition subtypes within a category.
-
-**5. Relabel ~8 boundary examples before next training run**
-
-The partial→relevant errors include at least 4 clear label errors (Graves', HPV, diabetic foot wound, esophageal cancer). Fixing these changes the classifier's training signal on exactly the 1 vs 2 boundary where performance is weakest.
-
----
-
-## Summary
-
-The pipeline has reasonable recall (only 2 truly relevant docs dropped entirely) but poor precision at the top. The dominant failure mode is not retrieval — it's the classifier treating same-category but wrong-condition trials as relevant. The fix is not a better embedding model; it's condition-level reasoning, which is exactly Phase 2 of the plan. The NDCG/MRR discrepancy (0.65 vs 0.31) is also consistent with this: the pipeline can retrieve relevant docs but doesn't rank them first, because it can't distinguish specific conditions within a medical category.
+### 4. Category hard-gate for cross-domain mismatches — affects ~200 of the (0→2) errors
+**Root cause**: Cardiac patients matched to orthopedic trials; respiratory patients matched to psychiatric trials. The 14-category bart-large-mnli classifier already runs at the sim_filter stage and produces category vectors — but in eval mode no docs are filtered.  
+**Fix**: Use category similarity as a hard pre-filter (not just a soft reranking signal): if cosine similarity between topic category vector and trial category vector is below a threshold, score = 0 without calling the classifier. This is computationally cheap and catches cross-domain mismatches.  
+**Verify**: Apply the hard-gate to the (0→2) errors and measure what fraction would be caught without removing true positives.

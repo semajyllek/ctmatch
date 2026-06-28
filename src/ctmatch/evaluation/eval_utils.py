@@ -5,6 +5,7 @@ from sklearn.metrics import f1_score
 from collections import defaultdict
 from lxml import etree
 import numpy as np
+import os
 
   
 def get_trec_topic2text(topic_path) -> Dict[str, str]:
@@ -103,3 +104,58 @@ def get_predicted_label(label_counts: Dict[int, int]) -> int:
   if label_counts[1] > 0:
     return 1
   return 0
+
+
+def load_eval_datasets(trec_root: str, kz_root: str) -> Dict[str, dict]:
+    """
+    Load topics and qrels for TREC 2021, TREC 2022, and KZ eval sets.
+
+    Returns a dict keyed by dataset name, each value is:
+        {'topic2text': {topic_id: str}, 'rel_dict': {topic_id: {doc_id: int}}}
+    """
+    from ..utils.ctmatch_utils import get_test_rels
+
+    specs = {
+        'trec21': (
+            os.path.join(trec_root, 'trec_21_topics.xml'),
+            os.path.join(trec_root, 'trec_21_judgments.txt'),
+            get_trec_topic2text,
+        ),
+        'trec22': (
+            os.path.join(trec_root, 'topics2022.xml'),
+            os.path.join(trec_root, 'qrels2022.txt'),
+            get_trec_topic2text,
+        ),
+        'kz': (
+            os.path.join(kz_root, 'topics-2014_2015-description.topics'),
+            os.path.join(kz_root, 'qrels-clinical_trials.txt'),
+            get_kz_topic2text,
+        ),
+    }
+    datasets = {}
+    for name, (topic_path, rel_path, parser) in specs.items():
+        if os.path.exists(topic_path) and os.path.exists(rel_path):
+            topic2text = parser(topic_path)
+            rel_dict, _ = get_test_rels(rel_path)
+            datasets[name] = {'topic2text': topic2text, 'rel_dict': rel_dict}
+            n_judged = sum(len(v) for v in rel_dict.values())
+            print(f'{name}: {len(topic2text)} topics, {n_judged:,} judged pairs')
+        else:
+            print(f'{name}: skipped (files not found at {topic_path})')
+    return datasets
+
+
+def load_doc_texts() -> Dict[str, str]:
+    """
+    Build a doc_id → text dict from the HF IR dataset (semaj83/ctmatch_ir).
+    Downloads ~100K trial texts; takes roughly a minute on first call.
+    """
+    from ..data.dataprep import DataPrep
+    from ..config import PipeConfig
+
+    print('Loading doc texts from semaj83/ctmatch_ir...')
+    dp = DataPrep(PipeConfig(ir_setup=True))
+    ids = dp.index2docid['text'].tolist()
+    texts = dp.doc_texts_df['text'].tolist()
+    print(f'Loaded {len(ids):,} docs')
+    return dict(zip(ids, texts))

@@ -22,13 +22,11 @@ DOC_EMBEDDINGS_VEC_PATH = "doc_embeddings.txt"
 INDEX2DOCID_PATH = "index2docid.txt"
 
 
-SUPPORTED_LMS = [
-    'roberta-large', 'cross-encoder/nli-roberta-base',
-    'microsoft/biogpt', 'allenai/scibert_scivocab_uncased', 
-    'facebook/bart-large', 'gpt2', 
-    'semaj83/scibert_finetuned_ctmatch', 'semaj83/scibert_finetuned_pruned_ctmatch'
-
-]
+SCIBERT_CHECKPOINTS = {
+    'allenai/scibert_scivocab_uncased',
+    'semaj83/scibert_finetuned_ctmatch',
+    'semaj83/scibert_finetuned_pruned_ctmatch',
+}
 
 
 class DataPrep:
@@ -58,13 +56,12 @@ class DataPrep:
 	
     def get_classifier_tokenizer(self):
         model_checkpoint = self.pipe_config.classifier_model_checkpoint
-        if model_checkpoint not in SUPPORTED_LMS:
-            raise ValueError(f"Model checkpoint {model_checkpoint} not supported. Please use one of {SUPPORTED_LMS}")
-        if 'scibert' in model_checkpoint:
+        # SciBERT variants share a tokenizer base; all other checkpoints load their own.
+        if model_checkpoint in SCIBERT_CHECKPOINTS:
             tokenizer = AutoTokenizer.from_pretrained('allenai/scibert_scivocab_uncased', use_fast=True)
         else:
-            tokenizer = AutoTokenizer.from_pretrained(self.pipe_config.classifier_model_checkpoint)
-        if self.pipe_config.classifier_model_checkpoint == 'gpt2':
+            tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
+        if model_checkpoint == 'gpt2':
             tokenizer.pad_token = tokenizer.eos_token
         return tokenizer
 

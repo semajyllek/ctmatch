@@ -109,6 +109,19 @@ class ClassifierModel:
         label2id = {v: k for k, v in id2label.items()}
         return id2label, label2id
 
+    def relevant_col_index(self) -> int:
+        """Return the column index whose id2label entry is 'relevant'.
+
+        Reads the actual loaded model config rather than assuming a fixed column,
+        so it works regardless of how the checkpoint was saved.
+        """
+        id2label = self.model.config.id2label
+        matches = [int(k) for k, v in id2label.items() if v == 'relevant']
+        assert len(matches) == 1, (
+            f"Expected exactly one 'relevant' entry in id2label, got {id2label}"
+        )
+        return matches[0]
+
     def get_label_weights(self):
         label_weights = (1 - (self.train_dataset_df["labels"].value_counts().sort_index() / len(self.train_dataset_df))).values
         label_weights = torch.from_numpy(label_weights).float().to(self.device)

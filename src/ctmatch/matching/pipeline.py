@@ -129,23 +129,15 @@ class CTMatch:
         logger.info(f"running classifier filter on {len(doc_set)} documents")
 
         doc_texts = [v[0] for v in self.data.doc_texts_df.iloc[doc_set].values]
-        # probs: Tensor (N, 3) — columns are [P(not_relevant), P(partial), P(relevant)]
         probs = self.classifier_model.batch_inference(pipe_topic.topic_text, doc_texts, return_preds=True)
 
-        # Rank by descending P(relevant) — column 2.
-        # The old approach (ascending P(not_relevant), col 0) conflated partial with relevant:
-        # a partial-dominant doc (e.g. P=[0.08, 0.82, 0.10]) has lower P(not_relevant) than
-        # a clearly relevant doc (P=[0.15, 0.10, 0.75]) and therefore ranked HIGHER under the
-        # old strategy, which collapsed NDCG@10 from ~0.65 to ~0.23 with calibrated models.
-        rel_scores = probs[:, 2].cpu().numpy()  # P(relevant) for each doc
+        rel_col = self.classifier_model.relevant_col_index()
+        rel_scores = probs[:, rel_col].cpu().numpy()
         sorted_indices = list(np.argsort(-rel_scores)[:min(len(doc_set), top_n)])
 
         logger.info(
-            f"classifier_filter score distribution — "
-            f"min P(rel)={rel_scores.min():.3f}, "
-            f"max P(rel)={rel_scores.max():.3f}, "
-            f"mean P(rel)={rel_scores.mean():.3f}, "
-            f"top-3 P(rel)={sorted(rel_scores, reverse=True)[:3]}"
+            f"classifier_filter: ranking by col {rel_col} (P(relevant)) — "
+            f"min={rel_scores.min():.3f}, max={rel_scores.max():.3f}, mean={rel_scores.mean():.3f}"
         )
 
         return [doc_set[i] for i in sorted_indices]

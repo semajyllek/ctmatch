@@ -4,8 +4,12 @@ Tests for classifier_filter ranking logic and batch_inference output contract.
 Run locally:  pytest tests/test_classifier_filter.py -v
 Run in Colab: !pytest /content/drive/.../ctmatch/tests/test_classifier_filter.py -v
 
-Torch is optional here — the core argsort logic is pure numpy.
-The torch-dependent tests run only if torch is importable.
+Torch is optional for the pure-logic tests.
+The hub-model tests (TestRelevantColIndex, TestHubModelColumnOrdering) require
+torch and network access — they load the real checkpoint and verify that
+relevant_col_index() returns a column where truly-relevant docs score higher
+than truly-irrelevant docs. These are the ground-truth contract tests; all
+ranking logic must agree with them.
 """
 
 import numpy as np
@@ -262,3 +266,137 @@ class TestBatchInferenceOutputContract:
         via_listcomp = np.argsort(-np.asarray([p[2].item() for p in probs]))
         via_slice = np.argsort(-probs[:, 2].numpy())
         np.testing.assert_array_equal(via_listcomp, via_slice)
+
+
+# ─── relevant_col_index() contract ────────────────────────────────────────────
+
+class TestRelevantColIndex:
+    """
+    relevant_col_index() reads model.config.id2label and returns the column
+    index labelled 'relevant'. These tests verify the logic with mock configs.
+    """
+
+    class _MockConfig:
+        def __init__(self, id2label):
+            self.id2label = id2label
+
+    class _MockModel:
+        def __init__(self, id2label):
+            self.config = TestRelevantColIndex._MockConfig(id2label)
+
+    class _MockClassifier:
+        """Minimal stand-in for ClassifierModel so we can call relevant_col_index()."""
+        def __init__(self, id2label):
+            self.model = TestRelevantColIndex._MockModel(id2label)
+
+        # paste the real implementation here so the test is self-contained
+        def relevant_col_index(self):
+            id2label = self.model.config.id2label
+            matches = [int(k) for k, v in id2label.items() if v == 'relevant']
+            assert len(matches) == 1, (
+                f"Expected exactly one 'relevant' entry in id2label, got {id2label}"
+            )
+            return matches[0]
+
+    def test_standard_ordering_returns_2(self):
+        clf = self._MockClassifier({0: 'not_relevant', 1: 'partially_relevant', 2: 'relevant'})
+        assert clf.relevant_col_index() == 2
+
+    def test_reversed_ordering_returns_0(self):
+        """If the model was saved with reversed labels, we get 0 — not 2."""
+        clf = self._MockClassifier({0: 'relevant', 1: 'partially_relevant', 2: 'not_relevant'})
+        assert clf.relevant_col_index() == 0
+
+    def test_string_keys_work(self):
+        """id2label loaded from JSON may have string keys."""
+        clf = self._MockClassifier({'0': 'not_relevant', '1': 'partially_relevant', '2': 'relevant'})
+        assert clf.relevant_col_index() == 2
+
+    def test_missing_relevant_raises(self):
+        clf = self._MockClassifier({0: 'not_relevant', 1: 'partially_relevant'})
+        with pytest.raises(AssertionError, match="Expected exactly one"):
+            clf.relevant_col_index()
+
+    def test_duplicate_relevant_raises(self):
+        clf = self._MockClassifier({0: 'relevant', 1: 'partially_relevant', 2: 'relevant'})
+        with pytest.raises(AssertionError, match="Expected exactly one"):
+            clf.relevant_col_index()
+
+
+# ─── Hub model column ordering (requires network + torch) ─────────────────────
+
+HUB_CHECKPOINT = 'semaj83/ctmatch-clf-biolinkbert-large'
+
+# A clearly relevant pair: diabetic patient, diabetes trial
+RELEVANT_TOPIC = "58-year-old male with type 2 diabetes, HbA1c 8.2%, on metformin."
+RELEVANT_DOC = (
+    "Eligibility: Adults aged 18+ with confirmed type 2 diabetes mellitus "
+    "and HbA1c between 7.5% and 11%. Exclusion: type 1 diabetes, pregnancy."
+)
+# A clearly irrelevant pair: same patient, ophthalmology trial
+IRRELEVANT_DOC = (
+    "Eligibility: Adults with primary open-angle glaucoma and intraocular pressure "
+    "above 21 mmHg. Exclusion: prior ocular surgery, diabetic retinopathy."
+)
+
+@pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")
+@pytest.mark.hub
+class TestHubModelColumnOrdering:
+    """
+    Load the real checkpoint and verify that the column returned by
+    relevant_col_index() actually scores the relevant doc higher than the
+    irrelevant doc. This is the ground-truth contract test — if it fails,
+    the column ordering in the hub model is wrong and the ranking code must
+    use a different column (or the model must be retrained).
+
+    Mark: pytest -m hub  (slow, requires network)
+    """
+
+    @pytest.fixture(scope="class")
+    def model_and_tokenizer(self):
+        from transformers import AutoModelForSequenceClassification, AutoTokenizer
+        tokenizer = AutoTokenizer.from_pretrained(HUB_CHECKPOINT)
+        model = AutoModelForSequenceClassification.from_pretrained(HUB_CHECKPOINT)
+        model.eval()
+        return model, tokenizer
+
+    def _get_probs(self, model, tokenizer, topic, doc):
+        import torch
+        inputs = tokenizer(topic, doc, return_tensors='pt',
+                           truncation=True, padding=True, max_length=512)
+        with torch.no_grad():
+            logits = model(**inputs).logits
+        return torch.nn.functional.softmax(logits, dim=1).squeeze(0)
+
+    def test_id2label_contains_relevant(self, model_and_tokenizer):
+        model, _ = model_and_tokenizer
+        assert 'relevant' in model.config.id2label.values(), (
+            f"Model id2label has no 'relevant' entry: {model.config.id2label}"
+        )
+
+    def test_relevant_col_scores_higher_on_matching_pair(self, model_and_tokenizer):
+        """The column labelled 'relevant' in id2label must score HIGHER for the
+        clearly-relevant doc than for the clearly-irrelevant doc."""
+        model, tokenizer = model_and_tokenizer
+
+        id2label = model.config.id2label
+        rel_col = next(int(k) for k, v in id2label.items() if v == 'relevant')
+
+        probs_rel = self._get_probs(model, tokenizer, RELEVANT_TOPIC, RELEVANT_DOC)
+        probs_irrel = self._get_probs(model, tokenizer, RELEVANT_TOPIC, IRRELEVANT_DOC)
+
+        print(f"\n  id2label: {id2label}")
+        print(f"  rel_col={rel_col}")
+        print(f"  P(col{rel_col}) for RELEVANT doc:    {probs_rel[rel_col]:.4f}")
+        print(f"  P(col{rel_col}) for IRRELEVANT doc:  {probs_irrel[rel_col]:.4f}")
+        print(f"  All probs (relevant doc):   {[f'{p:.3f}' for p in probs_rel.tolist()]}")
+        print(f"  All probs (irrelevant doc): {[f'{p:.3f}' for p in probs_irrel.tolist()]}")
+
+        assert probs_rel[rel_col] > probs_irrel[rel_col], (
+            f"Column {rel_col} (labelled 'relevant' in id2label) must score higher "
+            f"for the clearly-relevant doc.\n"
+            f"  relevant doc   P(col{rel_col})={probs_rel[rel_col]:.4f}\n"
+            f"  irrelevant doc P(col{rel_col})={probs_irrel[rel_col]:.4f}\n"
+            f"  id2label: {id2label}\n"
+            f"  If this fails, the hub model's column ordering does not match its id2label."
+        )

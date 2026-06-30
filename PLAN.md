@@ -103,6 +103,7 @@ These are eval runs needed to fill gaps in `docs/deep_dive_outline.md §7`.
 | Task | Status |
 |---|---|
 | svm+clf ablation (drop sim filter) | `todo` |
+| Verify filter recall: measure how many true relevant docs are dropped by sim and SVM before reaching classifier | `todo` | Core assumption: filters have high recall (low FN rate) but low precision; if wrong, cascade introduces avoidable NDCG loss |
 | TREC21 + TREC22 + KZ combined baseline table | `todo` |
 | Quantify KZ corpus overlap: % of KZ qrels NCT IDs in 2021 corpus | `todo` |
 | MedCPT embedding swap (re-embed corpus, re-run eval) | `todo` |

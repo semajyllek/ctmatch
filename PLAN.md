@@ -112,10 +112,17 @@ trial-level score — is the core modeling challenge, not the per-criterion NLI 
 
 These are eval runs needed to fill gaps in `docs/deep_dive_outline.md §7`.
 
+**Important:** `eval_baseline.ipynb` runs in eval mode — it passes the full judged doc set to
+`match_pipeline`, which calls `reset_filter_params` and disables all top-n cutoffs. In this mode
+sim/svm/classifier are pure **rankers** (nothing is dropped); final ranking is determined by
+whichever stage runs last. Multi-config ablations in eval mode are only meaningful for stages that
+hard-filter regardless of top_n (currently: `demographic`; future: `lab`). For production-mode
+cascade behavior, use the filter recall task below.
+
 | Task | Status |
 |---|---|
-| svm+clf ablation (drop sim filter) | `todo` |
-| Verify filter recall: measure how many true relevant docs are dropped by sim and SVM before reaching classifier | `todo` | Core assumption: filters have high recall (low FN rate) but low precision; if wrong, cascade introduces avoidable NDCG loss |
+| **Filter recall (production mode):** run sim → svm → classifier on all corpus docs (not the judged set); measure fraction of true-relevant docs surviving each stage | `todo` | This is the actual cascade eval; eval_baseline NDCG does NOT measure this |
+| svm+clf ablation (drop sim stage entirely) | `todo` | Only meaningful in production mode (see above) |
 | TREC21 + TREC22 + KZ combined baseline table | `todo` |
 | Quantify KZ corpus overlap: % of KZ qrels NCT IDs in 2021 corpus | `todo` |
 | MedCPT embedding swap (re-embed corpus, re-run eval) | `todo` |

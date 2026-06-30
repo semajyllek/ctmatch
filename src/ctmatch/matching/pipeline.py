@@ -19,6 +19,10 @@ from ..config import PipeConfig
 from .topic import PipeTopic
 from ..data.dataprep import DataPrep
 from ..device import resolve_device, get_pipeline_device
+from .demographic import (
+    extract_patient_age as _extract_patient_age,
+    trial_excludes_age as _trial_excludes_age,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -74,6 +78,9 @@ class CTMatch:
         if self.filters is None or ('svm' in self.filters):
             doc_set = self.svm_filter(pipe_topic, doc_set, top_n=self.svm_top_n)
 
+        if self.filters is None or ('demographic' in self.filters):
+            doc_set = self.demographic_filter(pipe_topic, doc_set)
+
         if self.filters is None or ('classifier' in self.filters):
             doc_set = self.classifier_filter(pipe_topic, doc_set, top_n=self.classifier_top_n)
 
@@ -123,6 +130,24 @@ class CTMatch:
         result = list(np.argsort(-similarities)[:min(len(doc_set) + 1, top_n + 1)])
         result.remove(0)
         return [doc_set[(r - 1)] for r in result]
+
+
+    def demographic_filter(self, pipe_topic: PipeTopic, doc_set: List[int]) -> List[int]:
+        """Hard-exclude docs where the patient's age is outside the trial's stated range.
+        Conservative: passes through any doc where age is not unambiguously extractable."""
+        patient_age = _extract_patient_age(pipe_topic.topic_text)
+        if patient_age is None:
+            return doc_set
+
+        doc_texts = [v[0] for v in self.data.doc_texts_df.iloc[doc_set].values]
+        kept = [idx for idx, doc_text in zip(doc_set, doc_texts)
+                if not _trial_excludes_age(doc_text, patient_age)]
+
+        n_excluded = len(doc_set) - len(kept)
+        if n_excluded:
+            logger.info(f"demographic_filter: excluded {n_excluded} docs (patient_age={patient_age:.2f}y)")
+
+        return kept
 
 
     def classifier_filter(self, pipe_topic: PipeTopic, doc_set: List[int], top_n: int) -> List[int]:

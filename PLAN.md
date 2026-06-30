@@ -1,7 +1,7 @@
 # ctmatch Modernization Plan
 
-Regression gate: SciBERT baseline NDCG@10=0.6525 (TREC21+KZ, sim+svm+clf).
-All changes must match or beat this on the same eval split before merging.
+Regression gate: BioLinkBERT-large NDCG@10=0.7528 (TREC21+KZ combined, 134 topics, sim+svm+clf, local Drive checkpoint).
+Previous SciBERT baseline: 0.6525. All changes must match or beat 0.7528 before merging.
 
 ---
 
@@ -22,29 +22,33 @@ All changes must match or beat this on the same eval split before merging.
 | Build `retrain_classifier.ipynb` with focal loss + class weights | `done` | FocalLossTrainer, DataConfig/TrainConfig dataclasses |
 | Train BioLinkBERT-large; standalone eval NDCG@10=0.9307 (TREC21) | `done` | clf_results.json on Drive |
 | Fix `classifier_filter` to rank by P(relevant) not P(not_relevant) | `done` | `relevant_col_index()` reads id2label; commit 0777e6f |
-| Fix hub push (local model ≠ hub model) | `in progress` | hub model has no discrimination; re-push from local Drive checkpoint |
-| Confirm pipeline eval NDCG matches standalone (~0.87–0.93 TREC21) | `blocked` | waiting on hub fix + Colab rerun |
-| Update eval_baseline regression gate to BioLinkBERT-large number | `todo` | |
+| Fix hub push (local model ≠ hub model) | `done` | re-pushed from local Drive checkpoint; verified col0=0.096 vs 0.635 on hub |
+| Pipeline eval with local checkpoint | `done` | NDCG@10=0.7528, MRR=0.8253 (TREC21+KZ, 134 topics) |
+| Error analysis on eval_predictions.jsonl | `done` | See `docs/error_analysis_biolinkbert_pipeline.md`; dominant error: diagnosis specificity FPs |
+| Update eval_baseline regression gate to BioLinkBERT-large number | `done` | Updated in this file: gate = 0.7528 |
 
 ---
 
 ## 2. Lab value extraction integration
 
-**Goal:** wire the existing ctproc `lab/` extractor into the pipeline as a hard pre-filter.
-A patient with Hgb=8 should be automatically excluded from trials requiring Hgb≥10
-before any embedding or classifier work happens.
+**Goal:** wire hard demographic and lab pre-filters into the pipeline before the classifier.
+Error analysis identified two concrete, well-scoped sub-problems:
+- **Age filter** (quick win): ~28 FP errors where patient age is outside the trial's stated range. Regex-parseable from both topic and trial text.
+- **Lab filter**: patient with Hgb=8 excluded from trials requiring Hgb≥10. Requires ctproc lab extractor.
 
-The extractor (`ctproc/lab/extractor.py`, `patterns.py`, `reference_ranges.py`) already
+The ctproc extractor (`ctproc/lab/extractor.py`, `patterns.py`, `reference_ranges.py`) already
 parses constraints like "Hemoglobin ≥ 10 g/dL" from eligibility criteria text.
 It is not yet called anywhere in ctmatch.
 
 | Task | Status | Notes |
 |---|---|---|
+| **Age filter**: extract patient age from topic text; extract trial age range from criteria; hard-exclude out-of-range | `done` | `src/ctmatch/matching/demographic.py`; verified 0 relevant docs excluded on 1340-record sweep; catches topics 20155, 201516, 201422, 39; 45 tests pass |
+| Write `demographic_filter(pipe_topic, doc_set)` in pipeline.py | `done` | Wired after svm, before classifier; no top_n (hard exclusion); logs excluded count |
 | Audit lab extractor: what does it parse, what does it miss? | `todo` | Read extractor.py + patterns.py; build a test set of criteria strings |
 | Add patient-side lab extraction (topic text → lab values dict) | `todo` | Mirror the criteria parser; topics say "Hgb 8.2 g/dL", "creatinine 1.4" |
 | Write `lab_filter(pipe_topic, doc_set)` in pipeline.py | `todo` | Hard exclude docs where patient demonstrably fails a threshold criterion |
-| Eval impact: NDCG delta vs. baseline on TREC21 | `todo` | Expect FPR ↓, possible small NDCG ↑ |
-| Handle uncertain/missing lab values correctly (skip, not exclude) | `todo` | Missing lab ≠ failing the criterion |
+| Eval impact: NDCG delta vs. 0.7528 gate | `todo` | Expect FPR ↓, NDCG neutral-to-small gain |
+| Handle uncertain/missing values correctly (skip, not exclude) | `todo` | Missing value ≠ failing the criterion |
 
 ---
 
@@ -69,10 +73,18 @@ and Claude-generated synthetic pairs. Use TRL (already in `train` extras).
 
 | Task | Status | Notes |
 |---|---|---|
-| Build preference dataset from TREC qrels (rel=2 > rel=1 > rel=0 pairs) | `todo` | ~40K pairs from existing clf dataset |
-| Generate hard synthetic pairs with Claude (cases where model is wrong) | `todo` | Use `evaluate_detailed()` output to find errors; prompt Claude to write contrasting patient descriptions |
-| DPO fine-tune BioLinkBERT-large (or smaller model) with TRL | `todo` | `trl.DPOTrainer`; add cell to retrain_classifier.ipynb |
-| Eval: DPO model NDCG vs. SFT-only baseline | `todo` | |
+Error analysis (`docs/error_analysis_biolinkbert_pipeline.md`) identified the dominant failure mode:
+**diagnosis specificity** — model ranks same-organ-system trials high for patients with a different diagnosis
+(e.g., Kawasaki trials for atopic dermatitis, pulmonary fibrosis for COPD). Affects ~120/199 FP errors.
+DPO hard negatives should target this cluster first.
+
+| Task | Status | Notes |
+|---|---|---|
+| Mine hard-negative triples from eval_predictions.jsonl | `todo` | For each FP error (actual=0, pred=2): emit (topic, correct_trial, wrong_trial) triple; priority clusters: KD vs eczema, IPF vs COPD, generic dermatology vs specific diagnosis |
+| Build preference dataset from TREC qrels (rel=2 > rel=1 > rel=0 pairs) | `todo` | ~40K pairs from existing clf dataset; combine with hard negatives above |
+| Generate synthetic hard negatives with Claude | `todo` | For diagnosis-specificity failures: prompt Claude to write a patient who matches the wrong trial's domain but not its specific inclusion criteria; use eval errors as seeds |
+| DPO fine-tune BioLinkBERT-large with TRL | `todo` | `trl.DPOTrainer`; add cell to retrain_classifier.ipynb |
+| Eval: DPO model NDCG vs. 0.7528 gate | `todo` | |
 
 ---
 
@@ -108,3 +120,4 @@ These are eval runs needed to fill gaps in `docs/deep_dive_outline.md §7`.
 | Quantify KZ corpus overlap: % of KZ qrels NCT IDs in 2021 corpus | `todo` |
 | MedCPT embedding swap (re-embed corpus, re-run eval) | `todo` |
 | Measure inference latency per config (GPU T4, seconds/query) | `todo` | Fills efficiency table in deep_dive_outline §7a |
+| Qrel completeness audit: topics 18 (atopic dermatitis) and 201528 (Lyme arthritis) have all docs labeled not_relevant | `todo` | These contribute NDCG=0; verify whether correct trials are missing from judged pool vs. genuinely no match |

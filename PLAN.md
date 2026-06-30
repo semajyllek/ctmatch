@@ -106,3 +106,4 @@ These are eval runs needed to fill gaps in `docs/deep_dive_outline.md §7`.
 | TREC21 + TREC22 + KZ combined baseline table | `todo` |
 | Quantify KZ corpus overlap: % of KZ qrels NCT IDs in 2021 corpus | `todo` |
 | MedCPT embedding swap (re-embed corpus, re-run eval) | `todo` |
+| Measure inference latency per config (GPU T4, seconds/query) | `todo` | Fills efficiency table in deep_dive_outline §7a |

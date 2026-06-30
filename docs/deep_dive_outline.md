@@ -619,10 +619,33 @@ The custom metric assumes, within each relevance tier, the optimal ordering. Giv
 
 ### 7a. Baseline (sim+svm+clf)
 
-| Dataset | NDCG@10 | MRR | F1 | FPR |
-|---|---|---|---|---|
-| TREC 2021 + KZ (49 topics) | 0.6525 | 0.305 | 0.335 | — |
-| TREC 2021 + TREC 2022 + KZ (TBD) | TBD | TBD | TBD | TBD |
+| Dataset | NDCG@10 | MRR | F1 | FPR | Latency (inference) |
+|---|---|---|---|---|---|
+| TREC 2021 + KZ (49 topics) | 0.6525 | 0.305 | 0.335 | — | ~3s/query |
+| TREC 2021 + TREC 2022 + KZ (TBD) | TBD | TBD | TBD | TBD | TBD |
+
+**Note on eval mode vs. inference mode efficiency.**
+TREC evaluation requires ranking every judged document per topic to compute fair NDCG.
+This collapses the cascade: `reset_filter_params(len(doc_set))` passes all judged docs
+through every filter, so the KZ topics (1,100+ docs each) run the full BERT classifier
+over the entire judged pool — taking ~45–60s per topic in eval.
+
+In real inference mode the cascade runs as designed: sim cuts 374k → 10k, SVM → 100,
+classifier → 50, giving ~3s end-to-end on a GPU. TREC does not measure this.
+
+**Benchmark blind spot:** TREC scores NDCG with no time or cost dimension. A system that
+runs GPT-4 on every candidate for 45 minutes per query scores on the same axis as one
+that runs in 3 seconds. TrialGPT (NDCG@10=0.73 on full corpus top-500) falls into this
+category — it uses GPT-4 with per-criterion chain-of-thought, which at $0.03/1k tokens
+over 500 docs × ~50 criteria each is roughly $0.75/query, or ~$56 for a 75-topic eval.
+Our pipeline runs the same eval on Colab free tier.
+
+A fairer comparison table would add:
+- Latency (seconds per query, GPU T4)
+- Cost per query ($ at public API prices, or GPU-hours)
+- NDCG / (cost per query) as an efficiency-adjusted metric
+
+TODO: measure and record inference latency per pipeline configuration.
 
 ### 7b. Embedding ablation: MiniLM vs. MedCPT
 

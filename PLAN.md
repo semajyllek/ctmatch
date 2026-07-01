@@ -42,8 +42,10 @@ It is not yet called anywhere in ctmatch.
 
 | Task | Status | Notes |
 |---|---|---|
-| **Age filter**: extract patient age from topic text; extract trial age range from criteria; hard-exclude out-of-range | `done` | `src/ctmatch/matching/demographic.py`; verified 0 relevant docs excluded on 1340-record sweep; catches topics 20155, 201516, 201422, 39; 45 tests pass |
+| **Age filter**: extract patient age from topic text; extract trial age range from criteria; hard-exclude out-of-range | `done` | `src/ctmatch/matching/demographic.py`; 45 tests pass; production pipeline only — see note below |
 | Write `demographic_filter(pipe_topic, doc_set)` in pipeline.py | `done` | Wired after svm, before classifier; no top_n (hard exclusion); logs excluded count |
+
+> **TREC eval incompatibility:** TREC qrels define relevance as topical match (right condition/treatment), not strict eligibility. An adult trial (age ≥ 18) can be labeled `relevant` for a 16yo patient if the condition matches. The demographic filter is medically correct but drops these from ranking, collapsing NDCG@10 from 0.75 to 0.39. **Do not include `demographic` in `FILTER_CONFIGS` in eval_baseline.ipynb.** Evaluate the filter via clinical review of removed FP cases, not NDCG.
 | Audit lab extractor: what does it parse, what does it miss? | `todo` | Read extractor.py + patterns.py; build a test set of criteria strings |
 | Add patient-side lab extraction (topic text → lab values dict) | `todo` | Mirror the criteria parser; topics say "Hgb 8.2 g/dL", "creatinine 1.4" |
 | Write `lab_filter(pipe_topic, doc_set)` in pipeline.py | `todo` | Hard exclude docs where patient demonstrably fails a threshold criterion |

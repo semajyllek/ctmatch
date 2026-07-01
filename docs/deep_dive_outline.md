@@ -568,6 +568,92 @@ def reset_filter_params(self, val: int) -> None:
 
 **Consequence for eval speed:** for KZ topics with 1,200+ judged docs, all three models score all 1,200. SciBERT (now on GPU with mini-batching) is the dominant cost at ~0.05s/doc.
 
+#### Which filter configs actually differ in eval mode
+
+Because every soft filter returns all N docs (just reordered), the final ranking is determined entirely by whichever soft filter runs **last**. Two configs produce identical NDCG in eval mode if and only if they share the same last soft-filter stage **and** the same set of hard-filter stages.
+
+Concretely:
+- `sim+svm+clf` ≡ `sim+clf` ≡ `svm+clf` ≡ `clf` — classifier is last in all four; they all rank the same N docs identically.
+- `sim+svm` ≡ `sim+svm+svm` but ≠ `sim` — SVM is last, not sim.
+- `sim+svm+demo+clf` ≡ `demo+clf` — classifier is last, demographic is the only hard filter, so both rank N-M docs by classifier score.
+
+The only config dimension that meaningfully affects NDCG is:
+1. **Which hard-filter stages are included** (they remove docs from the pool before the last ranker sees them).
+2. **Which soft-filter stage runs last** (it determines the final ordering).
+
+#### Why `sim+demo` ≡ `demo+sim` (exact order, not just relative)
+
+The underlying principle: **pointwise scoring functions commute with set restriction**.
+
+**Definitions.** Let $\mathcal{D}$ be the full document corpus and $q$ a fixed query (patient topic text, held constant throughout a pipeline run). Let $S \subseteq \mathcal{D}$ be a finite pool of candidate documents, $d \in S$ a single document, and $\text{filter}(S) \subseteq S$ the subset surviving a hard-exclusion rule. Define a scoring function as $f: \mathcal{D} \times 2^{\mathcal{D}} \rightarrow \mathbb{R}$, where $f(d, S)$ is the score assigned to document $d$ given pool $S$ and implicit query $q$. Define $\text{rank}_f(S)$ as the sequence of elements of $S$ sorted in descending order of $f(\cdot, S)$.
+
+A scoring function $f$ is **pointwise** (with respect to $q$) if there exists a function $g: \mathcal{D} \rightarrow \mathbb{R}$ — depending on $q$ but not on $S$ — such that $f(d, S) = g(d)$ for all $S \subseteq \mathcal{D}$ with $d \in S$. Equivalently, $f$ is pointwise if $f(d, S) = f(d, S')$ for any two pools $S, S'$ both containing $d$.
+
+When $f$ is pointwise, filtering and ranking commute:
+
+$$\text{rank}_f(\text{filter}(S)) = \text{filter}(\text{rank}_f(S))$$
+
+The left side filters the pool first, then ranks the survivors by $f$. The right side ranks the full pool by $f$, then removes the filtered-out documents. Because $f(d, S) = g(d)$ regardless of pool composition, removing a document from $S$ cannot change any other document's score, and therefore cannot change how the survivors rank against each other.
+
+**This is a sufficient condition, not a necessary one.** A non-pointwise $f$ can still satisfy the equation for a particular $S$ and filter by coincidence — for example, if the documents removed by the filter happen to occupy score positions that don't affect the relative ordering of the survivors under the modified pool. Pointwiseness guarantees commutativity for *all* pools and *all* filters; a non-pointwise function may commute in specific instances but not in general.
+
+Sim scores are computed as `cosine(topic_emb, doc_emb) + cat_match`, independently per doc. The score for doc A does not depend on whether doc B is in the pool. Sim is therefore pointwise, so:
+
+- `sim+demo`: sim ranks all N docs by score, demo removes M → N-M docs in sim-score order.
+- `demo+sim`: demo removes M first, sim ranks N-M docs → N-M docs in sim-score order.
+
+The sim-score order of the surviving N-M docs is **identical** in both cases. This is not true for metrics like BM25 where IDF depends on the corpus, or for SVM:
+
+#### Toy example: BM25 changes the end ranking
+
+Query $q$ = "heart failure". Pool $S = \{d_1, d_2, d_3\}$, where $d_3$ is removed by the demographic hard filter.
+
+| Document | Content (simplified) | Relevance |
+|---|---|---|
+| $d_1$ | "heart" × 4 | rel=1 (partially relevant) |
+| $d_2$ | "failure" × 3 | rel=2 (relevant) |
+| $d_3$ | "heart" × 1 | rel=0 — removed by demographic filter |
+
+Using $\text{IDF}(t) = \log(N / \text{df}(t))$ and score$(d) = \text{TF}(d, t) \times \text{IDF}(t)$ summed over query terms:
+
+**Path 1 — rank first, then filter:**
+
+Under $S$ ($N=3$, $\text{df}(\text{"heart"})=2$, $\text{df}(\text{"failure"})=1$):
+$$\text{IDF}(\text{"heart"}) = \log(3/2) \approx 0.41 \qquad \text{IDF}(\text{"failure"}) = \log(3/1) \approx 1.10$$
+$$\text{score}(d_1) = 4 \times 0.41 = 1.62 \qquad \text{score}(d_2) = 3 \times 1.10 = 3.30$$
+
+$\text{rank}_f(S) = [d_2, d_1, d_3]$. Remove $d_3$ → **final ranking: $[d_2, d_1]$**.
+
+**Path 2 — filter first, then rank:**
+
+Pool after filtering = $\{d_1, d_2\}$ ($N=2$, $\text{df}(\text{"heart"})=1$, $\text{df}(\text{"failure"})=1$):
+$$\text{IDF}(\text{"heart"}) = \log(2/1) \approx 0.69 \qquad \text{IDF}(\text{"failure"}) = \log(2/1) \approx 0.69$$
+$$\text{score}(d_1) = 4 \times 0.69 = 2.77 \qquad \text{score}(d_2) = 3 \times 0.69 = 2.08$$
+
+$\text{rank}_f(\{d_1, d_2\})= $ **final ranking: $[d_1, d_2]$**.
+
+The two paths produce opposite orderings. In the full pool, "failure" is rare ($\text{df}=1$, $\text{IDF}=1.10$) while "heart" is diluted by $d_3$ ($\text{df}=2$, $\text{IDF}=0.41$), so $d_2$ dominates. Once $d_3$ is removed, "heart" becomes unique to $d_1$ and both terms receive the same IDF; $d_1$'s higher term frequency then tips the balance. Since $d_2$ is the rel=2 document, only Path 1 produces the correct NDCG-optimal ordering — the order of operations is not semantically neutral.
+
+#### Why `svm+demo` ≠ `demo+svm`
+
+SVM is fit on its input set at inference time. A LinearSVC trained on N docs (one positive: the topic) produces a different hyperplane than one trained on N-M docs. The ranking of the N-M surviving docs will therefore differ between:
+- `svm+demo`: SVM fit on full pool of N, then demographic removes M.
+- `demo+svm`: demographic removes M first, SVM fit on reduced pool of N-M.
+
+These are genuinely different configurations and will produce different NDCG.
+
+#### Effect of hard filters on NDCG
+
+Removing docs via a hard filter changes which docs can appear in the top-10. The impact depends on the relevance of what gets removed:
+
+- Removed doc is rel=0: the next-ranked doc (rel ≥ 0) moves up. NDCG improves or stays the same.
+- Removed doc is rel=1 (partial): contributes gain=1 to DCG if in top-10. Removing it and replacing with a lower-ranked doc can only hurt NDCG.
+- Removed doc is rel=2 (relevant): contributes gain=3. Removing it is the worst case.
+
+The demographic filter's NDCG impact is therefore determined by whether any of the M excluded docs would have appeared in the classifier's top-10 and what their relevance label is. Excluded rel=0 docs improve NDCG; excluded rel=1 or rel=2 docs hurt it.
+
+Note: **MRR is only affected by rel=2 docs** (`calc_first_positive_rank` uses `pos_val=2`). Excluding rel=1 partial docs has zero effect on MRR regardless of where they would have been ranked.
+
 ---
 
 ## 6. Metrics

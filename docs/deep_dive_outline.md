@@ -746,7 +746,35 @@ Surprising result: MedCPT improves MRR and FPR (better at finding the first rele
 
 **TODO — pending results from svm+clf run**
 
-### 7d. Comparison to TrialGPT
+### 7d. Demographic pre-filter ablation
+
+Full ablation across all meaningful config combinations (TREC21 + TREC22 + KZ, 135 topics):
+
+| Config | NDCG@10 ↑ | MRR ↑ | F1 ↑ | FPR ↓ |
+|---|---|---|---|---|
+| `clf` | **0.7528** | **0.8253** | **0.6724** | 2.007 |
+| `clf+demo` / `demo+clf` | **0.7532** | **0.8260** | 0.6716 | **1.993** |
+| `sim+demo` / `demo+sim` | 0.3271 | 0.3576 | 0.2955 | 5.590 |
+| `svm+demo` / `demo+svm` | 0.2592 | 0.2968 | 0.2381 | 6.119 |
+
+`clf+demo` ≡ `demo+clf` confirmed exactly (clf is pointwise — see §5f).
+`svm+demo` ≡ `demo+svm` empirically (SVM is not pointwise, but the filter removes so few docs — ~15 across 135 topics — that the hyperplane shift is negligible in practice).
+
+**The demographic filter adds almost nothing to NDCG over the classifier alone (+0.0004).** This is not evidence that the filter is useless — it is an artifact of several properties of the TREC evaluation:
+
+1. **Scale dilution.** The filter fires on 11 of 135 topics, removing ~15 docs total. Any improvement is averaged across all 135 topics and becomes tiny by construction.
+
+2. **Pool bias.** The judged pool is drawn from systems that already do reasonable retrieval. Trials that are obviously age-wrong are rarely retrieved by any system and therefore never judged — they are invisible to NDCG. A 4-year-old patient matched against adult trials that never appear in any system's top-1000 contributes nothing to the metric, even though excluding them is medically correct.
+
+3. **Classifier overlap.** BioLinkBERT has learned from training data that age-inappropriate trials score low. The hard demographic exclusion and the soft classifier signal partially overlap — the filter removes docs the classifier would have demoted anyway.
+
+4. **Top-10 ceiling.** A removed FP only improves NDCG if it was inside the classifier's top-10. Most demographically-excluded docs are not ranked that high by the classifier.
+
+**The filter's value is in production, not in TREC NDCG.** A 4-year-old patient should not be shown adult trials regardless of what the classifier scores. TREC qrels define relevance as topical match (right condition, right treatment), not strict eligibility — an adult trial for the right condition is often labeled relevant even for a pediatric patient. The demographic filter is medically correct; the TREC metric is not designed to reward it.
+
+**Evaluate the demographic filter via:** clinical review of the docs it removes (confirmed: 5 FP removed, 4 partial removed, 0 relevant removed across 1340 eval records), not NDCG.
+
+### 7e. Comparison to TrialGPT
 
 **Critical comparability note:** TrialGPT reports NDCG@10=0.7275 on the full corpus top-500, not the judged pool. Our eval uses the judged pool only (standard TREC evaluation). These are NOT directly comparable:
 - Full corpus: the model ranks all 374k trials; NDCG is computed against qrels on those rankings

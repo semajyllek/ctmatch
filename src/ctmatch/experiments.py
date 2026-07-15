@@ -40,12 +40,14 @@ from typing import Callable, Iterable, Sequence
 
 # Canonical field order of a trial document. Eligibility is intentionally listed
 # so a strategy can move it; do not hard-code this order anywhere else.
+# NOTE: these must match the keys written to doc_fulltext.jsonl by build_fulltext_corpus
+# (parse_study) — 'detailed_desc' (not 'detailed_description'), else the field reads empty.
 DEFAULT_DOC_FIELDS = (
     "brief_title",
     "official_title",
     "conditions",
     "brief_summary",
-    "detailed_description",
+    "detailed_desc",
     "interventions",
     "eligibility",
 )
@@ -67,11 +69,19 @@ class ExperimentConfig:
     # --- REPRESENTATION (the controlled variable) ------------------------------
     doc_fields: tuple = DEFAULT_DOC_FIELDS
     label_fields: bool = True          # prefix each field with "NAME: " in the blob
-    repr_strategy: str = "head_tail"   # 'head' | 'head_tail' | 'elig_first' — RERANKER input
+    repr_strategy: str = "head_tail"   # 'head' | 'head_tail' | 'elig_first' | 'budget_incexc'
     max_length: int = 512              # THE truncation constant (tokens). Evaluated
                                        # in isolation by exp_truncation.ipynb; frozen after.
     head_frac: float = 0.5             # head_tail: fraction of the doc budget kept as head
     retrieval_doc_chars: int = 0       # 0 = no char cap for BM25/dense blob; >0 caps it
+
+    # budget_incexc: give topicality / inclusion / exclusion each a slice of the doc token
+    # budget, reserving the EXCLUSION floor first (it's the disqualifier and the most-truncated).
+    # inc/exc come from ctproc's process_eligibility_naive. inclusion gets whatever the other
+    # two don't use.
+    topicality_fields: tuple = ("conditions", "brief_title", "brief_summary")
+    budget_topic_frac: float = 0.30
+    budget_exc_frac: float = 0.25
 
     # Retrieval uses its OWN representation: recall wants TOPICALITY (does the doc name the
     # patient's condition?), not eligibility, and BM25 already indexes the whole doc — so the
@@ -130,6 +140,8 @@ class ExperimentConfig:
         base = f"{self.repr_strategy}-L{self.max_length}"
         if self.repr_strategy == "head_tail":
             base += f"-h{int(self.head_frac * 100)}"
+        if self.repr_strategy == "budget_incexc":
+            base += f"-t{int(self.budget_topic_frac * 100)}e{int(self.budget_exc_frac * 100)}"
         if self.retrieval_doc_chars:
             base += f"-c{self.retrieval_doc_chars}"
         return base
@@ -220,17 +232,51 @@ def head_tail_ids(doc_ids: list[int], budget: int, head_frac: float) -> list[int
     return doc_ids[:head] + doc_ids[-tail:]
 
 
+def split_eligibility(fields: dict, cfg: ExperimentConfig) -> tuple[str, str]:
+    """(inclusion_text, exclusion_text). Uses precomputed 'inclusion'/'exclusion' fields if
+    the corpus carries them (cache), else ctproc's tested splitter on the raw eligibility text."""
+    if fields.get("inclusion") is not None or fields.get("exclusion") is not None:
+        return _field_text(fields.get("inclusion")), _field_text(fields.get("exclusion"))
+    from ctproc.eligibility import process_eligibility_naive   # ctproc is a ctmatch dependency
+    inc, exc = process_eligibility_naive(_field_text(fields.get("eligibility", "")))
+    return " ".join(inc), " ".join(exc)
+
+
+def _cap_tokens(tokenizer, text: str, n: int) -> tuple[str, int]:
+    if n <= 0 or not text:
+        return "", 0
+    ids = tokenizer.encode(text, add_special_tokens=False)[:n]
+    return tokenizer.decode(ids), len(ids)
+
+
+def _budget_incexc_text(tokenizer, fields: dict, cfg: ExperimentConfig, budget: int) -> str:
+    """topicality + inclusion + exclusion, each given a slice of the doc token budget.
+    Exclusion's floor is reserved FIRST (disqualifier, most-truncated); topicality is capped;
+    inclusion fills whatever remains."""
+    topical = _blob_from(fields, cfg.topicality_fields, cfg)
+    inc_text, exc_text = split_eligibility(fields, cfg)
+    t_txt, t_used = _cap_tokens(tokenizer, topical, int(budget * cfg.budget_topic_frac))
+    e_txt, e_used = _cap_tokens(tokenizer, exc_text, int(budget * cfg.budget_exc_frac))
+    i_txt, _ = _cap_tokens(tokenizer, inc_text, budget - t_used - e_used)
+    parts = [p for p in (t_txt, f"INCLUSION: {i_txt}" if i_txt else "",
+                         f"EXCLUSION: {e_txt}" if e_txt else "") if p]
+    return "\n".join(parts)
+
+
 def truncated_doc_text(tokenizer, fields: dict, cfg: ExperimentConfig, reserve: int) -> str:
     """Doc text truncated per cfg.repr_strategy to fit `cfg.max_length - reserve` tokens,
     returned as a STRING so the caller can let the model's own tokenizer assemble the pair
     (correct [CLS]/[SEP] and token_type_ids — hand-rolling those silently degrades a BERT
     cross-encoder). Strategies:
-      'head'      → leading budget tokens (drops eligibility on long docs).
-      'head_tail' → head_frac of the budget as head + the rest as tail (keeps trailing eligibility).
-      'elig_first'→ leading budget, but doc_segments already moved eligibility to the front.
+      'head'         → leading budget tokens (drops eligibility on long docs).
+      'head_tail'    → head_frac of the budget as head + the rest as tail (keeps trailing eligibility).
+      'elig_first'   → leading budget, but doc_segments already moved eligibility to the front.
+      'budget_incexc'→ topicality/inclusion/exclusion each budgeted, exclusion floor reserved first.
     """
-    ids = tokenizer.encode(doc_blob(fields, cfg), add_special_tokens=False)
     budget = max(cfg.max_length - reserve, 0)
+    if cfg.repr_strategy == "budget_incexc":
+        return _budget_incexc_text(tokenizer, fields, cfg, budget)
+    ids = tokenizer.encode(doc_blob(fields, cfg), add_special_tokens=False)
     if cfg.repr_strategy == "head_tail":
         ids = head_tail_ids(ids, budget, cfg.head_frac)
     else:

@@ -192,41 +192,45 @@ def head_tail_ids(doc_ids: list[int], budget: int, head_frac: float) -> list[int
     return doc_ids[:head] + doc_ids[-tail:]
 
 
-def encode_cross_batch(tokenizer, topic: str, docs_fields: Sequence[dict], cfg: ExperimentConfig):
-    """Tokenize (topic, doc) pairs for a cross-encoder with cfg.repr_strategy so
-    eligibility is not silently dropped. Returns a padded BatchEncoding on CPU.
-
-    'head'      → keep first N doc tokens (baseline; drops eligibility on long docs).
-    'head_tail' → keep head_frac of the budget as head + the rest as tail.
-    'elig_first'→ reorder so eligibility leads, then plain first-N.
+def truncated_doc_text(tokenizer, fields: dict, cfg: ExperimentConfig, reserve: int) -> str:
+    """Doc text truncated per cfg.repr_strategy to fit `cfg.max_length - reserve` tokens,
+    returned as a STRING so the caller can let the model's own tokenizer assemble the pair
+    (correct [CLS]/[SEP] and token_type_ids — hand-rolling those silently degrades a BERT
+    cross-encoder). Strategies:
+      'head'      → leading budget tokens (drops eligibility on long docs).
+      'head_tail' → head_frac of the budget as head + the rest as tail (keeps trailing eligibility).
+      'elig_first'→ leading budget, but doc_segments already moved eligibility to the front.
     """
-    import torch
+    ids = tokenizer.encode(doc_blob(fields, cfg), add_special_tokens=False)
+    budget = max(cfg.max_length - reserve, 0)
+    if cfg.repr_strategy == "head_tail":
+        ids = head_tail_ids(ids, budget, cfg.head_frac)
+    else:
+        ids = ids[:budget]
+    return tokenizer.decode(ids)
 
-    cls, sep = tokenizer.cls_token_id, tokenizer.sep_token_id
-    pad = tokenizer.pad_token_id if tokenizer.pad_token_id is not None else 0
-    topic_ids = tokenizer.encode(topic, add_special_tokens=False)
-    # reserve [CLS] topic [SEP] ... [SEP]
-    reserved = 3 + len(topic_ids)
 
-    rows = []
-    for fields in docs_fields:
-        blob = doc_blob(fields, cfg)
-        d_ids = tokenizer.encode(blob, add_special_tokens=False)
-        budget = max(cfg.max_length - reserved, 0)
-        if cfg.repr_strategy == "head_tail":
-            d_ids = head_tail_ids(d_ids, budget, cfg.head_frac)
-        else:  # 'head' and 'elig_first' both take the leading `budget` (order differs upstream)
-            d_ids = d_ids[:budget]
-        ids = [cls] + topic_ids + [sep] + d_ids + [sep]
-        rows.append(ids[: cfg.max_length])
+def encode_cross_batch(tokenizer, topic: str, docs_fields: Sequence[dict], cfg: ExperimentConfig):
+    """Tokenize (topic, doc) pairs for a cross-encoder under cfg.repr_strategy so eligibility
+    is not silently dropped. Pre-truncates each doc per strategy, then lets the tokenizer build
+    the pair — so special tokens AND token_type_ids match how the model was trained. Returns a
+    padded BatchEncoding (input_ids / attention_mask / token_type_ids)."""
+    reserve = 3 + len(tokenizer.encode(topic, add_special_tokens=False))  # [CLS] topic [SEP] ... [SEP]
+    docs = [truncated_doc_text(tokenizer, f, cfg, reserve) for f in docs_fields]
+    return tokenizer([topic] * len(docs), docs, truncation="longest_first",
+                     max_length=cfg.max_length, padding=True, return_tensors="pt")
 
-    width = max(len(r) for r in rows)
-    input_ids = torch.full((len(rows), width), pad, dtype=torch.long)
-    attn = torch.zeros((len(rows), width), dtype=torch.long)
-    for i, r in enumerate(rows):
-        input_ids[i, : len(r)] = torch.tensor(r, dtype=torch.long)
-        attn[i, : len(r)] = 1
-    return {"input_ids": input_ids, "attention_mask": attn}
+
+def relevant_index(model, label: str = "relevant") -> int:
+    """Index of the fully-relevant class. EXACT match — NOT substring: `'relevant' in
+    'not_relevant'` (and `'irrelevant'`) is True, so a substring match silently selects the
+    *not-relevant* class and ranks everything backwards. Falls back to the highest label id
+    (the not/partial/relevant = 0/1/2 convention) when labels are generic `LABEL_x`."""
+    id2label = model.config.id2label
+    for k, v in id2label.items():
+        if str(v).lower() == label:
+            return int(k)
+    return max(int(k) for k in id2label)
 
 
 def eligibility_retained_frac(tokenizer, topic: str, fields: dict, cfg: ExperimentConfig) -> float:
@@ -264,19 +268,9 @@ def eligibility_retained_frac(tokenizer, topic: str, fields: dict, cfg: Experime
 
 
 def llm_prompt(tokenizer, topic: str, fields: dict, cfg: ExperimentConfig) -> str:
-    """Judge prompt using the SAME representation as the cross-encoders (so the
-    judge sees eligibility). No char pre-truncation; token truncation happens at
-    tokenize time with cfg.max_length via head/tail like the cross-encoder."""
-    # Use the same head/tail token budget on the doc blob, then decode back to text.
-    blob = doc_blob(fields, cfg)
-    d_ids = tokenizer.encode(blob, add_special_tokens=False)
-    # leave generous room for the instruction + chat template
-    budget = max(cfg.max_length - 128, 0)
-    if cfg.repr_strategy == "head_tail":
-        d_ids = head_tail_ids(d_ids, budget, cfg.head_frac)
-    else:
-        d_ids = d_ids[:budget]
-    trial = tokenizer.decode(d_ids)
+    """Judge prompt using the SAME representation as the cross-encoders (so the judge sees
+    eligibility). Reserves headroom for the instruction + chat template."""
+    trial = truncated_doc_text(tokenizer, fields, cfg, reserve=128)
     user = (
         "You are a clinical trial matching expert.\n\n"
         f"Patient:\n{topic}\n\n"

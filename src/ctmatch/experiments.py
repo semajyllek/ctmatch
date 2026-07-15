@@ -67,11 +67,18 @@ class ExperimentConfig:
     # --- REPRESENTATION (the controlled variable) ------------------------------
     doc_fields: tuple = DEFAULT_DOC_FIELDS
     label_fields: bool = True          # prefix each field with "NAME: " in the blob
-    repr_strategy: str = "head_tail"   # 'head' | 'head_tail' | 'elig_first'
+    repr_strategy: str = "head_tail"   # 'head' | 'head_tail' | 'elig_first' — RERANKER input
     max_length: int = 512              # THE truncation constant (tokens). Evaluated
                                        # in isolation by exp_truncation.ipynb; frozen after.
     head_frac: float = 0.5             # head_tail: fraction of the doc budget kept as head
     retrieval_doc_chars: int = 0       # 0 = no char cap for BM25/dense blob; >0 caps it
+
+    # Retrieval uses its OWN representation: recall wants TOPICALITY (does the doc name the
+    # patient's condition?), not eligibility, and BM25 already indexes the whole doc — so the
+    # dense budget should be topicality-dense, not a truncated full blob. Ablated by
+    # exp_retrieval_repr.ipynb (field packing vs a longer-context encoder).
+    retrieval_fields: tuple = DEFAULT_DOC_FIELDS   # order/subset that goes into the DENSE vector
+    retriever_max_tokens: int = 256                # dense encoder context window (MiniLM-L6 = 256)
 
     # --- models -----------------------------------------------------------------
     # The binding fix is REPRESENTATION consistency (frozen R), NOT fine-tuning. Any
@@ -178,6 +185,27 @@ def doc_blob(fields: dict, cfg: ExperimentConfig) -> str:
     if cfg.retrieval_doc_chars:
         blob = blob[: cfg.retrieval_doc_chars]
     return blob
+
+
+def _blob_from(fields: dict, order: Sequence[str], cfg: ExperimentConfig) -> str:
+    segs = [(n, _field_text(fields.get(n)).strip()) for n in order]
+    segs = [(n, t) for n, t in segs if t]
+    if cfg.label_fields:
+        return "\n".join(f"{n.replace('_', ' ').upper()}: {t}" for n, t in segs)
+    return "\n".join(t for _, t in segs)
+
+
+def full_blob(fields: dict, cfg: ExperimentConfig) -> str:
+    """All fields, natural order, no token limit — for BM25 (not context-limited, so it
+    should see the whole document; field order is irrelevant to a bag-of-words model)."""
+    return _blob_from(fields, cfg.doc_fields, cfg)
+
+
+def retrieval_blob(fields: dict, cfg: ExperimentConfig) -> str:
+    """DENSE-retrieval representation: `cfg.retrieval_fields` (order + subset). The encoder
+    truncates to `cfg.retriever_max_tokens`, so lead with topicality (conditions/title/
+    summary) and drop low-value-per-token fields — BM25 covers the rest in the hybrid."""
+    return _blob_from(fields, cfg.retrieval_fields, cfg)
 
 
 def head_tail_ids(doc_ids: list[int], budget: int, head_frac: float) -> list[int]:
@@ -320,17 +348,20 @@ def load_eval(cfg: ExperimentConfig, sets: Sequence[str]):
 def build_bm25(corpus_fields: Sequence[dict], cfg: ExperimentConfig):
     from rank_bm25 import BM25Okapi
 
-    tokenized = [doc_blob(f, cfg).lower().split() for f in corpus_fields]
+    tokenized = [full_blob(f, cfg).lower().split() for f in corpus_fields]   # BM25 sees the whole doc
     return BM25Okapi(tokenized)
 
 
 def encode_corpus(corpus_fields: Sequence[dict], cfg: ExperimentConfig, batch_size: int = 64):
-    """Dense-encode the corpus with the FINE-TUNED retriever on the frozen repr."""
+    """Dense-encode the corpus with `cfg.retriever_ckpt` on the RETRIEVAL representation,
+    truncated to `cfg.retriever_max_tokens`. (encode the query side with the same model +
+    window at query time.)"""
     import numpy as np
     from sentence_transformers import SentenceTransformer
 
     model = SentenceTransformer(_resolve_ckpt(cfg, cfg.retriever_ckpt))
-    blobs = [doc_blob(f, cfg) for f in corpus_fields]
+    model.max_seq_length = cfg.retriever_max_tokens
+    blobs = [retrieval_blob(f, cfg) for f in corpus_fields]
     emb = model.encode(blobs, convert_to_numpy=True, normalize_embeddings=True,
                        batch_size=batch_size, show_progress_bar=True).astype(np.float32)
     return emb
@@ -394,6 +425,16 @@ def ndcg_at_k(ranked_ids: Sequence[str], rel: dict, k: int = 10) -> float:
     ideal = sorted(rel.values(), reverse=True)[:k]
     idcg = sum((2 ** r - 1) / np.log2(i + 2) for i, r in enumerate(ideal))
     return dcg / idcg if idcg > 0 else 0.0
+
+
+def recall_at_k(ranked_ids: Sequence[str], rel: dict, k: int, rel_level: int = 1) -> float:
+    """Fraction of judged-relevant docs (rel >= rel_level) retrieved in the top-k. The
+    retrieval metric — pool membership — not NDCG. rel_level=1 counts Excluded+Eligible;
+    rel_level=2 counts Eligible only."""
+    rel_docs = {d for d, r in rel.items() if r >= rel_level}
+    if not rel_docs:
+        return 0.0
+    return len(set(ranked_ids[:k]) & rel_docs) / len(rel_docs)
 
 
 def write_trec_run(path: str, run: dict, tag: str) -> None:

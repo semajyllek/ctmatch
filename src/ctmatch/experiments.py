@@ -105,9 +105,10 @@ class ExperimentConfig:
     # on the confounded repr, so both are re-open). Swap freely, e.g.:
     #   retriever_ckpt = 'sentence-transformers/all-MiniLM-L6-v2'  # off-the-shelf
     #   llm_ckpt       = data_root + '/judge_lora_R'               # fine-tuned judge
-    # Defaults are the CURRENT (pre-R) checkpoints so exp_truncation runs today.
+    # clf is now the frozen-R model (clf_R); retriever/reranker still pre-R pending their retrain.
+    # _resolve_ckpt prefers a local dir if it exists, so 'models/clf_R' on Drive works too.
     retriever_ckpt: str = "semaj83/ctmatch-retriever-v2"
-    clf_ckpt: str = "semaj83/ctmatch-clf-v4"
+    clf_ckpt: str = "semaj83/ctmatch-clf-R"               # frozen-R clf; PUSH it from Colab (below)
     reranker_ckpt: str = "reranker_hardneg_v2"             # relative to data_root
     llm_ckpt: str = "Qwen/Qwen2.5-7B-Instruct"             # zero-shot judge by default
 

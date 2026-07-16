@@ -407,6 +407,44 @@ def load_corpus(cfg: ExperimentConfig) -> tuple[list[str], list[dict]]:
     return corpus_ids, corpus_fields
 
 
+def clf_pairs(cfg: ExperimentConfig, sets: Sequence[str], id_filter: set | None = None):
+    """Labeled (topic, doc) training pairs from the judged qrels of `sets` — the whole judged
+    pool per topic (all rels, mostly 0). Each pair is {source, topic_id, topic_text, doc_id,
+    label}. NO doc text baked in — the representation is applied at tokenize time from cfg, so
+    it can never drift from what the model is evaluated on (§2g). `id_filter` keeps only docs
+    present in the corpus."""
+    out = []
+    for name, ds in load_eval(cfg, sets).items():
+        rel, topic2text = ds["rel_dict"], ds["topic2text"]
+        for tid, d2r in rel.items():
+            if tid not in topic2text:
+                continue
+            for doc_id, label in d2r.items():
+                if id_filter is not None and doc_id not in id_filter:
+                    continue
+                out.append({"source": name, "topic_id": tid, "topic_text": topic2text[tid],
+                            "doc_id": doc_id, "label": int(label)})
+    return out
+
+
+def build_clf_dataset(pairs: Sequence[dict], id2fields: dict, tokenizer, cfg: ExperimentConfig):
+    """HF Dataset of tokenized (topic, doc) pairs + int labels, with the doc rendered in the
+    FROZEN representation (cfg) via truncated_doc_text — the same path the reranker is scored on.
+    Dynamic padding: pad at collate time, not here."""
+    from datasets import Dataset
+
+    def gen():
+        for p in pairs:
+            fields = id2fields.get(p["doc_id"], {})
+            reserve = 3 + len(tokenizer.encode(p["topic_text"], add_special_tokens=False))
+            doc = truncated_doc_text(tokenizer, fields, cfg, reserve)
+            enc = tokenizer(p["topic_text"], doc, truncation="longest_first", max_length=cfg.max_length)
+            enc["labels"] = int(p["label"])
+            yield enc
+
+    return Dataset.from_generator(gen)
+
+
 def load_eval(cfg: ExperimentConfig, sets: Sequence[str]):
     """Thin wrapper over the repo loader so notebooks don't reimplement it."""
     from ctmatch.evaluation.eval_utils import load_eval_datasets

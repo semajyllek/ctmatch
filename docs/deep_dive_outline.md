@@ -489,11 +489,24 @@ Locked into `ExperimentConfig` as the default. One caveat on Leg 2's absolute va
 
 On the **held-out** TREC22, `clf_R` beats clf-v4 by **+0.012** — so training on `R` genuinely helps and `elig_first`'s edge is *not* a distribution-match artifact. Decomposed against clf-v4's original deep-dive judged-pool TREC22 (0.6388): **+0.011 from scoring on `R`** (0.6388 → 0.6499) **+0.012 from training on `R`** (0.6499 → 0.6623) ≈ **+0.024 total**, all attributable to the §2g fix. Caveats: judged-pool, not full-corpus (the decision-grade number is the ensemble re-run, step 5 above); n=50, so +0.012 is modest — real (paired, consistent across both splits, mechanism-backed) but wants a paired bootstrap before being called significant.
 
+#### reranker-v3 and the judge on `R` (the §11c re-test)
+
+Continuing the chain on `R`: **reranker-v3** (`train_reranker_hardneg`) continue-trains from `clf_R` with dense-mined hard negatives — weak standalone by design (v2 was too), so it's validated only as the `v2_rel` ensemble feature, not alone.
+
+The **judge on `R`** is the more interesting result. `rerank_llm_feature` scores Qwen-2.5-7B yes/no through the `elig_first` representation, so the judge finally *reads* eligibility — unlike §11c, whose null was measured on the eligibility-blind 1800-char input. Standalone judged-pool NDCG@10:
+
+| judge | TREC22 | TREC21 | KZ |
+|---|---|---|---|
+| §7f Qwen (eligibility-only, 2048 tok) | 0.6269 | — | — |
+| **judge on `R` (elig_first, this work)** | **0.6518** | 0.7558 | 0.5734 |
+
+The judge-on-`R` **beats §7f's eligibility-only judge by +0.025** and is **on par with `clf_R`** (0.6623) — a 7B zero-shot judge nearly matching the fine-tuned cross-encoder on held-out TREC22. So `elig_first` helps the judge, not just fixes a bug, and **§11c is genuinely re-opened**: its "the judge adds nothing" null was measured on an eligibility-blind, much weaker judge. Two cautions kept in view: (1) standalone quality ≠ *ensemble* contribution — §11c's finding was **redundancy** with clf/v2/dense, not judge weakness; (2) on `R`, `clf_R` and the judge *both* read eligibility, so they could be *more* correlated, not less. Whether the judge adds over `clf_R` is therefore decided only in the ensemble (`train_ensemble_full`, running), by whether their *errors* differ — not by the standalone number above.
+
 #### Bugs surfaced (all the silent representation-drift kind)
 
-Found and fixed while building this: `relevant_index` selected the class by *substring* (`'relevant' in 'not_relevant'` is True → ranked by P(not-relevant), the ~0.03 leg-2 floor); the `detailed_desc`/`detailed_description` field-key mismatch (longest field silently empty); the exclusion-header regex missing `re.IGNORECASE` (capitalized "Exclusion Criteria:" read as no-exclusion); and the hand-rolled cross-encoder tokenization that dropped `token_type_ids` (replaced with the model's native pair tokenizer). Each is exactly the class of silent, score-corrupting drift this whole effort exists to eliminate.
+Found and fixed while building this: `relevant_index` selected the class by *substring* (`'relevant' in 'not_relevant'` is True → ranked by P(not-relevant), the ~0.03 leg-2 floor); the `detailed_desc`/`detailed_description` field-key mismatch (longest field silently empty); the exclusion-header regex missing `re.IGNORECASE` (capitalized "Exclusion Criteria:" read as no-exclusion); the hand-rolled cross-encoder tokenization that dropped `token_type_ids` (replaced with the model's native pair tokenizer); and the **LLM judge gated by the 512 cross-encoder `max_length`** (its own budget is `llm_max_tokens=2048`; at 512 the prompt overflowed and right-truncation cut the "yes/no" question off the end, cratering the judge to 0.42 vs the 0.65 it scores once un-gated). Each is exactly the class of silent, score-corrupting drift this whole effort exists to eliminate.
 
-**Notebooks:** `exp_truncation.ipynb` (freeze `R`), `build_dataset.ipynb` (pairs on `R`), `retrain_classifier.ipynb` (`clf_R`), `exp_validate_clf.ipynb` (ranking validation), `exp_retrieval_repr.ipynb` (retrieval-representation ablation — separate, §2g note on retrieval vs rerank). Backbone: `src/ctmatch/experiments.py`.
+**Notebooks:** `exp_truncation.ipynb` (freeze `R`), `build_dataset.ipynb` (pairs on `R`), `retrain_classifier.ipynb` (`clf_R`), `exp_validate_clf.ipynb` (ranking validation), `train_reranker_hardneg.ipynb` (reranker-v3), `rerank_llm_feature.ipynb` (judge on `R`), `eval_fullcorpus.ipynb` (retrieval + pool on `R`), `train_ensemble_full.ipynb` (LambdaMART on `R` — **running**, produces the full-corpus number that replaces the `PENDING(R)` §7 tables), `exp_retrieval_repr.ipynb` (retrieval-representation ablation — separate, §2g note on retrieval vs rerank). Backbone: `src/ctmatch/experiments.py`.
 
 ---
 

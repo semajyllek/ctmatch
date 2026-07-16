@@ -640,11 +640,15 @@ def log_result(cfg: ExperimentConfig, experiment: str, split: str, metrics: dict
         f.write(json.dumps(row) + "\n")
 
 
-def _resolve_ckpt(cfg: ExperimentConfig, ckpt: str) -> str:
-    """Resolve a checkpoint: a local path (absolute or data_root-relative) if one exists on
-    disk, otherwise an HF hub id. (Checking existence first means a local model dir like
-    'models/clf_R' — which contains a '/' — isn't mistaken for an HF id.)"""
+def resolve_ckpt(cfg: ExperimentConfig, ckpt: str) -> str:
+    """Resolve a checkpoint to a `from_pretrained`-ready value: a local path (absolute or
+    data_root-relative) if one exists on disk, otherwise an HF hub id. (Checking existence first
+    means a local model dir like 'models/reranker_v3' — which contains a '/' — isn't mistaken for
+    an HF id.) Use this whenever loading a model from cfg, so local frozen-R dirs work."""
     if os.path.exists(ckpt):
         return ckpt
     local = cfg.path(ckpt)
     return local if os.path.exists(local) else ckpt
+
+
+_resolve_ckpt = resolve_ckpt   # internal alias (encode_corpus / mine_dense_hard_negatives)

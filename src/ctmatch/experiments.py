@@ -29,9 +29,13 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import hashlib
 from dataclasses import dataclass, field, asdict, replace
 from typing import Callable, Iterable, Sequence
+
+# Exclusion-header split, matching ctproc.eligibility.process_eligibility_naive (IGNORECASE).
+_EXC_HEADER_RE = re.compile(r"(?:exclu(?:de|sion) criteria:?)|(?:ineligibility criteria:?)", re.IGNORECASE)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -307,38 +311,60 @@ def relevant_index(model, label: str = "relevant") -> int:
     return max(int(k) for k in id2label)
 
 
-def eligibility_retained_frac(tokenizer, topic: str, fields: dict, cfg: ExperimentConfig) -> float:
-    """Model-free diagnostic: fraction of the eligibility field's tokens that survive
-    into the (topic, doc) model input under cfg. This is how we evaluate the truncation
-    constant *by itself* — no reranker, no training, just "does the model see eligibility."
-    Returns 1.0 if there is no eligibility text (nothing to lose)."""
-    segs = doc_segments(fields, cfg)
-    names = [n for n, _ in segs]
-    if "eligibility" not in names:
-        return 1.0
-    # token index span of the eligibility segment within the assembled blob
-    def _seg_str(name, text):
-        return f"{name.replace('_', ' ').upper()}: {text}" if cfg.label_fields else text
-    prefix = "\n".join(_seg_str(n, t) for n, t in segs[: names.index("eligibility")])
-    elig = _seg_str("eligibility", dict(segs)["eligibility"])
-    n_prefix = len(tokenizer.encode(prefix, add_special_tokens=False)) if prefix else 0
-    n_elig = len(tokenizer.encode(elig, add_special_tokens=False))
-    if n_elig == 0:
-        return 1.0
-    elig_idx = set(range(n_prefix, n_prefix + n_elig))
-
+def _kept_doc_indices(tokenizer, topic: str, fields: dict, cfg: ExperimentConfig):
+    """Set of doc-token indices (into doc_blob) that survive into the model input, plus n_doc.
+    For the blob strategies only (budget_incexc assembles text differently)."""
     n_topic = len(tokenizer.encode(topic, add_special_tokens=False))
     budget = max(cfg.max_length - (3 + n_topic), 0)
     n_doc = len(tokenizer.encode(doc_blob(fields, cfg), add_special_tokens=False))
     if n_doc <= budget:
-        kept = set(range(n_doc))
-    elif cfg.repr_strategy == "head_tail":
+        return set(range(n_doc)), n_doc
+    if cfg.repr_strategy == "head_tail":
         head = int(round(budget * cfg.head_frac))
         tail = budget - head
-        kept = set(range(head)) | set(range(n_doc - tail, n_doc))
-    else:  # 'head' / 'elig_first' both keep the leading budget (order set upstream)
-        kept = set(range(budget))
-    return len(elig_idx & kept) / len(elig_idx)
+        return set(range(head)) | set(range(n_doc - tail, n_doc)), n_doc
+    return set(range(budget)), n_doc   # 'head' / 'elig_first' keep the leading budget
+
+
+def _span_retained(tokenizer, topic: str, fields: dict, cfg: ExperimentConfig, span_text: str) -> float:
+    """Fraction of `span_text` (a substring of doc_blob) whose tokens survive truncation."""
+    if not span_text.strip():
+        return 1.0
+    blob = doc_blob(fields, cfg)
+    ci = blob.find(span_text)
+    if ci < 0:
+        return 1.0
+    start = len(tokenizer.encode(blob[:ci], add_special_tokens=False))
+    n = len(tokenizer.encode(span_text, add_special_tokens=False))
+    if n == 0:
+        return 1.0
+    kept, _ = _kept_doc_indices(tokenizer, topic, fields, cfg)
+    return len(set(range(start, start + n)) & kept) / n
+
+
+def eligibility_retained_frac(tokenizer, topic: str, fields: dict, cfg: ExperimentConfig) -> float:
+    """Model-free diagnostic: fraction of the eligibility field's tokens that survive into the
+    (topic, doc) model input under cfg. Evaluates the truncation constant by itself."""
+    return _span_retained(tokenizer, topic, fields, cfg, _field_text(fields.get("eligibility", "")))
+
+
+def exclusion_retained_frac(tokenizer, topic: str, fields: dict, cfg: ExperimentConfig) -> float:
+    """Fraction of the EXCLUSION criteria tokens that survive — the disqualifier signal, which
+    elig_first/head keep *after* inclusion (so a long inclusion list buries it) but budget_incexc
+    reserves a floor for. Returns 1.0 when there is no exclusion text."""
+    _, exc_text = split_eligibility(fields, cfg)
+    n_exc = len(tokenizer.encode(exc_text, add_special_tokens=False))
+    if n_exc == 0:
+        return 1.0
+    if cfg.repr_strategy == "budget_incexc":
+        n_topic = len(tokenizer.encode(topic, add_special_tokens=False))
+        budget = max(cfg.max_length - (3 + n_topic), 0)
+        return min(n_exc, int(budget * cfg.budget_exc_frac)) / n_exc
+    # blob strategies: locate the raw exclusion block (from the exclusion header) inside doc_blob
+    elig_raw = _field_text(fields.get("eligibility", ""))
+    m = _EXC_HEADER_RE.search(elig_raw)
+    exc_raw = elig_raw[m.start():] if m else ""
+    return _span_retained(tokenizer, topic, fields, cfg, exc_raw)
 
 
 def llm_prompt(tokenizer, topic: str, fields: dict, cfg: ExperimentConfig) -> str:

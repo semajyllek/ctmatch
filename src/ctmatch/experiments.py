@@ -109,7 +109,7 @@ class ExperimentConfig:
     # _resolve_ckpt prefers a local dir if it exists, so 'models/clf_R' on Drive works too.
     retriever_ckpt: str = "semaj83/ctmatch-retriever-v2"
     clf_ckpt: str = "semaj83/ctmatch-clf-R"               # frozen-R clf; PUSH it from Colab (below)
-    reranker_ckpt: str = "reranker_hardneg_v2"             # relative to data_root
+    reranker_ckpt: str = "models/reranker_v3"              # frozen-R reranker (local dir on Drive)
     llm_ckpt: str = "Qwen/Qwen2.5-7B-Instruct"             # zero-shot judge by default
     llm_max_tokens: int = 2048   # judge context budget — the LLM has 32k context, so it must NOT
                                  # be gated by the 512 cross-encoder max_length (§7f used 2048)
@@ -603,6 +603,21 @@ def pytrec_ndcg(run: dict, qrels: dict, k: int = 10) -> float:
     res = ev.evaluate(run)
     vals = [v[f"ndcg_cut_{k}"] for v in res.values()]
     return sum(vals) / len(vals) if vals else 0.0
+
+
+def pytrec_metrics(run: dict, qrels: dict, k: int = 10) -> dict:
+    """TREC CT protocol metrics: NDCG@k on the GRADED qrels (Eligible=2/Excluded=1/Not=0),
+    but P@k and MRR on ELIGIBLE-ONLY (rel>=2) relevance — matching the overview so the numbers
+    are comparable to h2oloo. Returns {ndcg@k, P@k, mrr}."""
+    import numpy as np
+    import pytrec_eval
+
+    ndcg = pytrec_ndcg(run, qrels, k)
+    elig = {t: {d: (1 if r >= 2 else 0) for d, r in dd.items()} for t, dd in qrels.items()}
+    res = pytrec_eval.RelevanceEvaluator(elig, {f"P.{k}", "recip_rank"}).evaluate(run)
+    p = float(np.mean([v[f"P_{k}"] for v in res.values()])) if res else 0.0
+    mrr = float(np.mean([v["recip_rank"] for v in res.values()])) if res else 0.0
+    return {f"ndcg@{k}": round(ndcg, 4), f"P@{k}": round(p, 4), "mrr": round(mrr, 4)}
 
 
 def log_result(cfg: ExperimentConfig, experiment: str, split: str, metrics: dict, extra: dict | None = None) -> None:

@@ -587,5 +587,10 @@ def log_result(cfg: ExperimentConfig, experiment: str, split: str, metrics: dict
 
 
 def _resolve_ckpt(cfg: ExperimentConfig, ckpt: str) -> str:
-    """A ckpt is an HF id if it has a '/', else a path relative to data_root."""
-    return ckpt if "/" in ckpt else cfg.path(ckpt)
+    """Resolve a checkpoint: a local path (absolute or data_root-relative) if one exists on
+    disk, otherwise an HF hub id. (Checking existence first means a local model dir like
+    'models/clf_R' — which contains a '/' — isn't mistaken for an HF id.)"""
+    if os.path.exists(ckpt):
+        return ckpt
+    local = cfg.path(ckpt)
+    return local if os.path.exists(local) else ckpt

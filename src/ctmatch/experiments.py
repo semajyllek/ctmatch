@@ -73,10 +73,13 @@ class ExperimentConfig:
     # --- REPRESENTATION (the controlled variable) ------------------------------
     doc_fields: tuple = DEFAULT_DOC_FIELDS
     label_fields: bool = True          # prefix each field with "NAME: " in the blob
-    repr_strategy: str = "head_tail"   # 'head' | 'head_tail' | 'elig_first' | 'budget_incexc'
-    max_length: int = 512              # THE truncation constant (tokens). Evaluated
-                                       # in isolation by exp_truncation.ipynb; frozen after.
-    head_frac: float = 0.5             # head_tail: fraction of the doc budget kept as head
+    # FROZEN by exp_truncation.ipynb (TREC21 judged-pool rerank NDCG@10, leg 2a/2b):
+    # elig_first-L512 = 0.893 (winner) > elig_first-L384 0.877 > head_tail-L512 0.829 >
+    # budget_incexc-L512 0.846 > head-L512 0.807. NDCG tracks eligibility coverage; the
+    # eligibility-forward representation wins. Do NOT tune max_length again.
+    repr_strategy: str = "elig_first"  # 'head' | 'head_tail' | 'elig_first' | 'budget_incexc'
+    max_length: int = 512              # THE truncation constant (tokens), frozen.
+    head_frac: float = 0.5             # head_tail only (unused by elig_first)
     retrieval_doc_chars: int = 0       # 0 = no char cap for BM25/dense blob; >0 caps it
 
     # budget_incexc: give topicality / inclusion / exclusion each a slice of the doc token

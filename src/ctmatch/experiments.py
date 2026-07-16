@@ -111,6 +111,8 @@ class ExperimentConfig:
     clf_ckpt: str = "semaj83/ctmatch-clf-R"               # frozen-R clf; PUSH it from Colab (below)
     reranker_ckpt: str = "reranker_hardneg_v2"             # relative to data_root
     llm_ckpt: str = "Qwen/Qwen2.5-7B-Instruct"             # zero-shot judge by default
+    llm_max_tokens: int = 2048   # judge context budget — the LLM has 32k context, so it must NOT
+                                 # be gated by the 512 cross-encoder max_length (§7f used 2048)
 
     # --- retrieval / ensemble --------------------------------------------------
     cand_k: int = 1000
@@ -271,8 +273,10 @@ def _budget_incexc_text(tokenizer, fields: dict, cfg: ExperimentConfig, budget: 
     return "\n".join(parts)
 
 
-def truncated_doc_text(tokenizer, fields: dict, cfg: ExperimentConfig, reserve: int) -> str:
-    """Doc text truncated per cfg.repr_strategy to fit `cfg.max_length - reserve` tokens,
+def truncated_doc_text(tokenizer, fields: dict, cfg: ExperimentConfig, reserve: int,
+                       max_length: int | None = None) -> str:
+    """Doc text truncated per cfg.repr_strategy to fit `max_length - reserve` tokens (defaults to
+    the cross-encoder `cfg.max_length`; the LLM judge passes its own larger `cfg.llm_max_tokens`),
     returned as a STRING so the caller can let the model's own tokenizer assemble the pair
     (correct [CLS]/[SEP] and token_type_ids — hand-rolling those silently degrades a BERT
     cross-encoder). Strategies:
@@ -281,7 +285,7 @@ def truncated_doc_text(tokenizer, fields: dict, cfg: ExperimentConfig, reserve: 
       'elig_first'   → leading budget, but doc_segments already moved eligibility to the front.
       'budget_incexc'→ topicality/inclusion/exclusion each budgeted, exclusion floor reserved first.
     """
-    budget = max(cfg.max_length - reserve, 0)
+    budget = max((cfg.max_length if max_length is None else max_length) - reserve, 0)
     if cfg.repr_strategy == "budget_incexc":
         return _budget_incexc_text(tokenizer, fields, cfg, budget)
     ids = tokenizer.encode(doc_blob(fields, cfg), add_special_tokens=False)
@@ -372,9 +376,11 @@ def exclusion_retained_frac(tokenizer, topic: str, fields: dict, cfg: Experiment
 
 
 def llm_prompt(tokenizer, topic: str, fields: dict, cfg: ExperimentConfig) -> str:
-    """Judge prompt using the SAME representation as the cross-encoders (so the judge sees
-    eligibility). Reserves headroom for the instruction + chat template."""
-    trial = truncated_doc_text(tokenizer, fields, cfg, reserve=128)
+    """Judge prompt using the same repr STRATEGY as the cross-encoders (so the judge sees
+    eligibility) but the LLM's own, much larger token budget (`cfg.llm_max_tokens`, not the 512
+    BERT `max_length`). Reserve covers the system+instruction+patient+chat-template scaffold so the
+    'yes/no' question is never truncated off."""
+    trial = truncated_doc_text(tokenizer, fields, cfg, reserve=300, max_length=cfg.llm_max_tokens)
     user = (
         "You are a clinical trial matching expert.\n\n"
         f"Patient:\n{topic}\n\n"
@@ -550,7 +556,7 @@ def llm_yesno_scores(model, tokenizer, topic: str, docs_fields, cfg, batch: int 
     for i in range(0, len(docs_fields), batch):
         prompts = [llm_prompt(tokenizer, topic, f, cfg) for f in docs_fields[i:i + batch]]
         enc = tokenizer(prompts, return_tensors="pt", padding=True, truncation=True,
-                        max_length=cfg.max_length).to(device)
+                        max_length=cfg.llm_max_tokens).to(device)
         with torch.no_grad():
             logits = model(**enc).logits[:, -1, :]
             lp = torch.log_softmax(logits.float(), dim=-1)

@@ -445,6 +445,38 @@ def build_clf_dataset(pairs: Sequence[dict], id2fields: dict, tokenizer, cfg: Ex
     return Dataset.from_generator(gen)
 
 
+def mine_dense_hard_negatives(cfg: ExperimentConfig, pairs: Sequence[dict], id2fields: dict,
+                              n_per_topic: int = 50, batch_size: int = 64):
+    """Per topic, the rel=0 judged docs the DENSE retriever ranks MOST similar to the topic — the
+    semantic near-misses a pointwise cross-encoder tends to score as false positives (§7i Finding 4).
+    Returns those pairs, to be oversampled into reranker training. Uses cfg.retriever_ckpt on the
+    retrieval representation."""
+    import numpy as np
+    from collections import defaultdict
+    from sentence_transformers import SentenceTransformer
+
+    model = SentenceTransformer(_resolve_ckpt(cfg, cfg.retriever_ckpt))
+    model.max_seq_length = cfg.retriever_max_tokens
+    uniq = sorted({p["doc_id"] for p in pairs})
+    demb = model.encode([retrieval_blob(id2fields.get(d, {}), cfg) for d in uniq],
+                        convert_to_numpy=True, normalize_embeddings=True,
+                        batch_size=batch_size, show_progress_bar=True).astype("float32")
+    didx = {d: i for i, d in enumerate(uniq)}
+
+    by_topic = defaultdict(list)
+    for p in pairs:
+        by_topic[p["topic_id"]].append(p)
+    hard = []
+    for group in by_topic.values():
+        negs = [p for p in group if int(p["label"]) == 0]
+        if not negs:
+            continue
+        q = model.encode([group[0]["topic_text"]], convert_to_numpy=True, normalize_embeddings=True)[0]
+        sims = [(p, float(q @ demb[didx[p["doc_id"]]])) for p in negs]
+        hard.extend(p for p, _ in sorted(sims, key=lambda x: -x[1])[:n_per_topic])
+    return hard
+
+
 def load_eval(cfg: ExperimentConfig, sets: Sequence[str]):
     """Thin wrapper over the repo loader so notebooks don't reimplement it."""
     from ctmatch.evaluation.eval_utils import load_eval_datasets

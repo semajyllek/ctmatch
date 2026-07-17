@@ -108,7 +108,8 @@ class ExperimentConfig:
     # clf is now the frozen-R model (clf_R); retriever/reranker still pre-R pending their retrain.
     # _resolve_ckpt prefers a local dir if it exists, so 'models/clf_R' on Drive works too.
     retriever_ckpt: str = "semaj83/ctmatch-retriever-v2"
-    clf_ckpt: str = "semaj83/ctmatch-clf-R"               # frozen-R clf; PUSH it from Colab (below)
+    clf_ckpt: str = "semaj83/ctmatch-clf-R"               # eligibility-view clf (elig_first); PUSH from Colab
+    clf_topic_ckpt: str = "semaj83/ctmatch-clf-topic"    # topicality-view clf (topic_first) — diverse reranker
     reranker_ckpt: str = "models/reranker_v3"              # frozen-R reranker (local dir on Drive)
     llm_ckpt: str = "Qwen/Qwen2.5-7B-Instruct"             # zero-shot judge by default
     llm_max_tokens: int = 2048   # judge context budget — the LLM has 32k context, so it must NOT
@@ -181,12 +182,17 @@ def doc_segments(fields: dict, cfg: ExperimentConfig) -> list[tuple[str, str]]:
     """Ordered [(label, text)] for the configured fields, non-empty only.
 
     `elig_first` moves eligibility (and conditions) to the front so plain
-    longest-first truncation keeps the eligibility signal; other strategies
-    keep the natural order and rely on head/head_tail token selection.
+    longest-first truncation keeps the eligibility signal; `topic_first` moves the
+    topicality fields to the front (the topicality *view* — a deliberately different
+    representation for a diverse reranker, orthogonal to the eligibility view). Other
+    strategies keep the natural order and rely on head/head_tail token selection.
     """
     order = list(cfg.doc_fields)
     if cfg.repr_strategy == "elig_first":
         front = [f for f in ("eligibility", "conditions") if f in order]
+        order = front + [f for f in order if f not in front]
+    elif cfg.repr_strategy == "topic_first":
+        front = [f for f in cfg.topicality_fields if f in order]
         order = front + [f for f in order if f not in front]
     segs = []
     for name in order:

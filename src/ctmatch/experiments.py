@@ -394,6 +394,25 @@ def llm_prompt(tokenizer, topic: str, fields: dict, cfg: ExperimentConfig) -> st
     )
 
 
+def llm_topicality_prompt(tokenizer, topic: str, fields: dict, cfg: ExperimentConfig) -> str:
+    """TOPICALITY (not eligibility) prompt: is this trial *about* the patient's condition? Uses only
+    the topicality fields (conditions/title/summary) — deliberately orthogonal to the eligibility
+    judge (§9e #2), so the ensemble gets a signal it can't get from the eligibility readers."""
+    ids = tokenizer.encode(_blob_from(fields, cfg.topicality_fields, cfg), add_special_tokens=False)
+    trial = tokenizer.decode(ids[: max(cfg.llm_max_tokens - 300, 0)])
+    user = (
+        "You are a clinical trial matching expert.\n\n"
+        f"Patient:\n{topic}\n\n"
+        f"Trial:\n{trial}\n\n"
+        "Is this trial studying the patient's condition or disease? Answer with a single word: yes or no."
+    )
+    return tokenizer.apply_chat_template(
+        [{"role": "system", "content": "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."},
+         {"role": "user", "content": user}],
+        tokenize=False, add_generation_prompt=True,
+    )
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Data loading
 # ─────────────────────────────────────────────────────────────────────────────
@@ -546,15 +565,18 @@ def cross_encoder_scores(model, tokenizer, topic: str, docs_fields, cfg, rel_idx
     return out
 
 
-def llm_yesno_scores(model, tokenizer, topic: str, docs_fields, cfg, batch: int = 8):
+def llm_yesno_scores(model, tokenizer, topic: str, docs_fields, cfg, batch: int = 8, prompt_fn=None):
+    """yes/no logprob margin per (topic, doc). `prompt_fn` builds each prompt — defaults to the
+    eligibility judge (`llm_prompt`); pass `llm_topicality_prompt` for the topicality feature."""
     import torch
 
+    prompt_fn = prompt_fn or llm_prompt
     yes = sorted({tokenizer.encode(w, add_special_tokens=False)[0] for w in ["yes", "Yes", " yes", " Yes", "YES"]})
     no = sorted({tokenizer.encode(w, add_special_tokens=False)[0] for w in ["no", "No", " no", " No", "NO"]})
     device = next(model.parameters()).device
     out = []
     for i in range(0, len(docs_fields), batch):
-        prompts = [llm_prompt(tokenizer, topic, f, cfg) for f in docs_fields[i:i + batch]]
+        prompts = [prompt_fn(tokenizer, topic, f, cfg) for f in docs_fields[i:i + batch]]
         enc = tokenizer(prompts, return_tensors="pt", padding=True, truncation=True,
                         max_length=cfg.llm_max_tokens).to(device)
         with torch.no_grad():

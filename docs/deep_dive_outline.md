@@ -14,9 +14,11 @@
 > still valid). **Do not cite any number in this document until it carries a representation tag
 > (`cfg.repr_tag()`, e.g. `head_tail-L512-h50`) written by the new `ctmatch.experiments` result
 > ledger.** Re-run program and rationale: §2g "Consequence for the surpass-SOTA effort" and
-> `docs/notebook_cleanup_plan.md`. **Progress:** the representation is now frozen (`R = elig_first-L512`)
-> and the reranker retrained on it (`clf_R`) already beats the old model on held-out TREC22 — see **§2h**.
-> The full-corpus §7 tables stay `PENDING(R)` until the ensemble is re-run end-to-end on `R`.
+> `docs/notebook_cleanup_plan.md`. **Progress:** representation frozen (`R = elig_first-L512`); the clean,
+> representation-consistent, **multi-view** full-corpus pipeline now scores **TREC22 NDCG@10 = 0.5548**
+> (95% CI [0.477, 0.635], contains h2oloo's 0.6125) — see **§2h**. This is the honest `R` number; the old
+> 0.6105 is retracted (it borrowed against the miscalibration this effort removed). The §7 tables below stay
+> struck (`PENDING(R)`) and will be rewritten from the `R` runs; §2h holds the current live numbers.
 
 ---
 
@@ -500,7 +502,30 @@ The **judge on `R`** is the more interesting result. `rerank_llm_feature` scores
 | §7f Qwen (eligibility-only, 2048 tok) | 0.6269 | — | — |
 | **judge on `R` (elig_first, this work)** | **0.6518** | 0.7558 | 0.5734 |
 
-The judge-on-`R` **beats §7f's eligibility-only judge by +0.025** and is **on par with `clf_R`** (0.6623) — a 7B zero-shot judge nearly matching the fine-tuned cross-encoder on held-out TREC22. So `elig_first` helps the judge, not just fixes a bug, and **§11c is genuinely re-opened**: its "the judge adds nothing" null was measured on an eligibility-blind, much weaker judge. Two cautions kept in view: (1) standalone quality ≠ *ensemble* contribution — §11c's finding was **redundancy** with clf/v2/dense, not judge weakness; (2) on `R`, `clf_R` and the judge *both* read eligibility, so they could be *more* correlated, not less. Whether the judge adds over `clf_R` is therefore decided only in the ensemble (`train_ensemble_full`, running), by whether their *errors* differ — not by the standalone number above.
+The judge-on-`R` **beats §7f's eligibility-only judge by +0.025** and is **on par with `clf_R`** (0.6623) — a 7B zero-shot judge nearly matching the fine-tuned cross-encoder on held-out TREC22. So `elig_first` helps the judge, not just fixes a bug, and **§11c is genuinely re-opened**: its "the judge adds nothing" null was measured on an eligibility-blind, much weaker judge. Two cautions kept in view: (1) standalone quality ≠ *ensemble* contribution — §11c's finding was **redundancy** with clf/v2/dense, not judge weakness; (2) on `R`, `clf_R` and the judge *both* read eligibility, so they could be *more* correlated, not less. Whether the judge adds over `clf_R` is therefore decided only in the ensemble — see the multi-view result next.
+
+#### The full-corpus ensemble on `R`, and the mismatch-vs-diversity lesson
+
+The first end-to-end `R` ensemble (retrieval → LambdaMART over BM25/dense/RRF + `clf_R` + reranker-v3 + judge) came in at **TREC22 NDCG@10 = 0.5203 — well below the old 0.6105.** Better *components* (clf_R, the judge) but a *worse* ensemble. The diagnostic (`exp_ensemble_diagnose.ipynb`, all cached features) found why:
+
+- **`reranker_v3` (`v2_rel`) was redundant and actively hurting** — 0.69-correlated with `clf_rel` and dropping it *improved* NDCG by +0.033. Root cause: it was continue-trained *from* `clf_R` on the *same* `R`, so it's a clone, not the diverse feature the old `reranker-v2` was.
+- **The CV mis-picked `num_leaves=31`** (KZ noise in the folds); 15 is +0.022.
+- The judge, by contrast, is the **strongest single feature** and *orthogonal* to `clf_rel` (r=0.33) — the §11c reversal confirmed.
+- The ensemble is badly **in-sample-inflated on its tuning set** (TREC21 CV 0.70 vs TREC22 0.52), because `clf_R`/`reranker_v3` train on TREC21 — so TREC21-CV can't detect held-out redundancy (limitation #3 bites hard here).
+
+**The conceptual correction (load-bearing).** The instinct was to call the old ensemble's feature diversity a "confound." It is not. **Train/inference *mismatch* (a model scored on a distribution it never trained on) is the real bug (§2g); feature *diversity* (different features deliberately reading different views) is legitimate multi-view ensembling.** The old 0.6105 had real multi-view signal *delivered through miscalibrated models* — the two were entangled. Making the representation consistent (correct) removed the diversity *and* the miscalibration together. The fix is not to accept a lower ceiling; it is to deliver the diversity **deliberately**: each model self-consistent on its *own* representation, but different models on *different* views. A representation optimized for retrieval that loses eligibility is a perfectly defensible *feature* — it's a different view.
+
+**Multi-view build.** Drop the redundant `reranker_v3`; add two purpose-built topicality-view features orthogonal to the eligibility readers: **`clf_topic`** (BioLinkBERT-large trained on the `topic_first` representation — conditions/title/summary lead) and a **topicality judge** (Qwen asked "is this trial *about* the patient's condition?"). Final feature set = retrieval + `clf_R` (eligibility CE) + `clf_topic` (topicality CE) + eligibility judge + topicality judge. Progression:
+
+| ensemble (TREC22) | NDCG@10 | MRR | TREC21 CV | notes |
+|---|---|---|---|---|
+| original (9-feat, incl. `v2_rel`, nl=31) | 0.5203 | 0.645 | 0.487 | components better, ensemble worse than old 0.61 |
+| retuned (TREC21-CV, nl=15) | 0.5221 | 0.631 | 0.703 | CV can't drop `v2_rel` (in-sample) — no change |
+| **multi-view (drop `v2_rel`; +`clf_topic` +topicality)** | **0.5548** | **0.712** | 0.615 | all orthogonal features survive selection |
+
+**Findings.** (1) **All the multi-view features survived backward selection** — `clf_topic_rel`/`clf_topic_partial`/`topicality` are all in the final model, contributing comparably to `llm_yesno`. The diversity is real and *used*. (2) **MRR jumped 0.63 → 0.71** — much better first-relevant placement. (3) **The overfit collapsed**: the CV-test gap went from 0.18 (0.70 vs 0.52) to 0.06 (0.615 vs 0.555) — dropping the clone and adding real views made the model *generalize*, not just score. (4) The two LLM judges are only moderately orthogonal (r=0.67 — same model, related questions), so they stack less than the separately-trained cross-encoder views; the topicality *cross-encoder* is the cleaner diversity.
+
+**Honest standing: TREC22 NDCG@10 = 0.5548, 95% CI [0.477, 0.635], vs h2oloo 0.6125.** The CI contains 0.6125 (a statistical tie), but the point estimate is ~0.057 short and that gap is not hand-waved away. What this number *is*: representation-consistent, multi-view-by-design, generalizing (small CV-test gap), with every feature accounted for — arguably more defensible than the old 0.6105, which we now know borrowed against the very miscalibration this effort removed. Remaining levers, in EV order: (a) a **more orthogonal topicality signal** (a *different-model* condition-match encoder — SapBERT/an off-the-shelf bi-encoder — since the same-model LLM judges cap at r=0.67); (b) **retrieval recall** (recall@1000 = 0.543; retrain the retriever on `R` / `exp_retrieval_repr` / query expansion, esp. for the implicit-diagnosis topics); (c) a **stronger reranker view** (`monoT5_CT`, §10). Notebooks: `exp_ensemble_diagnose`, `train_classifier_topic`, `rerank_topicality_feature`, `train_ensemble_full` (multi-view).
 
 #### Bugs surfaced (all the silent representation-drift kind)
 

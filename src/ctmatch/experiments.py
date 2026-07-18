@@ -114,6 +114,9 @@ class ExperimentConfig:
     llm_ckpt: str = "Qwen/Qwen2.5-7B-Instruct"             # zero-shot judge by default
     llm_max_tokens: int = 2048   # judge context budget — the LLM has 32k context, so it must NOT
                                  # be gated by the 512 cross-encoder max_length (§7f used 2048)
+    # condition-match feature: a DIFFERENT-model topicality signal (bi-encoder cosine of topic vs the
+    # trial's topicality blob), orthogonal to the same-model LLM judges (which cap at r~0.67).
+    topicality_encoder: str = "cambridgeltl/SapBERT-from-PubMedBERT-fulltext"
 
     # --- retrieval / ensemble --------------------------------------------------
     cand_k: int = 1000
@@ -234,6 +237,12 @@ def retrieval_blob(fields: dict, cfg: ExperimentConfig) -> str:
     truncates to `cfg.retriever_max_tokens`, so lead with topicality (conditions/title/
     summary) and drop low-value-per-token fields — BM25 covers the rest in the hybrid."""
     return _blob_from(fields, cfg.retrieval_fields, cfg)
+
+
+def topicality_blob(fields: dict, cfg: ExperimentConfig) -> str:
+    """Just the topicality fields (conditions/title/summary) — the doc side of the condition-match
+    feature (SapBERT bi-encoder), orthogonal to the eligibility readers."""
+    return _blob_from(fields, cfg.topicality_fields, cfg)
 
 
 def head_tail_ids(doc_ids: list[int], budget: int, head_frac: float) -> list[int]:

@@ -580,6 +580,27 @@ def cross_encoder_scores(model, tokenizer, topic: str, docs_fields, cfg, rel_idx
     return out
 
 
+def llm_expand_query(model, tokenizer, topic: str, cfg, max_new_tokens: int = 96) -> str:
+    """NQS-style query expansion (open-model): ask the LLM for the likely diagnoses + key search
+    terms for the patient, to bridge the symptom→disease gap that caps recall on implicit-diagnosis
+    topics (§8a). Returns a short comma-separated string to append to the retrieval query."""
+    import torch
+
+    user = ("You are a clinical expert. Given this patient description, list the most likely "
+            "diagnoses and the key medical conditions, diseases, and terms to search for in "
+            "clinical trials. Output ONLY a short comma-separated list, no explanation.\n\n"
+            f"Patient:\n{topic}")
+    prompt = tokenizer.apply_chat_template(
+        [{"role": "system", "content": "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."},
+         {"role": "user", "content": user}],
+        tokenize=False, add_generation_prompt=True)
+    enc = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=cfg.llm_max_tokens).to(model.device)
+    with torch.no_grad():
+        out = model.generate(**enc, max_new_tokens=max_new_tokens, do_sample=False,
+                             pad_token_id=tokenizer.pad_token_id or tokenizer.eos_token_id)
+    return tokenizer.decode(out[0][enc["input_ids"].shape[1]:], skip_special_tokens=True).strip()
+
+
 def llm_yesno_scores(model, tokenizer, topic: str, docs_fields, cfg, batch: int = 8, prompt_fn=None):
     """yes/no logprob margin per (topic, doc). `prompt_fn` builds each prompt — defaults to the
     eligibility judge (`llm_prompt`); pass `llm_topicality_prompt` for the topicality feature."""

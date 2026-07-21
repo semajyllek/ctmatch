@@ -15,10 +15,11 @@
 > (`cfg.repr_tag()`, e.g. `head_tail-L512-h50`) written by the new `ctmatch.experiments` result
 > ledger.** Re-run program and rationale: §2g "Consequence for the surpass-SOTA effort" and
 > `docs/notebook_cleanup_plan.md`. **Progress:** representation frozen (`R = elig_first-L512`); the clean,
-> representation-consistent, **multi-view** full-corpus pipeline now scores **TREC22 NDCG@10 = 0.5548**
-> (95% CI [0.477, 0.635], contains h2oloo's 0.6125) — see **§2h**. This is the honest `R` number; the old
-> 0.6105 is retracted (it borrowed against the miscalibration this effort removed). The §7 tables below stay
-> struck (`PENDING(R)`) and will be rewritten from the `R` runs; §2h holds the current live numbers.
+> representation-consistent, **multi-view** full-corpus pipeline scores **TREC22 NDCG@10 = 0.5616**
+> (multi-view + condition_match; 95% CI contains h2oloo's 0.6125) — see **§2h**. This is the honest `R`
+> number; the old 0.6105 is retracted (it borrowed against the miscalibration this effort removed). NQS
+> query expansion raised retrieval recall 0.543→0.658 on exactly the §8a implicit-diagnosis topics
+> (NDCG conversion pending). The §7 tables below stay struck (`PENDING(R)`); §2h holds the live numbers.
 
 ---
 
@@ -525,7 +526,39 @@ The first end-to-end `R` ensemble (retrieval → LambdaMART over BM25/dense/RRF 
 
 **Findings.** (1) **All the multi-view features survived backward selection** — `clf_topic_rel`/`clf_topic_partial`/`topicality` are all in the final model, contributing comparably to `llm_yesno`. The diversity is real and *used*. (2) **MRR jumped 0.63 → 0.71** — much better first-relevant placement. (3) **The overfit collapsed**: the CV-test gap went from 0.18 (0.70 vs 0.52) to 0.06 (0.615 vs 0.555) — dropping the clone and adding real views made the model *generalize*, not just score. (4) The two LLM judges are only moderately orthogonal (r=0.67 — same model, related questions), so they stack less than the separately-trained cross-encoder views; the topicality *cross-encoder* is the cleaner diversity.
 
-**Honest standing: TREC22 NDCG@10 = 0.5548, 95% CI [0.477, 0.635], vs h2oloo 0.6125.** The CI contains 0.6125 (a statistical tie), but the point estimate is ~0.057 short and that gap is not hand-waved away. What this number *is*: representation-consistent, multi-view-by-design, generalizing (small CV-test gap), with every feature accounted for — arguably more defensible than the old 0.6105, which we now know borrowed against the very miscalibration this effort removed. Remaining levers, in EV order: (a) a **more orthogonal topicality signal** (a *different-model* condition-match encoder — SapBERT/an off-the-shelf bi-encoder — since the same-model LLM judges cap at r=0.67); (b) **retrieval recall** (recall@1000 = 0.543; retrain the retriever on `R` / `exp_retrieval_repr` / query expansion, esp. for the implicit-diagnosis topics); (c) a **stronger reranker view** (`monoT5_CT`, §10). Notebooks: `exp_ensemble_diagnose`, `train_classifier_topic`, `rerank_topicality_feature`, `train_ensemble_full` (multi-view).
+**Honest standing at the multi-view stage: TREC22 NDCG@10 = 0.5548, 95% CI [0.477, 0.635], vs h2oloo 0.6125.** The CI contains 0.6125 (a statistical tie), but the point estimate is ~0.057 short and that gap is not hand-waved away. What this number *is*: representation-consistent, multi-view-by-design, generalizing (small CV-test gap), with every feature accounted for — arguably more defensible than the old 0.6105, which we now know borrowed against the very miscalibration this effort removed.
+
+#### Chasing the gap: an orthogonal feature, then query expansion
+
+Two levers pursued from the multi-view baseline, both grounded in the diagnosis:
+
+**condition_match (SapBERT), the orthogonality test.** The multi-view result showed the two LLM judges cap at r=0.67 because they *share a model*. So we added a **different-model** topicality signal: a SapBERT (biomedical entity bi-encoder) cosine of the topic vs the trial's conditions/title/summary. It's **weak standalone** (0.26) but genuinely **more orthogonal** (r=0.34–0.43 with the existing features, vs the LLM judge's 0.67), and it **survived selection and added +0.007 → NDCG@10 = 0.5616.** Small, but it establishes a real principle for the writeup: *on this ensemble, orthogonality buys more than raw feature strength* — a weak-but-orthogonal view earns its place where a strong-but-redundant one (`v2_rel`) did not. (The upgrade, if pursued: an entity-level or MedCPT condition encoder — stronger *and* still different-model.)
+
+**NQS query expansion (open-model), the recall lever.** h2oloo's edge is Neural Query Synthesis; our open-model version has Qwen synthesize likely **diagnoses + search terms** from the patient note (§9e #3), which we append to the retrieval query — bridging the symptom→disease gap that UMLS *extraction* structurally cannot (the disease isn't in the text to extract; it must be *inferred*). The retrieval result is strong and, crucially, **mechanism-perfect**:
+
+| split | recall@1000 current | recall@1000 NQS | recall union |
+|---|---|---|---|
+| TREC22 | 0.543 | **0.658** | 0.735 |
+| TREC21 | 0.595 | 0.644 | 0.743 |
+| KZ | 0.301 | 0.416 | 0.508 |
+
+And the per-topic gains land **exactly on the §8a implicit-diagnosis topics** the error analysis flagged as the retrieval-miss failure mode — not scattered:
+
+| topic | presentation | recall cur → NQS |
+|---|---|---|
+| 41 | acute complaint (§8a worst, was 0.21) | 0.093 → **0.926** |
+| 8 | 7-mo-old, irritability | 0.286 → **1.000** |
+| 43 | rash + oral ulcers → Behçet's (§8a) | 0.154 → 0.462 |
+| 40 | prolonged oral bleeding → bleeding disorder | 0.368 → 0.585 |
+| 11 | unintentional weight loss (§8a) | 0.157 → 0.353 |
+
+This is a clean confirmation: NQS raised recall precisely where the mechanism predicted (symptom-presentation topics) and left the explicit-diagnosis topics alone. The diagnosis *inference* is doing the work UMLS concept-matching couldn't (a prior negative result of the project's own).
+
+**Status: the NQS→NDCG conversion is the open question, and it's a *tail* lever.** §8a established retrieval has surplus on the average topic (oracle ~0.96), so the honest expectation is that the mean NDCG bump is modest even though recall jumped a lot — the payoff is concentrated on the ~10 rescued topics. The full re-score of every feature on the NQS pool (`pool_tag='nqs'`) is running; the number that matters is `train_ensemble_full` on the NQS pool, with per-topic NDCG on 41/43/40/11 as the diagnostic. If the mean barely moves despite +0.115 recall, that *is* §8a's surplus confirming itself — informative either way.
+
+**Infrastructure for reproducibility + the writeup.** A single `pool_tag` config switch drives every pool/feature/cache path, so re-scoring the whole pipeline on a different candidate pool (R vs NQS) is one line — a clean A/B. And `exp_ablation.ipynb` produces the writeup ablations cheaply (cached features, no GPU): **add-one-in** (each view's incremental NDCG contribution), **leave-one-out** (marginal value), and per-view standalone — run per pool for the pool ablation. Together with the §2h representation ablation and the progression table, that's a complete ablation section.
+
+**Progression (TREC22 NDCG@10):** 0.5203 (first ensemble) → 0.5221 (retuned) → 0.5548 (multi-view) → 0.5616 (+condition_match) → *NQS pending*. Notebooks: `exp_ensemble_diagnose`, `train_classifier_topic`, `rerank_topicality_feature`, `rerank_condition_match`, `nqs_retrieval`, `train_ensemble_full`, `exp_ablation`.
 
 #### Bugs surfaced (all the silent representation-drift kind)
 

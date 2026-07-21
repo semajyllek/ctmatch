@@ -563,9 +563,9 @@ This is a clean confirmation: NQS raised recall precisely where the mechanism pr
 |---|---|---|
 | eligibility judge (`llm_yesno`) | 0.4322 | 0.4109 (+0.021) |
 | topicality judge | 0.4434 | ~0.444 (≈) |
-| condition_match (SapBERT) | *pending* | 0.2598 |
+| condition_match (SapBERT) | 0.2592 | 0.2598 (≈) |
 
-Both judges tick up on the NQS pool (better recall → more relevant docs to rank), consistent with the pool improvement. These are single-feature diagnostics; the in-ensemble contribution is what `exp_ablation` (per-view, per-pool) reports.
+Both judges tick up on the NQS pool (better recall → more relevant docs to rank), consistent with the pool improvement. `condition_match` stays weak but is **even more orthogonal** on the NQS pool (r = 0.29/0.28/0.35 with dense/eligibility-judge/topicality-judge, vs 0.35/0.34/0.43 on R). These are single-feature diagnostics; the in-ensemble contribution is what `exp_ablation` (per-view, per-pool) reports.
 
 **Infrastructure for reproducibility + the writeup.** A single `pool_tag` config switch drives every pool/feature/cache path, so re-scoring the whole pipeline on a different candidate pool (R vs NQS) is one line — a clean A/B. And `exp_ablation.ipynb` produces the writeup ablations cheaply (cached features, no GPU): **add-one-in** (each view's incremental NDCG contribution), **leave-one-out** (marginal value), and per-view standalone — run per pool for the pool ablation. Together with the §2h representation ablation and the progression table, that's a complete ablation section.
 

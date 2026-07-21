@@ -2200,7 +2200,7 @@ CI on the 0.5616 point estimate contains 0.6125 (statistical tie; not "beat"). S
 **Table P3 — ablations (PENDING — run `exp_ablation.ipynb` on `POOL_TAG='R'` and `'nqs'`):**
 - Add-one-in (retrieval → clf_R → clf_topic → judge → topicality judge → condition_match): *fill from exp_ablation*.
 - Leave-one-out (marginal value of each view): *fill*.
-- Representation ablation (head / head_tail / elig_first / budget_incexc): **have it** (§2h leg 2 table).
+- Representation ablation (head / head_tail / elig_first / budget_incexc): **have it** — Table P5 + P6 (full detail §2h leg 1/2).
 - Pool ablation (R vs NQS, same feature ladder): *fill from exp_ablation ×2*.
 
 **Table P4 — retrieval / NQS (have it):** recall@1000 R vs NQS + per-topic §8a gains — §2h.
@@ -2213,6 +2213,24 @@ CI on the 0.5616 point estimate contains 0.6125 (statistical tie; not "beat"). S
 4. **Held-out confirmation (TREC22):** `clf_R` trained *on* `elig_first` beats the old clf-v4 on **held-out** TREC22 judged-pool (0.6623 vs 0.6499), ruling out a distribution-match artifact — a model trained on `elig_first` wins on unseen topics.
 
 **The gap to name, not paper over:** we did **not** run a full-corpus *end-to-end* ablation retraining the entire pipeline per representation (`head` vs `elig_first` all the way through retrieval + all views + ensemble) — that's expensive and out of scope. So the claim is "`elig_first` is the validated **reranker-input** representation (coverage + judged-pool + held-out-clf), and training the reranker on it beats the prior model out-of-sample," **not** "we ablated the full pipeline across representations." State it that way; it's in §12d's limitations.
+
+**Table P5 — Representation study (TREC21).** Model-free eligibility coverage + judged-pool rerank NDCG@10, one representation per row (full per-length detail in §2h leg 1/2). NDCG tracks coverage; `elig_first-L512` wins both.
+
+| representation | eligibility retained | % docs zero-coverage | rerank NDCG@10 |
+|---|---|---|---|
+| head-L256 | 0.011 | 0.970 | 0.683 |
+| head-L512 *(deployed-style)* | 0.248 | 0.597 | 0.807 |
+| head_tail-L512 | 0.709 | 0.000 | 0.829 |
+| budget_incexc-L512 | *(exclusion floor)* | 0.000 | 0.846 |
+| elig_first-L384 | 0.739 | 0.000 | 0.877 |
+| **elig_first-L512** *(frozen R)* | **0.853** | **0.000** | **0.893** |
+
+**Table P6 — clf_R held-out validation (judged-pool NDCG@10).** Training the reranker *on* `R` beats the old model on unseen TREC22 → not a distribution-match artifact.
+
+| cross-encoder | TREC21 (in-sample) | TREC22 (held-out) |
+|---|---|---|
+| clf-v4 (old, pre-R) | 0.893 | 0.6499 |
+| **clf_R (trained on R)** | **0.922** | **0.6623** |
 
 ### 12c. Data inventory (what the paper needs — status)
 

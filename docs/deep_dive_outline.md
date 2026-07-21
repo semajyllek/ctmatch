@@ -557,6 +557,16 @@ This is a clean confirmation: NQS raised recall precisely where the mechanism pr
 
 **Status: the NQS→NDCG conversion is the open question, and it's a *tail* lever.** §8a established retrieval has surplus on the average topic (oracle ~0.96), so the honest expectation is that the mean NDCG bump is modest even though recall jumped a lot — the payoff is concentrated on the ~10 rescued topics. The full re-score of every feature on the NQS pool (`pool_tag='nqs'`) is running; the number that matters is `train_ensemble_full` on the NQS pool, with per-topic NDCG on 41/43/40/11 as the diagnostic. If the mean barely moves despite +0.115 recall, that *is* §8a's surplus confirming itself — informative either way.
 
+**NQS-pool standalone feature diagnostics** (TREC22, top-500, as the re-score lands — each feature ranking the NQS pool alone):
+
+| feature (NQS pool) | TREC22 NDCG@10 | vs R pool |
+|---|---|---|
+| eligibility judge (`llm_yesno`) | 0.4322 | 0.4109 (+0.021) |
+| topicality judge | 0.4434 | ~0.444 (≈) |
+| condition_match (SapBERT) | *pending* | 0.2598 |
+
+Both judges tick up on the NQS pool (better recall → more relevant docs to rank), consistent with the pool improvement. These are single-feature diagnostics; the in-ensemble contribution is what `exp_ablation` (per-view, per-pool) reports.
+
 **Infrastructure for reproducibility + the writeup.** A single `pool_tag` config switch drives every pool/feature/cache path, so re-scoring the whole pipeline on a different candidate pool (R vs NQS) is one line — a clean A/B. And `exp_ablation.ipynb` produces the writeup ablations cheaply (cached features, no GPU): **add-one-in** (each view's incremental NDCG contribution), **leave-one-out** (marginal value), and per-view standalone — run per pool for the pool ablation. Together with the §2h representation ablation and the progression table, that's a complete ablation section.
 
 **Progression (TREC22 NDCG@10):** 0.5203 (first ensemble) → 0.5221 (retuned) → 0.5548 (multi-view) → 0.5616 (+condition_match) → *NQS pending*. Notebooks: `exp_ensemble_diagnose`, `train_classifier_topic`, `rerank_topicality_feature`, `rerank_condition_match`, `nqs_retrieval`, `train_ensemble_full`, `exp_ablation`.

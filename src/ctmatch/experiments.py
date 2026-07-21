@@ -127,10 +127,23 @@ class ExperimentConfig:
 
     # --- bookkeeping -----------------------------------------------------------
     results_file: str = "results/exp_results.jsonl"
+    # which candidate pool the feature pipeline runs on — one switch drives all the pool/feature/cache
+    # paths, so re-scoring on a new pool (e.g. NQS) is just `ExperimentConfig(..., pool_tag='nqs')`.
+    pool_tag: str = "R"
 
     # -- derived paths ----------------------------------------------------------
     def path(self, *parts: str) -> str:
         return os.path.join(self.data_root, *parts)
+
+    def pool_path(self) -> str:
+        return self.path(f"data/pool_{self.pool_tag}.json")
+
+    def feat_file(self, name: str) -> str:
+        """A per-pool feature jsonl, e.g. feat_file('llm_scores') -> data/llm_scores_R.jsonl."""
+        return self.path(f"data/{name}_{self.pool_tag}.jsonl")
+
+    def ce_cache_path(self, model: str) -> str:
+        return self.path(f"cache/ce_{model}_{self.pool_tag}.npz")
 
     @property
     def corpus_fields_path(self) -> str:

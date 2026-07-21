@@ -2205,6 +2205,15 @@ CI on the 0.5616 point estimate contains 0.6125 (statistical tie; not "beat"). S
 
 **Table P4 — retrieval / NQS (have it):** recall@1000 R vs NQS + per-topic §8a gains — §2h.
 
+**Representation choice — how to describe and justify it in the paper (validated, honestly scoped).** The frozen representation `R = elig_first-L512` is the foundation, so state its justification precisely — at *three* levels, and name the level not covered:
+
+1. **Motivation (mechanism):** the §2g audit showed the deployed representation truncated eligibility off the reranker input on ~60% of long docs (`head-L512`), and models were scored off their training distribution. `R` fixes both — one representation, applied consistently at train and score time.
+2. **Model-free evidence:** the truncation study (§2h leg 1) measures, with no model, that `elig_first-L512` retains 85% of eligibility with **0% of docs at zero coverage**, vs `head-L512`'s 60%-zero. This is the cleanest, least-confounded justification and should lead.
+3. **Reranking evidence (chosen on TREC21):** judged-pool rerank NDCG@10 on TREC21 (§2h leg 2) ranks `elig_first-L512` (0.893) above `head_tail` (0.829), `head` (0.807), `budget_incexc` (0.846); NDCG tracks coverage monotonically (the mechanism).
+4. **Held-out confirmation (TREC22):** `clf_R` trained *on* `elig_first` beats the old clf-v4 on **held-out** TREC22 judged-pool (0.6623 vs 0.6499), ruling out a distribution-match artifact — a model trained on `elig_first` wins on unseen topics.
+
+**The gap to name, not paper over:** we did **not** run a full-corpus *end-to-end* ablation retraining the entire pipeline per representation (`head` vs `elig_first` all the way through retrieval + all views + ensemble) — that's expensive and out of scope. So the claim is "`elig_first` is the validated **reranker-input** representation (coverage + judged-pool + held-out-clf), and training the reranker on it beats the prior model out-of-sample," **not** "we ablated the full pipeline across representations." State it that way; it's in §12d's limitations.
+
 ### 12c. Data inventory (what the paper needs — status)
 
 | Paper element | Status | Where |
@@ -2231,7 +2240,7 @@ CI on the 0.5616 point estimate contains 0.6125 (statistical tie; not "beat"). S
 
 **Contributions.** (1) A **representation audit** exposing silent train/inference mismatch in a pipeline previously reported competitive with SOTA, and the fix (one frozen representation, consistently applied). (2) The **mismatch-vs-diversity distinction** — fixing miscalibration *removed* accidental feature diversity the old ensemble lived on; recovering it **deliberately** (multi-view, each model self-consistent on its own representation). (3) An empirical finding that for this ensemble **orthogonality beats raw feature strength** (weak-but-orthogonal condition_match adds where strong-but-redundant `v2_rel` hurts). (4) An **open-model NQS** that validates the §8a implicit-diagnosis diagnosis by raising recall precisely on the flagged topics — and shows LLM *inference* succeeds where UMLS *extraction* (the project's own prior negative) cannot. (5) A **fully open, representation-consistent, multi-view full-corpus pipeline** whose CI contains the TREC22 winner, with every feature and number accounted for.
 
-**Limitations.** (1) Point estimate 0.5616 < 0.6125 (CI contains it → *competitive*, not *beat*). (2) **Test-set adaptation**: multiple TREC22 touches (mitigated by TREC21-only tuning, but real). (3) **In-sample inflation** on TREC21 (upstream models train on it → TREC21 CV optimistic, can't detect held-out feature redundancy). (4) Retriever still **pre-R** (its own retrain/`exp_retrieval_repr` pending). (5) **KZ** degenerate (data-vintage). (6) **n=50** — wide CIs, shared by all CT benchmarks. (7) No **paired significance** vs h2oloo without their run file; no **external** (2023) test yet.
+**Limitations.** (1) Point estimate 0.5616 < 0.6125 (CI contains it → *competitive*, not *beat*). (2) **Test-set adaptation**: multiple TREC22 touches (mitigated by TREC21-only tuning, but real). (3) **In-sample inflation** on TREC21 (upstream models train on it → TREC21 CV optimistic, can't detect held-out feature redundancy). (4) Retriever still **pre-R** (its own retrain/`exp_retrieval_repr` pending). (5) **KZ** degenerate (data-vintage). (6) **n=50** — wide CIs, shared by all CT benchmarks. (7) No **paired significance** vs h2oloo without their run file; no **external** (2023) test yet. (8) The **representation choice** is validated at the coverage / judged-pool-rerank / held-out-clf levels (§12b), **not** a full-corpus end-to-end ablation retraining the whole pipeline per representation — so it's justified as the *reranker-input* representation, not claimed as a full-pipeline sweep.
 
 ---
 

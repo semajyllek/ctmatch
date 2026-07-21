@@ -81,6 +81,7 @@
    9e. Candidate improvements and medical models to try
 10. Surpass-SOTA program (active work plan)
 11. Negative results (addendum)
+12. Paper assembly — consolidated method, results, data inventory
 ```
 
 ---
@@ -2153,6 +2154,74 @@ It **hurts, and monotonically worse the deeper it reranks** — RankZephyr's ord
 **⚠️ This run is CONFOUNDED — not ceiling evidence.** `PASSAGE_CHARS=400` on a corpus blob ordered title → conditions → summary → detailed → interventions → **eligibility (last)** means RankZephyr saw only title+conditions — **never any eligibility criteria**, the exact rel=2-vs-rel=0 signal. It was asked to rank by eligibility from topicality text alone. The depth-monotonic worsening does NOT discriminate "systematic mis-ranking" from "arbitrary permutations of uninformative passages" (both degrade toward pool-random as more good order is overwritten), so it cannot rule out the truncation. **Fair retry ran** with eligibility-inclusive passages (head 220 for topicality + tail 1200 landing on the eligibility section, verified by inspection; window 10). **Result: N=20 → 0.5428, delta −0.0092** vs base 0.5520 — fixing the confound moved it +0.030 (−0.039 → −0.009), confirming the confound was real, but the fair result is **flat/within-noise, not a gain**. Zero-shot RankZephyr, even seeing eligibility, does not beat the ensemble.
 
 **Verdict (fair, confound removed).** **Third reranking approach to fail on a clean test** (CoT §11a, judge-FT §11c, listwise §11d). Zero-shot listwise doesn't transfer to clinical eligibility — consistent with the §11c finding that even the eligibility-reading cross-encoders are flat on these buried docs; the discriminating signal is genuinely hard. The reranking stage is at its ceiling across every mechanism-matched lever tested fairly. Only remaining reranking card = *fine-tune* a listwise reranker (break-even zero-shot gives it a marginally-better-than-hopeless prior, but high cost, and everything else failed). **Recommendation: bank the parity result** (0.6105 vs 0.6125, fully open) with §11 as the negative-results appendix mapping the ceiling. **Headline caveat when banking:** 0.6105 involved many TREC22 touches (test-adaptation risk) — state it in the headline, and report TREC21 CV 0.552 as the honest primary number.
+
+---
+
+## 12. Paper assembly — consolidated method, results, and data inventory
+
+The current (R-pipeline) method and results are spread across §2g/§2h while §7 holds the *retracted* pre-R numbers. This section consolidates what a paper draws from, and tracks exactly what data exists vs. is still pending. **When a result lands, update it here *and* in its home section.**
+
+### 12a. Method spec (the current, valid pipeline)
+
+Everything below is representation-consistent on the frozen `R = elig_first-L512`, fully open-weight in the inference path.
+
+- **Datasets & splits** (→§2, §2f): corpus = ClinicalTrials.gov 2021-04-27 snapshot, 374,647 trials. Topics: train = TREC21 (75) + KZ (59); test = **TREC22 (50), held out**. Relevance 3-level (Eligible=2/Excluded=1/Not=0). KZ reported separately (2015-qrel/2021-corpus mismatch + terse queries).
+- **Representation `R`** (→§2h): fields rendered `elig_first` (eligibility leads), truncated 512 tokens for cross-encoders; the LLM judge uses its own 2048-token budget; retrieval uses a topicality-forward blob at the encoder's window; a per-model repr is applied consistently at train *and* score time. Frozen by the truncation study (§2h leg 1/2).
+- **Retrieval** (→§2h, §7j.3): BM25 (whole doc) + dense (fine-tuned MiniLM retriever, topicality blob) → RRF hybrid → candidate pool (~1,930/topic). **Optional NQS**: Qwen synthesizes diagnoses+terms appended to the query (raises recall 0.543→0.658, §2h).
+- **Reranker views** (multi-view, deliberately diverse; →§2h): (1) `clf_R` BioLinkBERT-large cross-encoder, eligibility view; (2) `clf_topic` BioLinkBERT-large, topicality view (`topic_first`); (3) Qwen eligibility judge (yes/no logprob); (4) Qwen topicality judge; (5) SapBERT condition-match (different-model topicality). `reranker_v3` dropped (redundant clone of `clf_R`).
+- **Ensemble** (→§2h): LightGBM `lambdarank` over the per-doc features (retrieval scores/ranks + the 5 reranker views' scores). Tuning (num_leaves, backward feature selection) on **TREC21 CV only**; TREC22 touched once.
+- **Eval protocol** (→§2e, §7j.7): full-corpus retrieval → TREC run → `pytrec_eval`. **NDCG@10 on graded gains** (the one clean cross-system comparison); **P@10/MRR eligible-only** (rel≥2, TREC-overview basis, comparable to h2oloo). Bootstrap 95% CI (10k). Anti-gaming: develop on TREC21, touch TREC22 once (§10).
+- **Component models** (→§7j.5, §2h): `semaj83/ctmatch-clf-R`, `models/clf_topic`, `semaj83/ctmatch-retriever-v2`, `Qwen/Qwen2.5-7B-Instruct`, `cambridgeltl/SapBERT-*`. Backbone code: `src/ctmatch/experiments.py`. Notebooks: see §2h.
+
+### 12b. Results (live — update as runs land)
+
+**Table P1 — headline (TREC22 full-corpus).** NDCG@10 graded; P@10/MRR eligible-only.
+
+| System | NDCG@10 | P@10 | MRR | Open | protocol |
+|---|---|---|---|---|---|
+| h2oloo — TREC22 winner (`frocchio_monot5_e`) | 0.6125 | 0.5080 | 0.7262 | — | full-corpus, blind |
+| **ctmatch multi-view (this work, `R` pool)** | **0.5616** | 0.472 | 0.707 | ✅ | full-corpus, test-adapted |
+| ctmatch multi-view + NQS pool | *pending* | *pending* | *pending* | ✅ | full-corpus |
+
+CI on the 0.5616 point estimate contains 0.6125 (statistical tie; not "beat"). Secondary (generalization): TREC21 CV ≈ 0.62 (in-sample-inflated — see §2h). *(Recompute P@10/MRR eligible-only via `pytrec_metrics` before final.)*
+
+**Table P2 — progression (TREC22 NDCG@10):** 0.5203 (first ensemble) → 0.5221 (retuned) → 0.5548 (multi-view) → 0.5616 (+condition_match) → *NQS pending*.
+
+**Table P3 — ablations (PENDING — run `exp_ablation.ipynb` on `POOL_TAG='R'` and `'nqs'`):**
+- Add-one-in (retrieval → clf_R → clf_topic → judge → topicality judge → condition_match): *fill from exp_ablation*.
+- Leave-one-out (marginal value of each view): *fill*.
+- Representation ablation (head / head_tail / elig_first / budget_incexc): **have it** (§2h leg 2 table).
+- Pool ablation (R vs NQS, same feature ladder): *fill from exp_ablation ×2*.
+
+**Table P4 — retrieval / NQS (have it):** recall@1000 R vs NQS + per-topic §8a gains — §2h.
+
+### 12c. Data inventory (what the paper needs — status)
+
+| Paper element | Status | Where |
+|---|---|---|
+| Problem, data, relevance scale, splits | ✅ | §1, §2, §2f |
+| Eval protocol (full-corpus, graded/eligible-only, CI, anti-gaming) | ✅ | §2e, §7j.7, §10 |
+| Representation audit (the core finding) + fix | ✅ | §2g, §2h |
+| Method spec (R pipeline) | ✅ | §12a |
+| Headline result table (R pool) | ✅ | §12b P1 |
+| Headline result (NQS pool) | ⏳ pending re-score | §12b P1 |
+| Progression | ✅ | §12b P2 |
+| Ablation: representation | ✅ | §2h |
+| Ablation: per-view (add-one-in / leave-one-out) | ⏳ run `exp_ablation` | §12b P3 |
+| Ablation: pool (R vs NQS) | ⏳ | §12b P3 |
+| Retrieval/NQS recall + §8a per-topic | ✅ | §2h, §12b P4 |
+| Error analysis | ✅ | §8, `docs/error_analysis_ensemble.md` |
+| Baselines / related (h2oloo, TrialGPT non-comparability) | ✅ | §7e |
+| Negative results (what didn't work, with mechanism) | ✅ | §11, §2h (v2_rel, budget_incexc) |
+| Paired significance vs h2oloo | ❌ needs their run file | §10 |
+| External generalization (TREC 2023) | ❌ not run | §10 |
+| Reproducibility (models, code, seeds) | ✅ | §7j.9, §12a |
+
+### 12d. Contributions & limitations (paper-ready)
+
+**Contributions.** (1) A **representation audit** exposing silent train/inference mismatch in a pipeline previously reported competitive with SOTA, and the fix (one frozen representation, consistently applied). (2) The **mismatch-vs-diversity distinction** — fixing miscalibration *removed* accidental feature diversity the old ensemble lived on; recovering it **deliberately** (multi-view, each model self-consistent on its own representation). (3) An empirical finding that for this ensemble **orthogonality beats raw feature strength** (weak-but-orthogonal condition_match adds where strong-but-redundant `v2_rel` hurts). (4) An **open-model NQS** that validates the §8a implicit-diagnosis diagnosis by raising recall precisely on the flagged topics — and shows LLM *inference* succeeds where UMLS *extraction* (the project's own prior negative) cannot. (5) A **fully open, representation-consistent, multi-view full-corpus pipeline** whose CI contains the TREC22 winner, with every feature and number accounted for.
+
+**Limitations.** (1) Point estimate 0.5616 < 0.6125 (CI contains it → *competitive*, not *beat*). (2) **Test-set adaptation**: multiple TREC22 touches (mitigated by TREC21-only tuning, but real). (3) **In-sample inflation** on TREC21 (upstream models train on it → TREC21 CV optimistic, can't detect held-out feature redundancy). (4) Retriever still **pre-R** (its own retrain/`exp_retrieval_repr` pending). (5) **KZ** degenerate (data-vintage). (6) **n=50** — wide CIs, shared by all CT benchmarks. (7) No **paired significance** vs h2oloo without their run file; no **external** (2023) test yet.
 
 ---
 

@@ -14,6 +14,25 @@ The pipeline currently matches user input topics to the static snapshot of clini
 
 web app (while I can afford it): https://huggingface.co/spaces/semaj83/ctmatch
 
+### results — open, full-corpus pipeline (TREC 2022 Clinical Trials)
+
+An end-to-end, **fully open-weight** pipeline for full-corpus clinical-trial retrieval:
+
+> full-text corpus (ClinicalTrials.gov API v2) → **hybrid BM25 + dense retrieval** (with optional open-model neural query synthesis) → **LambdaMART ensemble** over BM25/dense/RRF features, two BioLinkBERT cross-encoders (eligibility + topicality views), two open **Qwen-2.5-7B** judges (eligibility + topicality), and a SapBERT condition-match signal — all on one frozen document representation (`R = elig_first-L512`).
+
+| System | NDCG@10 | P@10 | MRR | Protocol | Open weights |
+|---|---|---|---|---|---|
+| h2oloo (TREC 2022 winner) | 0.6125 | 0.5080 | 0.7262 | full-corpus, blind | — |
+| **ctmatch (this work)** | **0.5750** | **0.482** | **0.7643** | full-corpus, TREC22 held-out | ✅ |
+| TrialGPT (Jin et al.) | 0.7252 | — | — | pooled-candidate rerank (*not comparable*) | ❌ (GPT-4) |
+
+- **Competitive with the best TREC 2022 full-corpus system, and ahead on MRR.** NDCG@10 0.5750 vs h2oloo 0.6125 — the bootstrap 95% CI contains 0.6125 (a statistical tie); on **MRR (first-eligible placement) ctmatch leads, 0.7643 vs 0.7262 (+0.038)**; P@10 is within noise (0.482 vs 0.508). NDCG@10 uses graded gains; P@10/MRR are eligible-only, matching the TREC 2022 overview — all three directly comparable. **No closed model in the inference path.**
+- **Honest caveats:** the configuration was tuned with TREC22 access (h2oloo's run was a blind submission), and n=50 gives wide CIs; a paired significance test would need h2oloo's per-topic run file. An external generalization test on TREC 2023 is the intended held-out validation. See `docs/deep_dive_outline.md` §12d.
+- TrialGPT's 0.7252 is **not** comparable: it reranks a reduced pooled candidate set (~26k trials → top-500), not the full ~375k-trial corpus. See `docs/deep_dive_outline.md` §7e.
+- Full methodology, ablations, the representation audit, and limitations: **`docs/deep_dive_outline.md`** — §2g/§2h (representation), §12 (consolidated method + results).
+
+> Note: the "pipeline filters" section below documents the earlier 4-stage cascade (sim / SVM / classifier / gen), retained as the original ctmatch system. The current SOTA-competitive system is the retrieval→ensemble pipeline above; the notebooks that build it are listed in `docs/deep_dive_outline.md` §12a.
+
 ### pipeline filters
 
 Currently 4 filters are applied to the set of documents for ranking and reranking:

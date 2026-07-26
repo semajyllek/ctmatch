@@ -13,3 +13,6 @@ data/kz_data/clinicaltrials.gov-16_dec_2015.zip
 
 # Evaluation output
 eval_predictions.jsonl
+
+# macOS
+.DS_Store

@@ -15,9 +15,9 @@
 > (`cfg.repr_tag()`, e.g. `head_tail-L512-h50`) written by the new `ctmatch.experiments` result
 > ledger.** Re-run program and rationale: §2g "Consequence for the surpass-SOTA effort" and
 > `docs/notebook_cleanup_plan.md`. **Progress:** representation frozen (`R = elig_first-L512`); the clean,
-> representation-consistent, **multi-view + NQS** full-corpus pipeline scores **TREC22 NDCG@10 = 0.5658,
-> P@10 0.484, MRR 0.7374** — and the **MRR exceeds h2oloo's 0.7262** (ahead on first-eligible placement,
-> behind on NDCG@10 0.5658 vs 0.6125; CI contains it) — see **§2h**, **§12**. This is the honest `R`
+> representation-consistent, **multi-view + NQS + condition_match_exp** full-corpus pipeline scores **TREC22 NDCG@10 = 0.5750,
+> P@10 0.482, MRR 0.7643** — and the **MRR exceeds h2oloo's 0.7262** (ahead on first-eligible placement,
+> behind on NDCG@10 0.5750 vs 0.6125; CI contains it) — see **§2h**, **§12**. This is the honest `R`
 > number; the old 0.6105 is retracted (it borrowed against the miscalibration this effort removed). NQS
 > raised recall 0.543→0.658 on exactly the §8a implicit-diagnosis topics, converting into MRR/P@10 (not
 > the surplus-dominated NDCG mean — §8a tail lever confirmed). The §7 tables stay struck; §2h/§12 are live.
@@ -558,13 +558,40 @@ This is a clean confirmation: NQS raised recall precisely where the mechanism pr
 
 **NQS→NDCG conversion — RESULT: the recall converts into MRR/P@10, not the graded-NDCG mean, exactly as §8a's tail-lever prediction requires.** Full re-score on the NQS pool → **TREC22 NDCG@10 = 0.5658** (from 0.5616 on R — a +0.004 mean bump), but **MRR = 0.7374** (from 0.707) and **P@10 = 0.484** (from 0.472):
 
-| metric (TREC22) | R pool | **NQS pool** | h2oloo 0.6125 run |
-|---|---|---|---|
-| NDCG@10 (graded) | 0.5616 | **0.5658** | 0.6125 |
-| P@10 (eligible-only) | 0.472 | **0.484** | 0.5080 |
-| MRR (eligible-only) | 0.707 | **0.7374** | 0.7262 |
+| metric (TREC22) | R pool | NQS pool | **NQS + cm_exp** | h2oloo 0.6125 run |
+|---|---|---|---|---|
+| NDCG@10 (graded) | 0.5616 | 0.5658 | **0.5750** | 0.6125 |
+| P@10 (eligible-only) | 0.472 | 0.484 | **0.482** | 0.5080 |
+| MRR (eligible-only) | 0.707 | 0.7374 | **0.7643** | 0.7262 |
 
-**The MRR now *exceeds* h2oloo's 0.7262** — the multi-view+NQS pipeline beats the TREC22 winner on first-eligible placement (with the same test-adaptation caveat on our config). This is the mechanism, not a miss: §8a said the average topic has *surplus* (oracle 0.96), so +0.115 recall can't move the mean NDCG@10 — but rescuing a hard topic from ~0.1 recall lands its first eligible trial higher, which is **MRR/P@10**, not the surplus-dominated mean. Retrieval is now *confirmed* not the binding constraint for NDCG@10; the remaining ~0.05 mean gap is **reranking extraction**, pointing at a stronger/longer-context reranker view (the next lever). Also notable: on the NQS pool, backward selection **dropped `llm_yesno`** and pushed **`topicality` to the #2 importance (107)** — the views rebalance when the pool changes, evidence the ensemble genuinely exploits diversity. *(Per-topic NDCG on 41/43/40/11 — the visual proof — to be added via a per-topic breakdown cell.)*
+**The MRR now *exceeds* h2oloo's 0.7262** — the multi-view+NQS pipeline beats the TREC22 winner on first-eligible placement (with the same test-adaptation caveat on our config). This is the mechanism, not a miss: §8a said the average topic has *surplus* (oracle 0.96), so +0.115 recall can't move the mean NDCG@10 — but rescuing a hard topic from ~0.1 recall lands its first eligible trial higher, which is **MRR/P@10**, not the surplus-dominated mean. Retrieval is now *confirmed* not the binding constraint for NDCG@10; the remaining ~0.037 mean gap is **reranking extraction**. Also notable: on the NQS pool, backward selection **dropped `llm_yesno`** and pushed **`topicality` to the #2 importance (107)** — the views rebalance when the pool changes, evidence the ensemble genuinely exploits diversity.
+
+**§8a per-topic NDCG@10 breakdown (NQS + cm_exp ensemble, TREC22).** Visual confirmation that recall converts where and how the mechanism predicts:
+
+| topic | presentation | recall (R→NQS) | NDCG@10 (NQS+cm_exp) | verdict |
+|---|---|---|---|---|
+| 41 | acute complaint (§8a worst) | 0.093 → 0.926 | **0.913** | ✅ recall converts fully |
+| 40 | prolonged oral bleeding → bleeding disorder | 0.368 → 0.585 | **0.806** | ✅ reranker extracts well |
+| 8 | 7-mo-old, irritability | 0.286 → 1.000 | **0.776** | ✅ perfect recall, good extraction |
+| 11 | unintentional weight loss | 0.157 → 0.353 | **0.640** | ✅ partial recall still converts |
+| 32 | — | — | 0.540 | mid |
+| 10 | — | — | 0.498 | mid |
+| 28 | — | — | 0.359 | weak |
+| 43 | rash + oral ulcers → Behçet's | 0.154 → 0.462 | **0.071** | ❌ recall improved, reranking failed |
+
+Topic 43 is the outlier: NQS tripled recall (0.154→0.462) but NDCG@10 = 0.071 — the eligible Behçet's trials are retrieved but the reranker buries them. This is a pure reranking-extraction failure on a rare-disease topic where the eligible trials likely use highly technical/eponymous terminology that neither the eligibility cross-encoder nor the LLM judge scores well. Topics 28/32/10 have no recall annotation in the current table (not among the §8a worst-5); their mid-range NDCG is consistent with having adequate recall but moderate reranking. Topic 41 — the §8a diagnostic worst — is the cleanest success story: near-zero recall → near-perfect NDCG once retrieval is fixed, confirming reranking was never the problem there.
+
+**condition_match_exp in-ensemble result (2026-07, TREC21 CV gate passed).** Re-fitting LambdaMART on NQS pool with `condition_match_exp_nqs.jsonl` (LLM-expanded topic → SapBERT, same as the standalone +0.057 diagnostic): TREC21 CV 0.6341→**0.6381** (+0.0040, gate passes), TREC22 0.5658→**0.5750** (+0.0092), MRR 0.7374→**0.7643** (+0.027). P@10 essentially flat (0.484→0.482, noise). Feature selection: dropped `clf_partial` (same as all previous NQS runs); this run *retained* `llm_yesno` (importance 73) — unlike the original NQS run which dropped it — because the stronger cm_exp reallocates the feature budget differently. Importances: clf_rel 153, topicality 85, rrf 75, llm_yesno 73, clf_topic_rel 68, clf_topic_partial 63, bm25_rank 66, dense_rank 28, dense 26, condition_match 25, bm25 38. Condition_match lowest but load-bearing (survival on TREC21 ablation). TREC21 CV confirms this is a real gain, not TREC22 overfitting.
+
+**NQS burial mechanism — REVISED (`exp_nqs_mechanism_diagnose.ipynb`, 2026-07).** The §11c gap decomposition was stale: it was run with `llm_yesno` dominant, but the NQS ensemble dropped it. Re-running the mechanism analysis on the actual NQS predictions reveals a completely different picture. Feature profile (TREC22, NQS pool):
+
+| group | condition_match | topicality | clf_topic_rel | rrf | dense |
+|---|---|---|---|---|---|
+| surfaced rel=2 | **+6.14** | 0.419 | 0.358 | 139.6 | 224.9 |
+| buried rel=2 | **−8.14** | 0.460 | **0.414** | **405.8** | **572.1** |
+| FP top-10 (displacer) | **+4.01** | 0.434 | 0.357 | 175.8 | 408.0 |
+
+Buried eligibles score *better* than their displacers on topicality, clf_topic_rel, dense, and rrf — the ensemble finds them, then `condition_match` buries them. Displacers win the top-10 because their condition name matches the patient's (+4.01) while buried eligibles, though clinically eligible, use different terminology (−8.14). **Eligibility retention at L512 = 0.924 mean, 1.0 median** → clf_long is ruled out (elig_first-L512 already covers the eligibility text on 92% of buried docs; more context can't add signal that isn't being truncated). **Ablation:** dropping `condition_match` costs TREC21 CV −0.0082 (load-bearing elsewhere); flooring it at 0 costs exactly 0.0000 — LambdaMART already treats all negative values identically (the first effective tree split is at cm > 0). **Root cause:** displacers are *rewarded* for condition-name match; buried eligibles are not additionally penalized — the harm is the reward going to the wrong docs. **Fix:** re-compute `condition_match` using LLM-expanded queries (Qwen synonyms/diagnoses appended to the topic, same as NQS) before SapBERT encoding, so trials using different terminology for the patient's condition score higher. Writes `condition_match_exp_{pool_tag}.jsonl`; implemented in `rerank_condition_match.ipynb`.
 
 **NQS-pool standalone feature diagnostics** (TREC22, top-500, as the re-score lands — each feature ranking the NQS pool alone):
 
@@ -573,12 +600,13 @@ This is a clean confirmation: NQS raised recall precisely where the mechanism pr
 | eligibility judge (`llm_yesno`) | 0.4322 | 0.4109 (+0.021) |
 | topicality judge | 0.4434 | ~0.444 (≈) |
 | condition_match (SapBERT) | 0.2592 | 0.2598 (≈) |
+| condition_match_exp (LLM-expanded) | **0.3162** | +0.057 vs original |
 
-Both judges tick up on the NQS pool (better recall → more relevant docs to rank), consistent with the pool improvement. `condition_match` stays weak but is **even more orthogonal** on the NQS pool (r = 0.29/0.28/0.35 with dense/eligibility-judge/topicality-judge, vs 0.35/0.34/0.43 on R). These are single-feature diagnostics; the in-ensemble contribution is what `exp_ablation` (per-view, per-pool) reports.
+Both judges tick up on the NQS pool (better recall → more relevant docs to rank), consistent with the pool improvement. `condition_match` stays weak but is **even more orthogonal** on the NQS pool (r = 0.29/0.28/0.35 with dense/eligibility-judge/topicality-judge, vs 0.35/0.34/0.43 on R). `condition_match_exp` (Qwen synonyms/diagnoses appended before SapBERT re-encode) lifts the standalone signal by **+0.057 on TREC22** (0.2592→0.3162) and **+0.031 on TREC21** — strong enough to test in the full ensemble. These are single-feature diagnostics; the in-ensemble contribution is what `exp_ablation` (per-view, per-pool) reports.
 
 **Infrastructure for reproducibility + the writeup.** A single `pool_tag` config switch drives every pool/feature/cache path, so re-scoring the whole pipeline on a different candidate pool (R vs NQS) is one line — a clean A/B. And `exp_ablation.ipynb` produces the writeup ablations cheaply (cached features, no GPU): **add-one-in** (each view's incremental NDCG contribution), **leave-one-out** (marginal value), and per-view standalone — run per pool for the pool ablation. Together with the §2h representation ablation and the progression table, that's a complete ablation section.
 
-**Progression (TREC22 NDCG@10):** 0.5203 (first ensemble) → 0.5221 (retuned) → 0.5548 (multi-view) → 0.5616 (+condition_match) → *NQS pending*. Notebooks: `exp_ensemble_diagnose`, `train_classifier_topic`, `rerank_topicality_feature`, `rerank_condition_match`, `nqs_retrieval`, `train_ensemble_full`, `exp_ablation`.
+**Progression (TREC22 NDCG@10):** 0.5203 (first ensemble) → 0.5221 (retuned) → 0.5548 (multi-view) → 0.5616 (+condition_match) → 0.5658 (+NQS pool) → **0.5750 (+condition_match_exp)** [TREC21 CV 0.6381, TREC22 NDCG/MRR/P@10: 0.5750/0.7643/0.482]. Notebooks: `exp_ensemble_diagnose`, `exp_nqs_mechanism_diagnose`, `train_classifier_topic`, `rerank_topicality_feature`, `rerank_condition_match`, `nqs_retrieval`, `train_ensemble_full`, `exp_ablation`.
 
 #### Bugs surfaced (all the silent representation-drift kind)
 
@@ -1267,6 +1295,33 @@ So TrialGPT solves an easier problem three ways over: a ~14× smaller search spa
 **References (read directly):**
 - Roberts, Demner-Fushman, Voorhees, Bedrick, Hersh, *Overview of the TREC 2022 Clinical Trials Track* — https://trec.nist.gov/pubs/trec31/papers/Overview_trials.pdf. Corpus 375,581; 50 topics; 41 runs/11 teams; Table 4: h2oloo `frocchio_monot5_e` NDCG@10 0.6125 / P@10 0.5080 / R-Prec 0.3297 / MRR 0.7262; NDCG gains Eligible=2/Excluded=1, other metrics eligible-only.
 - Jin, Wang, Floudas, Chen, Gong, Bracken-Clarke, Xue, Yang, Sun, Lu, *Matching Patients to Clinical Trials with Large Language Models* (TrialGPT) — https://arxiv.org/pdf/2307.15051. Table 1: 26,581 considered trials (TREC22), 183 patients across 3 cohorts; Table 2: GPT-4 ranking NDCG@10 0.7252 / P@10 0.6724 (3-cohort avg), best baseline BioLinkBERT/MedNLI 0.4797; p.21 explicit non-comparability statement.
+
+#### TrialGPT comparison plan (paper)
+
+Direct numeric comparison on the same axis is not possible (§7e above). The publishable framing uses two parallel tables and an efficiency argument.
+
+**Table A — Full-corpus TREC 2022 (primary contribution, §7i).** Us vs. h2oloo only. TrialGPT excluded with a one-sentence footnote: *"TrialGPT evaluates on a pooled ~26k-trial judged set using GPT-4; its protocol is not directly comparable to full-corpus retrieval — see Table B."*
+
+**Table B — TrialGPT pooled-candidate protocol (for context only).** Run our pipeline on TrialGPT's exact setup: pooled ~26,581-trial judged set (TREC22 column from their Table 1), top-500 retrieval per topic, `trec_eval` NDCG@10 and P@10. Report alongside their numbers:
+
+| System | NDCG@10 | P@10 | Protocol |
+|---|---|---|---|
+| TrialGPT-Ranking GPT-4 | 0.7252 | 0.6724 | pooled ~26k → top-500, ×3-cohort avg |
+| TrialGPT best open baseline (BioLinkBERT/MedNLI) | 0.4797 | — | same |
+| **ctmatch (this work)** | **[run]** | **[run]** | same pooled protocol |
+
+This is not our primary result — it is shown only to establish that our open-weight system is competitive in the setting TrialGPT defines. The table caption must state clearly that pooled-candidate results are not comparable to full-corpus results.
+
+**Efficiency table.** Even where NDCG numbers differ in protocol, cost and latency are directly comparable:
+
+| System | Model | Cost/query (est.) | Inference mode |
+|---|---|---|---|
+| TrialGPT-Ranking | GPT-4 (closed) | ~$0.75 (per-criterion CoT × ~50 criteria) | API, serial |
+| ctmatch (this work) | Qwen-2.5-7B + BioLinkBERT (open) | ~$0 marginal (Colab free tier) | local, batched |
+
+The cost gap is the most defensible single-sentence contribution claim for a systems-oriented paper: *"an open-weight pipeline competitive with GPT-4-based systems at negligible inference cost."*
+
+**To implement:** add a cell to `eval_external_trec23.ipynb` (or a new `eval_trialgpt_protocol.ipynb`) that restricts the candidate pool to the TrialGPT judged set and scores with `trec_eval`. The judged set is the union of TREC 2022 qrel doc IDs (already on Drive). Do NOT use TREC22 qrels for any config tuning in this cell — the run must be blind (use the TREC22-adapted config frozen at §7i).
 
 ### 7f. LLM reranker: zero-shot eligibility scoring (Tier 2a)
 
@@ -2081,6 +2136,30 @@ The current active effort: an open, full-corpus pipeline that surpasses the TREC
 
 **Faithful h2oloo reproduction (fidelity-gated).** Reproduce their pipeline (NQS doc2query → BM25+RM3 → RRF → monoT5) with their exact scripts + pyserini (`reproduce_h2oloo.ipynb`), and reproduce their KZ-tuned `monoT5_CT` ourselves (`finetune_monot5_ct.ipynb` — we have KZ + the §3.3 recipe). **Gate before use as a baseline:** validate against their published numbers — BM25 0.2923 / RM3 0.3539, and monoT5_CT ≈ **0.7118** on TREC 2021. The public MED variant (0.4715) is too weak to be a credible baseline. Limitation to state: their doc2query is T5-3B (public = base) and `monoT5_CT` isn't released → faithful *architecture* with public/self-trained checkpoints.
 
+**monoT5_CT fine-tune — training log and gate failure (2026-07).** `finetune_monot5_ct.ipynb` attempts to reproduce the h2oloo KZ fine-tune on `castorini/monot5-3b-med-msmarco`. Training resolved two bugs before a stable run landed:
+
+- **Bug 1 — bfloat16 weight collapse.** First run used `torch_dtype=torch.bfloat16` + Adafactor at LR=1e-3. Result: all T5 output logits collapsed to a constant (true/false log-prob margin ≈ 0.07 everywhere, KZ sanity: pos=0.07, neg=0.07, TREC21 NDCG@10=0.1996). Fix: `torch.float32`. Adafactor at LR=1e-3 with bfloat16 destroys pre-trained weights on a small (4412-example) dataset.
+
+- **Bug 2 — random negatives.** With float32 but random negative sampling, loss oscillated 0.37–0.47 with no downward trend through step 200. Root cause: batch-to-batch gradient variance swings between trivially-easy and hard batches. Fix: TF-IDF cosine hard negatives (top-3 by lexical similarity to the KZ one-liner topic + 1 random weak), approximating h2oloo's BM25-ranked hard negatives. Also increased MICRO=4→8 for ~2× throughput. Loss with hard negatives: step 20 = 0.34, step 840 = 0.17, step 1000 = 0.10.
+
+- **Training run (float32 + hard negs, 1000 steps).** h2oloo recipe: BASE=`castorini/monot5-3b-med-msmarco`, STEPS=1000, BATCH=128, LR=1e-3, Adafactor. KZ sanity check post-training: positive margins = [2.44, 1.16, 3.22, 1.30, 3.94] (mean=2.41), negative margins = [-7.83, -0.11, 1.38, -4.90, 0.44] (mean=−2.21). Model discriminates clearly on KZ training data.
+
+- **TREC21 gate failure: NDCG@10 = 0.2013 (gate ≥ 0.70).** Despite KZ sanity passing (clear pos/neg discrimination), the TREC21 judged-pool result is essentially at-random. The model works on KZ but fails TREC21.
+
+- **Diagnosis — KZ overfitting.** Loss of 0.10 on 4412 binary training examples is memorization, not generalization. The model learned KZ-specific discrimination patterns (short one-liner queries, ~10 tokens, matching against condition-field text) that do not transfer to TREC21 clinical narratives (~150 tokens, complex multi-condition presentations). h2oloo gets 0.7118 on TREC21 from the same KZ training, suggesting their approach generalizes differently — likely because their sliding-window MaxP segment selection trains on shorter, more informative document passages rather than truncated full-text, and their hard negatives are monoT5-scored (not TF-IDF). A second structural difference: our TF-IDF hard negatives may be *too* easy (TF-IDF catches surface overlap, not semantic relevance), so the training signal is clean discrimination on a narrow sub-problem that TREC21 doesn't match.
+
+- **Diagnostic result (2026-07-23).** BASE model (`castorini/monot5-3b-med-msmarco`, no KZ fine-tune) TREC21 judged-pool NDCG@10 = **0.4491**. Fine-tuned version = 0.2013. The fine-tune actively hurt: 0.4491 → 0.2013 is catastrophic forgetting. LR=1e-3 for 1000 steps on 4412 examples was aggressive enough to overwrite the base model's general medical relevance knowledge and replace it with memorized KZ patterns (loss 0.10 = full memorization). The KZ signal was learned, but at the cost of the general signal that was doing the actual work on TREC21.
+
+- **Root cause of divergence from h2oloo (identified).** Two approximations drifted from h2oloo's actual recipe: (1) **TF-IDF hard negatives instead of BM25.** h2oloo §3.3 explicitly uses BM25-ranked (or monoT5_MED-ranked) hard negatives. TF-IDF cosine gives lexically-similar negatives that are semantically easier to distinguish than BM25-ranked ones — the model discriminates them too fast, loss collapses to 0.10 (full memorisation of 4412 training examples), and generalisation to TREC21 is lost. BM25 retrieves trials that are topically plausible (high lexical overlap with topic AND trial terms together) — harder to separate, keeps the loss at a healthy 0.2–0.3, forces the model to learn general relevance features. (2) **No MaxP at inference.** h2oloo scores multiple sliding-window segments of each trial and takes the max score as the trial score. We scored only the first 1400 chars; for TREC21 trials with long eligibility sections the discriminative criteria appear in the second window and we miss them.
+
+- **Run 3 — BM25 hard negatives + MaxP inference (2026-07-21).** Switched to `rank_bm25.BM25Okapi` hard negatives (faithful to h2oloo §3.3) and added MaxP inference in the gate cell (`val_doc_windows()` generates 2 character-position windows per TREC21 trial, `monot5_scores_maxp()` takes the max). Training documents still used full `title+condition+eligibility` (no MaxP at training time). Checkpoint sweep result (steps 200, 400, 600): **TREC21 NDCG@10 = 0.1939 at every checkpoint** — forgetting happened in the first 200 steps regardless of hard negative quality. Conclusion: the hard negative source (BM25 vs TF-IDF) was not the root cause. Forgetting occurs in the first few hundred steps, before the gradient has had time to be shaped by hard negative quality. The discriminative format of the training documents themselves is the problem.
+
+- **Run 4 — MaxP training + BM25 hard negatives (2026-07-21).** Added a `cell-maxp` pre-selection step: for each (KZ topic, trial) pair, the base model scores all 600-char sliding-window eligibility segments and caches the best window (the segment the base model finds most relevant). Training examples use the MaxP-selected window rather than the full concatenated text — the direct analog of h2oloo's "sliding-window MaxP" training. Hard negatives still BM25. Result: **TREC21 NDCG@10 = 0.1418** (MaxP inference). This is *lower* than Run 3 (0.1939), and lower than base (0.4491). Both 0.1939 and 0.1418 are statistically at-random (n=75, typical SE ≈ 0.03); the difference between them is noise. The consistent finding across all four runs: every fine-tune demolishes the base model's TREC21 performance. The base model is doing meaningful work; KZ fine-tuning is not complementing it, it is destroying it.
+
+- **Root-cause update after Run 4.** MaxP training addressed the document *format* (short passages vs. full text) but not the hard-negative *source*. h2oloo's third key detail — described in §3.3 — is that hard negatives are scored by the *monoT5_MED base model itself*, not by BM25. The distinction matters: BM25 negatives are lexically similar but may already be correctly scored low by the base model (easy to separate, weak gradient). monoT5_MED negatives are trials the *base model itself scores high* but are labeled negative — the model's own false positives. Training on the model's false positives delivers a targeted, corrective gradient: "you were wrong about this trial — adjust your weights." BM25 negatives provide a much weaker correction because the model may not have been wrong about them. With a small dataset (59 KZ topics), weak gradients are not enough to overcome the forgetting pressure from the correct format but wrong signal.
+
+- **Run 5 — monoT5_MED hard negatives + MaxP training (planned 2026-07-24).** The `cell-maxp` cell now simultaneously caches the MaxP score for *every* (topic, trial) pair — not just the best window, but the score value itself. For negative trials per topic, this score directly ranks them by how misleading they are to the base model (highest score = the trial the base model most incorrectly thinks is relevant). `hard_negs_monot5(topic_id, neg_list, k=3)` replaces `hard_negs_bm25`: it sorts negatives by `maxp_scores[(topic_id, nct)]` descending and takes the top-3. The MaxP selection cache must be deleted and regenerated (new format adds `maxp_score` field). Training documents: MaxP-selected 600-char windows as before. This is the closest faithful approximation to h2oloo's full recipe achievable without their exact monoT5_MED-scored-negative pipeline code. If this also gives ~0.19 on TREC21, the reproduction is infeasible without the exact checkpoint (which is not public) and the paper should state that explicitly, using the base model (0.4491) as the monoT5 ensemble feature.
+
 **Combined ("best of both") system.** Fold the winning levers into one pipeline, each developed on 2021: **NQS query synthesis** into *our* hybrid (BM25+dense) pool; **monoT5 score** as an ensemble feature; the **fine-tuned Qwen judge** (idea #1); the **topicality feature** (idea #2); optionally a **stronger dense retriever** (§9e). Then run theirs / ours / combined on 2022 + 2023 with paired tests. If the combined system clearly beats both simpler ones, the complexity is earned.
 
 **Complexity check (from the h2oloo comparison).** h2oloo ties us with a cleaner architecture (§7e). Run the feature/model **ablation** (`train_ensemble_full.ipynb`, TREC21 CV) — if a lean subset (retrieval + one judge) matches the full ensemble, **report the lean system**. A simple system that beats SOTA is a stronger paper than a complex one that ties it.
@@ -2174,6 +2253,32 @@ It **hurts, and monotonically worse the deeper it reranks** — RankZephyr's ord
 
 **Verdict (fair, confound removed).** **Third reranking approach to fail on a clean test** (CoT §11a, judge-FT §11c, listwise §11d). Zero-shot listwise doesn't transfer to clinical eligibility — consistent with the §11c finding that even the eligibility-reading cross-encoders are flat on these buried docs; the discriminating signal is genuinely hard. The reranking stage is at its ceiling across every mechanism-matched lever tested fairly. Only remaining reranking card = *fine-tune* a listwise reranker (break-even zero-shot gives it a marginally-better-than-hopeless prior, but high cost, and everything else failed). **Recommendation: bank the parity result** (0.6105 vs 0.6125, fully open) with §11 as the negative-results appendix mapping the ceiling. **Headline caveat when banking:** 0.6105 involved many TREC22 touches (test-adaptation risk) — state it in the headline, and report TREC21 CV 0.552 as the honest primary number.
 
+### 11e. NQS-expanded judge input — redundant (r=0.887), TREC22 not spent
+
+**Idea.** Topic 43 (rash + oral ulcers → Behçet's disease) is the clearest post-NQS reranking failure: NQS tripled recall (0.154→0.462) by naming the disease in the retrieval query, but NDCG@10 = 0.071 because the reranker still receives the *original* patient note ("rash + oral ulcers") — never the disease name. `condition_match_exp` (LLM-expanded SapBERT, §2h) partially addressed this but via a weak scalar (importance=25, lowest feature). The hypothesis: feed the NQS-synthesized diagnoses directly to the LLM judge, constructing `topic + "\n\nLikely diagnoses: " + expansion` as the judge input — the judge can reason about the connection once it reads the disease name, where SapBERT cosine cannot.
+
+**Implementation** (`rerank_llm_nqs.ipynb`). Loaded `nqs_expansions.jsonl` (written by `nqs_retrieval.ipynb`), constructed `nqs_topic = topic_text + "\n\nLikely diagnoses: " + expansion` for each topic, scored the NQS pool with `llm_yesno_scores(llm, tok, nqs_topic, ...)` — same judge (Qwen2.5-7B), same trial representation (elig_first-L512), same yes/no logprob margin. Wrote `llm_scores_nqs_expanded.jsonl` as candidate feature `llm_yesno_nqs`. Developed on TREC21 only; TREC22 not spent.
+
+**Development check — TREC21 implicit-diagnosis targets** (the TREC21 analog of Topic 43's failure class):
+
+| topic | condition | base NDCG@10 | nqs_exp NDCG@10 | delta |
+|---|---|---|---|---|
+| T55 | Wilson's disease | **0.956** | 0.880 | −0.076 |
+| T32 | HUS/TTP | **0.706** | 0.515 | −0.191 |
+| T52 | Cholera | 0.328 | 0.218 | −0.110 |
+| T74 | Paget's disease | 0.498 | 0.461 | −0.037 |
+| T40 | Paget's disease | 0.502 | 0.573 | **+0.071** |
+
+TREC21 overall standalone: **0.4136 vs 0.4220 baseline (−0.008)**. Gate not passed.
+
+**Correlation check** (CPU, no reconnect needed): `r(llm_yesno, llm_yesno_nqs)` on 37,500 TREC21 NQS-pool pairs = **0.887** — in the genuinely-redundant zone (> 0.85). The expansion shifts scores slightly but not in a structurally different direction.
+
+**Why (the real finding).** The mechanism hypothesis assumed the judge *fails* to infer the disease from clinical findings. The data refutes this: Qwen-7B already infers Wilson's from Kayser-Fleischer rings (base 0.956), HUS from hemolytic labs (base 0.706). The expansion adds explicit disease names but the judge already had that information implicitly — the expansion introduces diagnostic noise (e.g. multiple plausible candidates) that degrades performance on already-good topics without recovering the hard ones. The TREC21 gains are inconsistent even for the same disease (T40 vs T74 Paget's). Pre-registered stopping rule: standalone negative on TREC21 + r=0.887 → §11e closed. TREC22 not spent.
+
+**Revised diagnosis for Topic 43 (Behçet's).** The failure is NOT a judge-inference gap — it is the `condition_match` feature actively rewarding FP displacers whose condition field matches the patient's symptom terminology (+4.01) while burying Behçet's trials that use the eponymous name (−8.14). `condition_match_exp` partially addressed this (+0.009 NDCG overall, +0.027 MRR) but at insufficient feature weight. No clean fix identified; Topic 43 remains an open single-topic anomaly rather than a fixable class.
+
+**Running tally: five reranking levers tried, all null-to-negative on clean tests** (CoT §11a, judge-FT §11c, listwise §11d, NQS-expanded judge §11e — all on frozen R/NQS representation) + condition_match_exp (marginal gain, mechanism confounded by topic-43 burial). The pointwise-eligibility and query-expansion-at-rerank axes are both exhausted.
+
 ---
 
 ## 12. Paper assembly — consolidated method, results, and data inventory
@@ -2200,11 +2305,12 @@ Everything below is representation-consistent on the frozen `R = elig_first-L512
 |---|---|---|---|---|---|
 | h2oloo — TREC22 winner (`frocchio_monot5_e`) | 0.6125 | 0.5080 | 0.7262 | — | full-corpus, blind |
 | ctmatch multi-view (this work, `R` pool) | 0.5616 | 0.472 | 0.707 | ✅ | full-corpus, test-adapted |
-| **ctmatch multi-view + NQS (this work)** | **0.5658** | **0.484** | **0.7374** | ✅ | full-corpus, test-adapted |
+| ctmatch multi-view + NQS | 0.5658 | 0.484 | 0.7374 | ✅ | full-corpus, test-adapted |
+| **ctmatch multi-view + NQS + cm_exp (this work)** | **0.5750** | **0.482** | **0.7643** | ✅ | full-corpus, test-adapted |
 
-**On MRR, the NQS pipeline (0.7374) exceeds h2oloo (0.7262)** — competitive-to-ahead on first-eligible placement, behind on NDCG@10 (0.5658 vs 0.6125) and P@10 (0.484 vs 0.508). CI on 0.5658 contains 0.6125 (NDCG statistical tie; not "beat"). All P@10/MRR are eligible-only (`pytrec_metrics`, TREC-overview basis) → directly comparable to h2oloo. Secondary (generalization): TREC21 CV ≈ 0.63 (in-sample-inflated — see §2h).
+**On MRR, the NQS+cm_exp pipeline (0.7643) exceeds h2oloo (0.7262) by +0.038** — competitive-to-ahead on first-eligible placement, behind on NDCG@10 (0.5750 vs 0.6125) and P@10 (0.482 vs 0.508). CI on 0.5750 contains 0.6125 (NDCG statistical tie; not "beat"). All P@10/MRR are eligible-only (`pytrec_metrics`, TREC-overview basis) → directly comparable to h2oloo. Secondary (generalization): TREC21 CV 0.6381 (in-sample-inflated — see §2h).
 
-**Table P2 — progression (TREC22 NDCG@10):** 0.5203 (first ensemble) → 0.5221 (retuned) → 0.5548 (multi-view) → 0.5616 (+condition_match) → **0.5658 (+NQS pool)**. (NQS's real gain is on MRR 0.707→0.737 and P@10, not the NDCG mean — §8a tail lever.)
+**Table P2 — progression (TREC22 NDCG@10):** 0.5203 (first ensemble) → 0.5221 (retuned) → 0.5548 (multi-view) → 0.5616 (+condition_match) → 0.5658 (+NQS pool) → **0.5750 (+condition_match_exp)** [TREC21 CV 0.6381]. (NQS's real gain is on MRR 0.707→0.737 and P@10; cm_exp adds +0.0092 NDCG and +0.027 MRR on top — §8a tail lever + reranking extraction.)
 
 **Table P3 — ablations (PENDING — run `exp_ablation.ipynb` on `POOL_TAG='R'` and `'nqs'`):**
 - Add-one-in (retrieval → clf_R → clf_topic → judge → topicality judge → condition_match): *fill from exp_ablation*.

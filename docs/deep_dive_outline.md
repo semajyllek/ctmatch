@@ -2457,16 +2457,18 @@ On 2023's **sparse questionnaire** patients ("a patient with glaucoma, 67yo"), f
 
 If 2022 wants reranking and 2023 wants retrieval, one system can win on both by *routing per topic* — output the retrieval order for terse/topicality-dominated topics, the reranking ensemble for detailed/eligibility-dominated ones. `exp_adaptive_gate.ipynb` prototypes this on cached data (held-out TREC22 + TREC23) with a **label-free** gate signal.
 
-**Table 13.5 — gate prototype (v1), NDCG@10** *(caveat: v1 mixed NDCG implementations on the retrieval arm — those values understate `pytrec`; `exp_adaptive_gate_v2.ipynb` re-measures consistently — **pending**):*
+**Table 13.5 — gate prototype, NDCG@10** (consistent `pytrec` metric, `exp_adaptive_gate_v2.ipynb`; sanity: reconstructed TREC22 always-ensemble = 0.5750 = the §12 headline, so the booster+feature reconstruction is faithful):
 
 | routing | TREC22 | TREC23 |
 |---|---|---|
-| always-ensemble (current) | 0.575 | 0.386 |
-| always-retrieval | 0.487 | 0.414 |
-| **oracle gate** (perfect per-topic routing) | **0.617** | 0.472 |
-| length-threshold gate (`len < 57`) | 0.575 | 0.414 |
+| always-ensemble (current) | 0.5750 | 0.3988 |
+| always-retrieval (RRF order) | 0.5225 | 0.4717 |
+| **oracle gate** (perfect per-topic routing) | **0.6269** | 0.5162 |
+| best confidence gate (`dense_top1 ≥ 0.818`, fit to data) | 0.5702 | 0.4859 |
 
-**Findings.** (1) The datasets are cleanly separable by length (TREC22 mean 98 words, TREC23 mean 30), so a length gate routes correctly *at the format level* (2022→rerank, 2023→retrieve) — one system, both profiles, no 2022 regression. **Path E works at the format level.** (2) **The text signals are too weak for *within*-dataset routing** (best correlation with the per-topic delta: length at r = −0.22). (3) **The lead:** the **oracle gate on TREC22 = 0.617 — above h2oloo's 0.6125** — because the ensemble *actively hurts ~24% of TREC22 topics*. Routing just those to retrieval would beat 2022 SOTA. The whole problem reduces to: *can a label-free signal identify the topics where reranking hurts?* `exp_adaptive_gate_v2.ipynb` tests exactly this with **retrieval-confidence** signals (top-score margin, BM25/dense agreement) instead of topic text, on a consistent `pytrec` metric (pending).
+**Findings.** (1) The datasets are cleanly separable by length (TREC22 mean 98 words, TREC23 mean 30), so a gate routes correctly *at the format level* (2022→rerank, 2023→retrieve) — one system, both profiles, no 2022 regression. **Path E works at the format level, and helps 2023** (within-TREC23, `dense_top1` corr +0.428 / `len` +0.377 with the delta → the best confidence gate lifts 2023 to 0.486 > pure retrieval 0.472 > ensemble 0.399). (2) **The lead was real: oracle gate on TREC22 = 0.6269 > h2oloo 0.6125** — the ensemble actively hurts 34% of TREC22 topics (17/50); routing exactly those to retrieval beats 2022 SOTA. (3) **But the lead is not capturable label-free.** No signal — topic text OR retrieval-confidence — correlates with the *within-TREC22* delta above r ≈ 0.17 (dense_top1 −0.02, bm25_top1 +0.17, len +0.09, gaps/agreement ≤ 0.15). The best data-fit gate scores **0.5702 on TREC22, below the 0.575 baseline** — the topics where reranking hurts (rare-disease/eponymous terminology, e.g. topic 43) are not identifiable from coarse features. **Verdict: the TREC22 oracle headroom is real but locked behind label knowledge; the SOTA-beat-via-gating lead is closed.**
+
+**§13 program conclusion.** Across every axis tested — 6 monoT5 reproductions (§7e), 5 reranking levers (§11), the retriever bake-off + fusion (§13d/e), and the gate (§13f) — **beating SOTA is not reachable by tuning this architecture.** The retrieval fusion (§13e) and format-level gate (§13f) give a *robust, competitive-on-both* open system (TREC22 ~0.575, TREC23 ~0.47–0.53) plus a genuinely novel adaptive method — the strong honest-paper outcome — but not a SOTA beat. A clean beat would require a core rebuild (§13g A/B/C), and even that is uncertain (2022 reproduction wall; opposite-architectures tension). The decision — rebuild vs. write up (b) — is open.
 
 ### 13g. The architecture ceiling and rebuild paths
 

@@ -2468,7 +2468,23 @@ If 2022 wants reranking and 2023 wants retrieval, one system can win on both by 
 
 **Findings.** (1) The datasets are cleanly separable by length (TREC22 mean 98 words, TREC23 mean 30), so a gate routes correctly *at the format level* (2022→rerank, 2023→retrieve) — one system, both profiles, no 2022 regression. **Path E works at the format level, and helps 2023** (within-TREC23, `dense_top1` corr +0.428 / `len` +0.377 with the delta → the best confidence gate lifts 2023 to 0.486 > pure retrieval 0.472 > ensemble 0.399). (2) **The lead was real: oracle gate on TREC22 = 0.6269 > h2oloo 0.6125** — the ensemble actively hurts 34% of TREC22 topics (17/50); routing exactly those to retrieval beats 2022 SOTA. (3) **But the lead is not capturable label-free.** No signal — topic text OR retrieval-confidence — correlates with the *within-TREC22* delta above r ≈ 0.17 (dense_top1 −0.02, bm25_top1 +0.17, len +0.09, gaps/agreement ≤ 0.15). The best data-fit gate scores **0.5702 on TREC22, below the 0.575 baseline** — the topics where reranking hurts (rare-disease/eponymous terminology, e.g. topic 43) are not identifiable from coarse features. **Verdict: the TREC22 oracle headroom is real but locked behind label knowledge; the SOTA-beat-via-gating lead is closed.**
 
-**§13 program conclusion.** Across every axis tested — 6 monoT5 reproductions (§7e), 5 reranking levers (§11), the retriever bake-off + fusion (§13d/e), and the gate (§13f) — **beating SOTA is not reachable by tuning this architecture.** The retrieval fusion (§13e) and format-level gate (§13f) give a *robust, competitive-on-both* open system (TREC22 ~0.575, TREC23 ~0.47–0.53) plus a genuinely novel adaptive method — the strong honest-paper outcome — but not a SOTA beat. A clean beat would require a core rebuild (§13g A/B/C), and even that is uncertain (2022 reproduction wall; opposite-architectures tension). The decision — rebuild vs. write up (b) — is open.
+### 13h. Reranker bake-off — the core-model test (path A go/no-go)
+
+`exp_reranker_bakeoff.ipynb` tests whether a stronger *off-the-shelf* reranker beats our from-scratch BioLinkBERT ensemble (the one axis tuning can't touch). Zero-shot, R = elig_first, on the 2022 NQS pool (+ 2021 judged pool, develop).
+
+**Table 13.6 — zero-shot reranker vs our ensemble (NDCG@10):**
+
+| reranker | TREC21 (develop) | TREC22 |
+|---|---|---|
+| our ensemble | ~0.66 (clf_R judged-pool) | **0.575** |
+| BGE-reranker-large | 0.500 | 0.343 |
+| **monoT5-3B-MED** (zero-shot) | 0.544 | **0.522** |
+
+**NO-GO on the strict test** (neither beats 0.575), but the finding reframes the wall: **monoT5-3B-MED zero-shot = 0.522 — a single un-adapted model within 0.05 of the entire multi-view ensemble.** The strong core exists. Since h2oloo's *fine-tuned* `monoT5_CT` scored 0.7118 on TREC21 (the +0.19 domain adaptation is the core of their SOTA 0.6125 run), **the whole 2022-beat question collapses to a single thing: can monoT5-3B be domain-adapted where our six attempts failed?** Replacing the ensemble with zero-shot monoT5-MED would *lower* 2022 (0.522 < 0.575) — the value is entirely in the adaptation. BGE-reranker's collapse (0.343) confirms web-relevance CEs do not transfer to clinical eligibility.
+
+**Status of the last card.** The six `monoT5_CT` failures (§7e) were catastrophic forgetting (base 0.45 → 0.14–0.20), but h2oloo succeeded on the same data → it is an *execution* wall, not an impossibility. The one anti-forgetting axis the prior six never attacked: an explicit KL-to-base penalty + a gentle LoRA (LR 1e-5, r=8, α=8) early-stopped on the TREC21 canary + monoT5-MED-scored hard negatives. A careful 7th attempt is the only remaining path that could *beat* (not just match) 2022 SOTA; honest odds ~1-in-3. Decision pending (swing vs. bank the ceiling).
+
+**§13 program conclusion.** Across every axis tested — 6 monoT5 reproductions (§7e), 5 reranking levers (§11), the retriever bake-off + fusion (§13d/e), the gate (§13f), and the core-model bake-off (§13h) — **beating SOTA is not reachable by *tuning* this architecture; the one un-foreclosed swing is a successful monoT5-3B domain adaptation (§13h), which has failed 6× and is ~1-in-3.** The retrieval fusion (§13e) and format-level gate (§13f) give a *robust, competitive-on-both* open system (TREC22 ~0.575, TREC23 ~0.47–0.53) plus a genuinely novel adaptive method — the strong honest-paper outcome — but not a SOTA beat. A clean beat would require a core rebuild (§13g A/B/C), and even that is uncertain (2022 reproduction wall; opposite-architectures tension). The decision — rebuild vs. write up (b) — is open.
 
 ### 13g. The architecture ceiling and rebuild paths
 

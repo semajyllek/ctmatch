@@ -83,6 +83,7 @@
 10. Surpass-SOTA program (active work plan)
 11. Negative results (addendum)
 12. Paper assembly — consolidated method, results, data inventory
+13. External generalization (TREC 2023) + retrieval / adaptive-gate program (2026-07)
 ```
 
 ---
@@ -2374,6 +2375,115 @@ Everything below is representation-consistent on the frozen `R = elig_first-L512
 **Contributions.** (1) A **representation audit** exposing silent train/inference mismatch in a pipeline previously reported competitive with SOTA, and the fix (one frozen representation, consistently applied). (2) The **mismatch-vs-diversity distinction** — fixing miscalibration *removed* accidental feature diversity the old ensemble lived on; recovering it **deliberately** (multi-view, each model self-consistent on its own representation). (3) An empirical finding that for this ensemble **orthogonality beats raw feature strength** (weak-but-orthogonal condition_match adds where strong-but-redundant `v2_rel` hurts). (4) An **open-model NQS** that validates the §8a implicit-diagnosis diagnosis by raising recall precisely on the flagged topics — and shows LLM *inference* succeeds where UMLS *extraction* (the project's own prior negative) cannot. (5) A **fully open, representation-consistent, multi-view full-corpus pipeline** whose CI contains the TREC22 winner, with every feature and number accounted for.
 
 **Limitations.** (1) Point estimate 0.5616 < 0.6125 (CI contains it → *competitive*, not *beat*). (2) **Test-set adaptation**: multiple TREC22 touches (mitigated by TREC21-only tuning, but real). (3) **In-sample inflation** on TREC21 (upstream models train on it → TREC21 CV optimistic, can't detect held-out feature redundancy). (4) Retriever still **pre-R** (its own retrain/`exp_retrieval_repr` pending). (5) **KZ** degenerate (data-vintage). (6) **n=50** — wide CIs, shared by all CT benchmarks. (7) No **paired significance** vs h2oloo without their run file; no **external** (2023) test yet. (8) The **representation choice** is validated at the coverage / judged-pool-rerank / held-out-clf levels (§12b), **not** a full-corpus end-to-end ablation retraining the whole pipeline per representation — so it's justified as the *reranker-input* representation, not claimed as a full-pipeline sweep.
+
+---
+
+## 13. External generalization (TREC 2023) and the retrieval / adaptive-gate program (2026-07)
+
+After the R/multi-view/NQS pipeline reached TREC22 NDCG@10 0.5750 (§2h, §12), the external-generalization leg was run and a full diagnostic followed. The headline: **retrieval — not reranking — is now the lever, and TREC22 and TREC23 reward opposite architectures.**
+
+### 13a. The external test — TREC 2023 (blind, one-shot)
+
+`eval_external_2023.ipynb` applies the exact frozen pipeline (R = elig_first-L512, multi-view + NQS, the persisted `ensemble_nqs` booster) to the blind TREC 2023 Clinical Trials corpus (2023-05-08 snapshot ~450k trials; 37 judged **questionnaire-format** topics; qrels touch only the final metric). One shot.
+
+**Table 13.1 — TREC 2023 full-corpus, ours vs the field** (NDCG@10 graded; field figures from the IELAB TREC-2023 CT paper, arXiv 2401.01566):
+
+| system | NDCG@10 | notes |
+|---|---|---|
+| IELAB — GPT-4 judge | 0.736 | closed model |
+| IELAB — cross-encoder | 0.672 | open |
+| IELAB — SPLADEv2 | 0.597 | open, learned-sparse retriever |
+| IELAB — dense retriever | 0.577 | open, **first-stage only** |
+| **ctmatch (this work, frozen)** | **0.399** | open, full-corpus; P@10 0.351 / MRR 0.545 / CI [0.326, 0.471] |
+
+Our frozen pipeline lands at **0.399 — below the open field.** The generalization leg does not hold as-is.
+
+### 13b. Diagnosis — a reranking-extraction failure, not retrieval
+
+Corpus fields verified 100% populated (not a data bug). The pool ceiling is perfect:
+
+**Table 13.2 — TREC 2023: where the score is lost** (NDCG@10 on the same NQS pool):
+
+| ranking | NDCG@10 |
+|---|---|
+| oracle (perfect ranking of the pool) | **1.000** |
+| IELAB dense (reference) | 0.577 |
+| RRF retrieval order (BM25+dense) | 0.472 |
+| BM25 alone | 0.433 |
+| dense alone (retriever-v2) | 0.320 |
+| **our ensemble (reranked)** | **0.399** |
+| monoT5-MED zero-shot (pure eligibility reranker) | 0.180 |
+
+Two load-bearing facts: (1) **oracle = 1.000** → retrieval into the pool is *not* the @10 bottleneck; every eligible-enough trial is available. (2) **Reranking actively HURTS** — raw RRF retrieval order (0.472) beats our reranked ensemble (0.399) by +0.073, and monoT5-MED (a pure eligibility reranker) craters to 0.180. The more a system reranks by *eligibility*, the worse it does here.
+
+**Hypothesis falsified.** `diagnose_monot5_2023.ipynb` reranked the pool with base `castorini/monot5-3b-med-msmarco` (MS-MARCO ranking-pretrained, zero domain tuning) to test whether the missing ingredient was "large-scale ranking pretraining." It scored **0.180** — *worse* than our ensemble. So the SOTA gap is **not** a missing general ranking prior.
+
+### 13c. The mechanism, and the load-bearing insight
+
+On 2023's **sparse questionnaire** patients ("a patient with glaucoma, 67yo"), few exclusions are triggered, so *topicality ≈ eligibility*: being about glaucoma is most of the way to being eligible, and a good retriever nearly solves the task (IELAB dense 0.577). Eligibility-reranking — ctmatch's entire specialty — then *reorders by a signal the sparse patient does not discriminate on*, adding noise. This **inverts** 2022, where detailed narrative patients trip many exclusions and eligibility discrimination is what wins.
+
+**The insight (governs everything below):** TREC 2022 and TREC 2023 reward **opposite architectures** — 2022 a strong reranker, 2023 strong retrieval. The SOTA systems on the two years are *different teams with opposite designs* (h2oloo reranker-heavy on 2022; IELAB retrieval/LLM on 2023). **No single published system wins both.** So "beat SOTA on 22 *or* 23" is far more reachable than "on 22 *and* 23," and any fixed architecture faces the same tension ctmatch does.
+
+### 13d. Retriever bake-off — the overfitting pattern, now at the retrieval layer
+
+`exp_retriever_bakeoff.ipynb` ranks candidate retrievers by retrieval-order NDCG@10 (pool-rerank; encodes only judged/pool docs, no full-corpus encode).
+
+**Table 13.3 — retriever bake-off (retrieval-order NDCG@10):**
+
+| retriever | TREC21 (develop) | TREC23 (test) |
+|---|---|---|
+| retriever-v2 (current, fine-tuned on 2021) | **0.659** | 0.327 |
+| BGE-large (off-the-shelf) | 0.573 | **0.448** |
+| MedCPT (biomedical, asymmetric) | 0.439 | 0.361 |
+
+**The inversion, confirmed at the retrieval layer:** the *fine-tuned* retriever-v2 wins in-domain (2021) and is worst OOD (2023); *off-the-shelf* BGE is the reverse. Every component ctmatch fine-tuned on the small 2021 data — retriever and both cross-encoders — is overfit to the 2021 narrative distribution. (MedCPT's 64-token query encoder truncates long topics, hence its middling showing.)
+
+### 13e. Retriever fusion — the one clean, non-gaming lever
+
+`exp_retriever_fusion.ipynb` fuses retrievers by RRF. A multi-retriever hybrid is an *a-priori* robustness choice (the retrieval analog of multi-view reranking), so adopting it is not test-tuning — and it wins on the develop set.
+
+**Table 13.4 — RRF fusion (retrieval-order NDCG@10):**
+
+| fusion | TREC21 (develop) | TREC23 (test) |
+|---|---|---|
+| BM25 + retriever-v2 (current) | 0.5855 | 0.4678 |
+| BM25 + BGE | 0.5733 | 0.4951 |
+| **BM25 + retriever-v2 + BGE** | **0.6287** | **0.5297** |
+| retriever-v2 + BGE | 0.6476 | 0.4852 |
+
+**BM25 + retriever-v2 + BGE improves BOTH the develop set (+0.043) and the test set (+0.062 → 0.53).** It wins on 2021, so adopting it is clean; it lifts 2023 toward IELAB's dense (0.577) — and this is a *pool-rerank lower bound* (full-corpus retrieval with the fusion would likely go higher). Dropping BM25 (the `v2 + BGE` row) tanks 2023, confirming lexical/topicality carries the questionnaires. **The retrieval lever is real and not tapped.**
+
+### 13f. Adaptive gate (path E) — routing retrieval vs reranking per topic
+
+If 2022 wants reranking and 2023 wants retrieval, one system can win on both by *routing per topic* — output the retrieval order for terse/topicality-dominated topics, the reranking ensemble for detailed/eligibility-dominated ones. `exp_adaptive_gate.ipynb` prototypes this on cached data (held-out TREC22 + TREC23) with a **label-free** gate signal.
+
+**Table 13.5 — gate prototype (v1), NDCG@10** *(caveat: v1 mixed NDCG implementations on the retrieval arm — those values understate `pytrec`; `exp_adaptive_gate_v2.ipynb` re-measures consistently — **pending**):*
+
+| routing | TREC22 | TREC23 |
+|---|---|---|
+| always-ensemble (current) | 0.575 | 0.386 |
+| always-retrieval | 0.487 | 0.414 |
+| **oracle gate** (perfect per-topic routing) | **0.617** | 0.472 |
+| length-threshold gate (`len < 57`) | 0.575 | 0.414 |
+
+**Findings.** (1) The datasets are cleanly separable by length (TREC22 mean 98 words, TREC23 mean 30), so a length gate routes correctly *at the format level* (2022→rerank, 2023→retrieve) — one system, both profiles, no 2022 regression. **Path E works at the format level.** (2) **The text signals are too weak for *within*-dataset routing** (best correlation with the per-topic delta: length at r = −0.22). (3) **The lead:** the **oracle gate on TREC22 = 0.617 — above h2oloo's 0.6125** — because the ensemble *actively hurts ~24% of TREC22 topics*. Routing just those to retrieval would beat 2022 SOTA. The whole problem reduces to: *can a label-free signal identify the topics where reranking hurts?* `exp_adaptive_gate_v2.ipynb` tests exactly this with **retrieval-confidence** signals (top-score margin, BM25/dense agreement) instead of topic text, on a consistent `pytrec` metric (pending).
+
+### 13g. The architecture ceiling and rebuild paths
+
+Across every axis tested this phase — the monoT5 reproduction (6 failures, §7e), five reranking levers (§11), the retriever bake-off, the gate — the conclusion is consistent: **incremental changes to this architecture will not reach a clean SOTA win on either benchmark.** 2022's 0.037 gap is a reproduction wall (h2oloo's `monoT5_CT` checkpoint is not public); 2023 needs a retrieval-first / format-robust design ctmatch is not. The realistic best outcome of the current architecture + the fusion + a working gate is **"clearly competitive on both, on a fully-open pipeline, with a novel adaptive method"** — not a SOTA beat. A genuine beat would require changing the *core*:
+
+**Rebuild paths (recorded for the decision, not yet taken):**
+
+| path | idea | targets | note |
+|---|---|---|---|
+| A | large ranking-pretrained reranker as the **core** (RankLLaMA-7B LoRA, not from-scratch small CEs) | 2022 | still tanks 2023 (over-reranks) |
+| B | retrieval-first (SPLADE — BM25's 2023 strength suggests learned-sparse fits) | 2023 | IELAB's winning axis |
+| C | large open LLM as the core ranker (open analog of the GPT-4 systems) | both | heaviest compute |
+| **E** | **topic-adaptive retrieval-vs-reranking gate** (§13f) | **both** | novel, most-publishable; turns the opposite-architectures analysis into a *method* |
+
+**Current standing / next step:** adopt the BM25+v2+BGE fusion (§13e) and settle the adaptive gate (§13f; v2 pending) on cached data *before* committing to the expensive full-corpus re-retrieval → feature re-extraction → ensemble re-fit. The oracle-gate-beats-SOTA-on-2022 result (§13f) is the live lead.
+
+**Notebooks (this phase):** `eval_external_2023` (rewritten onto frozen R/multi-view/NQS, resumable), `build_corpus_2023` (now emits per-field records), `train_ensemble_full` (now persists the fitted booster + feature order), `diagnose_monot5_2023`, `exp_retriever_bakeoff`, `exp_retriever_fusion`, `exp_adaptive_gate` (v1), `exp_adaptive_gate_v2` (retrieval-confidence, pending).
 
 ---
 

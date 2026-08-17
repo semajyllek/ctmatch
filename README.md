@@ -14,6 +14,29 @@ The pipeline currently matches user input topics to the static snapshot of clini
 
 web app (while I can afford it): https://huggingface.co/spaces/semaj83/ctmatch
 
+### project status (2026-08) — honest wrap-up
+
+This project set out to beat the TREC 2022 winner (NDCG@10 0.6125). It did not — and the closing
+investigation established *why*, with findings that stand on their own. Full write-up: **`docs/project_wrapup.md`**.
+
+- **Funnel + frontier labeler (cleanly held-out).** A cheap, fully-open funnel (BM25 + dense + RRF →
+  BioLinkBERT cross-encoder rerank) cuts ~375k → 100 candidates while preserving a **0.899** top-10 oracle
+  ceiling. Ranking those 100 with a `claude-opus-4-8` whole-doc labeler scores **NDCG@10 = 0.505 on blind
+  TREC22 vs 0.339 for the cross-encoder (+0.15)** — real evidence a frontier labeler out-ranks a fine-tuned
+  cross-encoder on the same candidates. Chain-of-thought did not help (worse, at 2×/5× cost).
+- **A clean negative result.** Error-reflective prompt distillation *over-corrected* — it pushed true
+  eligibles down hardest (gold=2 score shift −20.6), steering the labeler toward criterion-verification the
+  terse topics can't support (the §7g information wall), reached here from a third independent direction.
+- **The grounding that reframes the "miss":** standalone-labeler P@10 ≈ 0.43–0.49; the **TREC 2022 winner's
+  P@10 is 0.508**. A 90%-clean top-10 from a three-line patient vignette is **above the current global
+  frontier** — the pipeline is best understood as a fast, cheap, ~SOTA-precision **assistive first pass**, not
+  an autonomous oracle.
+
+> The retrieval→ensemble results in the next section are an earlier, **test-adapted** framing
+> (competitive-but-not-superior; see its own caveats and `docs/deep_dive_outline.md` §12d). The
+> funnel/labeler/reflection findings above are the cleanly held-out part. Turn-by-turn evidence:
+> `docs/reflective_labeler_design.md` §8b–§8f.
+
 ### results — open, full-corpus pipeline (TREC 2022 Clinical Trials)
 
 An end-to-end, **fully open-weight** pipeline for full-corpus clinical-trial retrieval:

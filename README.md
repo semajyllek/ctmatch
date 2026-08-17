@@ -14,6 +14,19 @@ The pipeline currently matches user input topics to the static snapshot of clini
 
 web app (while I can afford it): https://huggingface.co/spaces/semaj83/ctmatch
 
+### repository map
+
+**New here?** Read `docs/project_wrapup.md` (what this is and how it turned out), then `notebooks/README.md`
+(how the pipeline is built).
+
+| Path | What's there |
+|---|---|
+| `docs/` | Start at **`docs/README.md`** — reading path from the wrap-up → the design doc → the ~280K deep-dive reference-of-record. |
+| `src/ctmatch/` | The package: `matching/{retrieval,reranking,generation}`, `evaluation/`, `data/`, and `experiments.py` (the shared `ExperimentConfig` + portable functions every notebook builds on). |
+| `notebooks/` | **17 canonical** notebooks (the reproducible pipeline + headline results) — mapped in `notebooks/README.md`. `notebooks/experiments/` = documented off-critical-path work; `notebooks/archive/` = dead scratch. |
+| `tests/` | Unit tests for the pure logic (config, retrieval, filters, demographics). |
+| `scripts/`, `app.py` | Embedding/analysis scripts and the demo app. |
+
 ### project status (2026-08) — honest wrap-up
 
 This project set out to beat the TREC 2022 winner (NDCG@10 0.6125). It did not — and the closing
